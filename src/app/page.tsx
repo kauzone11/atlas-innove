@@ -38,12 +38,12 @@ export default function HomePage() {
         </div>
 
         <div className="grid content-start gap-4 rounded-2xl border border-line bg-white p-7 shadow-panel">
-          <p className="text-sm font-semibold text-accent">Estrutura prevista</p>
+          <p className="text-sm font-semibold text-accent">Modelo de acompanhamento</p>
           <div className="space-y-1 text-lg font-medium text-ink">
-            <p>Instituição</p><p className="pl-5 text-slate">→ Programa</p><p className="pl-10 text-slate">→ Coorte</p><p className="pl-14 text-slate">→ Empreendimento</p><p className="pl-18 text-slate">→ Ondas de acompanhamento</p><p className="pl-22 text-slate">→ Evidências → Análise</p>
+            <p>Programa</p><p className="pl-5 text-slate">→ Coorte</p><p className="pl-10 text-slate">→ Empreendimento</p><p className="pl-14 text-slate">→ acompanhamento ao longo do tempo</p>
           </div>
           <p className="border-t border-line pt-5 text-sm leading-6 text-slate">
-            A fundação atual concentra identidade, organizações, equipes e segurança de contexto. O domínio de acompanhamento longitudinal será adicionado em uma próxima fase.
+            Organize ciclos de apoio e mantenha a identidade de cada empreendimento separada dos registros de participação e das observações ao longo do tempo.
           </p>
         </div>
       </section>
@@ -52,7 +52,7 @@ export default function HomePage() {
         <div className="mx-auto grid max-w-6xl gap-8 px-6 py-14 md:grid-cols-3 lg:px-8">
           <Feature icon={<Building2 size={20} aria-hidden="true" />} title="Contexto institucional" text="Cada organização possui seu próprio espaço, equipe e configuração." />
           <Feature icon={<ShieldCheck size={20} aria-hidden="true" />} title="Acesso explícito" text="Sessões e papéis são validados no servidor antes de qualquer operação." />
-          <Feature icon={<BarChart3 size={20} aria-hidden="true" />} title="Visão longitudinal" text="A arquitetura prepara o terreno para acompanhar mudanças, evidências e resultados." />
+          <Feature icon={<BarChart3 size={20} aria-hidden="true" />} title="Visão longitudinal" text="Estruture evidências comparáveis para compreender trajetórias sem confundir monitoramento com causalidade." />
         </div>
       </section>
     </main>

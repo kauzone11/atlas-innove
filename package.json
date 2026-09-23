@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "author": "kauzone11",
-  "description": "Atlas Innove — fundação SaaS institucional para acompanhamento longitudinal de iniciativas apoiadas por inovação e financiamento.",
+  "description": "Multi-tenant SaaS platform for longitudinal monitoring of ventures supported by innovation and funding programs.",
   "engines": {
     "node": ">=22 <23",
     "npm": ">=10 <11"
@@ -18,7 +18,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
-    "test:security": "tsx --test src/lib/auth/authorization.test.ts src/lib/auth/tenant.test.ts"
+    "test:security": "tsx --test src/lib/auth/authorization.test.ts src/lib/auth/tenant.test.ts src/lib/domain-invariants.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.2.1",

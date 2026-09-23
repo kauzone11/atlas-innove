@@ -6,7 +6,7 @@ Atlas Innove is a multi-tenant SaaS platform for longitudinal monitoring of vent
 
 Institution → Program → Cohort → Venture → Follow-up waves → Evidence → Analysis.
 
-The current repository is the institutional foundation only. Do not implement the longitudinal domain in the bootstrap cycle.
+The platform keeps stable venture identity, participation in a funding cycle and observations over time as separate concepts. Follow-up waves, evidence and analysis must preserve historical comparability and must not overwrite venture identity.
 
 ## Architecture boundaries
 
@@ -16,6 +16,9 @@ The current repository is the institutional foundation only. Do not implement th
 - Every organization-owned query or mutation must carry an explicit `organizationId` boundary and validate membership on the server.
 - Keep platform-level `SUPER_ADMIN` concerns separate from organization context.
 - Do not add billing, payments, checkout, catalog, pricing, wallet, observatory, event-specific, legacy-methodology or unrelated infrastructure modules.
+- Funding programs, cohorts, ventures and venture enrollments are organization-scoped and must use explicit tenant boundaries.
+- A cohort belongs to one funding program, and a venture enrollment connects one venture to one cohort without duplicating the venture identity.
+- Do not store longitudinal outcomes such as revenue, headcount, customers, investment, technological stage, market status or survival status on `Venture`.
 
 ## Language rules
 
@@ -58,8 +61,8 @@ The current repository is the institutional foundation only. Do not implement th
 
 ## Validation strategy
 
-Keep validation focused. For foundation changes, run dependency installation integrity, Prisma format/validation/generation, strict TypeScript typecheck, focused authentication/tenant tests and one production build. Do not run broad browser or full end-to-end suites unless a failure requires them.
+Keep validation focused. For platform changes, run dependency installation integrity, Prisma format/validation/generation, strict TypeScript typecheck, focused authentication/tenant/domain tests and one production build. Do not run broad browser or full end-to-end suites unless a failure requires them.
 
 ## Change discipline
 
-Inspect current behavior before changing it. Preserve behavior unless the task explicitly changes it. Do not begin the next longitudinal product phase during foundation work.
+Inspect current behavior before changing it. Preserve behavior unless the task explicitly changes it. Do not implement causal-attribution engines, venture rankings or speculative future observation modules without an explicit product request.

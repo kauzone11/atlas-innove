@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import { AuthorizationError } from "@/lib/auth/authorization";
+import { ResourceNotFoundError } from "@/lib/errors";
 
 export function errorResponse(error: unknown): NextResponse {
   if (error instanceof ZodError) {
@@ -11,8 +12,11 @@ export function errorResponse(error: unknown): NextResponse {
     );
   }
   if (error instanceof AuthorizationError) {
-    const status = error.code === "AUTHENTICATION_REQUIRED" ? 401 : 403;
+    const status = error.code === "AUTHENTICATION_REQUIRED" ? 401 : error.code === "VENTURE_ALREADY_ENROLLED" ? 409 : 403;
     return NextResponse.json({ error: error.code }, { status });
+  }
+  if (error instanceof ResourceNotFoundError) {
+    return NextResponse.json({ error: "Recurso não encontrado." }, { status: 404 });
   }
 
   console.error(error);

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, Settings, Users } from "lucide-react";
+import { BriefcaseBusiness, Building2, FolderKanban, Settings, Users } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { LogoutButton } from "@/components/logout-button";
@@ -32,6 +32,8 @@ export default async function AppLayout({ children }: Readonly<{ children: React
         <aside className="w-full shrink-0 lg:w-56">
           <nav aria-label="Navegação da organização" className="flex gap-2 overflow-x-auto lg:flex-col">
             <NavLink href="/app" label="Visão geral" icon={<Building2 size={17} aria-hidden="true" />} />
+            {activeOrganization ? <NavLink href="/app/programs" label="Programas" icon={<FolderKanban size={17} aria-hidden="true" />} /> : null}
+            {activeOrganization ? <NavLink href="/app/ventures" label="Empreendimentos" icon={<BriefcaseBusiness size={17} aria-hidden="true" />} /> : null}
             <NavLink href="/app/organizations" label="Organizações" icon={<Building2 size={17} aria-hidden="true" />} />
             {activeOrganization ? <NavLink href="/app/team" label="Equipe" icon={<Users size={17} aria-hidden="true" />} /> : null}
             {activeOrganization ? <NavLink href="/app/settings" label="Configurações" icon={<Settings size={17} aria-hidden="true" />} /> : null}

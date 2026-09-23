@@ -37,19 +37,46 @@ enum InvitationStatus {
   EXPIRED
 }
 
+enum FundingProgramStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum CohortStatus {
+  PLANNED
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum VentureKind {
+  COMPANY
+  PROJECT
+  INITIATIVE
+  OTHER
+}
+
+enum VentureEnrollmentStatus {
+  ACTIVE
+  WITHDRAWN
+}
+
 model User {
-  id                  String                   @id @default(cuid())
-  email               String                   @unique
-  passwordHash        String
-  platformRole        PlatformRole             @default(USER)
-  sessionVersion      Int                      @default(0)
-  createdAt           DateTime                 @default(now())
-  updatedAt           DateTime                 @updatedAt
-  profile             UserProfile?
-  memberships         OrganizationMembership[]
-  invitationsSent     OrganizationInvite[]     @relation("InvitedBy")
-  sessions            Session[]
-  passwordResetTokens PasswordResetToken[]
+  id                     String                   @id @default(cuid())
+  email                  String                   @unique
+  passwordHash           String
+  platformRole           PlatformRole             @default(USER)
+  sessionVersion         Int                      @default(0)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  profile                UserProfile?
+  memberships            OrganizationMembership[]
+  invitationsSent        OrganizationInvite[]     @relation("InvitedBy")
+  sessions               Session[]
+  passwordResetTokens    PasswordResetToken[]
+  fundingProgramsCreated FundingProgram[]         @relation("FundingProgramCreatedBy")
 }
 
 model UserProfile {
@@ -64,15 +91,19 @@ model UserProfile {
 }
 
 model Organization {
-  id             String                   @id @default(cuid())
-  name           String
-  slug           String                   @unique
-  status         OrganizationStatus       @default(ACTIVE)
-  createdAt      DateTime                 @default(now())
-  updatedAt      DateTime                 @updatedAt
-  memberships    OrganizationMembership[]
-  invites        OrganizationInvite[]
-  activeSessions Session[]                @relation("SessionActiveOrganization")
+  id              String                   @id @default(cuid())
+  name            String
+  slug            String                   @unique
+  status          OrganizationStatus       @default(ACTIVE)
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  memberships     OrganizationMembership[]
+  invites         OrganizationInvite[]
+  activeSessions  Session[]                @relation("SessionActiveOrganization")
+  fundingPrograms FundingProgram[]
+  cohorts         Cohort[]
+  ventures        Venture[]
+  enrollments     VentureEnrollment[]
 }
 
 model OrganizationMembership {
@@ -136,4 +167,80 @@ model PasswordResetToken {
 
   @@index([userId, usedAt])
   @@index([expiresAt])
+}
+
+model FundingProgram {
+  id              String               @id @default(cuid())
+  organizationId  String
+  name            String
+  slug            String
+  description     String?
+  code            String?
+  status          FundingProgramStatus @default(DRAFT)
+  createdByUserId String
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  organization    Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy       User                 @relation("FundingProgramCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  cohorts         Cohort[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, slug])
+  @@index([organizationId, status])
+}
+
+model Cohort {
+  id               String              @id @default(cuid())
+  organizationId   String
+  fundingProgramId String
+  name             String
+  code             String?
+  referenceYear    Int?
+  startsAt         DateTime?
+  endsAt           DateTime?
+  status           CohortStatus        @default(PLANNED)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fundingProgram   FundingProgram      @relation(fields: [organizationId, fundingProgramId], references: [organizationId, id], onDelete: Cascade)
+  enrollments      VentureEnrollment[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, fundingProgramId, status])
+}
+
+model Venture {
+  id                String              @id @default(cuid())
+  organizationId    String
+  name              String
+  legalName         String?
+  kind              VentureKind
+  externalReference String?
+  archivedAt        DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  organization      Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  enrollments       VentureEnrollment[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, kind, archivedAt])
+}
+
+model VentureEnrollment {
+  id                String                  @id @default(cuid())
+  organizationId    String
+  cohortId          String
+  ventureId         String
+  externalReference String?
+  enrolledAt        DateTime                @default(now())
+  status            VentureEnrollmentStatus @default(ACTIVE)
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  cohort            Cohort                  @relation(fields: [organizationId, cohortId], references: [organizationId, id], onDelete: Cascade)
+  venture           Venture                 @relation(fields: [organizationId, ventureId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, cohortId, ventureId])
+  @@index([organizationId, cohortId, status])
+  @@index([organizationId, ventureId, status])
 }
