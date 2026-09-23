@@ -26,7 +26,7 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ cohort }, { status: 201 });
   } catch (error) {
     if (isUniqueConstraintError(error)) {
-      return NextResponse.json({ error: "Já existe uma coorte equivalente neste programa." }, { status: 409 });
+      return NextResponse.json({ error: "Este código já está em uso neste programa." }, { status: 409 });
     }
     return errorResponse(error);
   }

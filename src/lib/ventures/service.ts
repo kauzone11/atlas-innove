@@ -1,8 +1,8 @@
 import type { Prisma } from "@prisma/client";
 
-import { assertEnrollmentIsUnique, assertSameOrganization } from "@/lib/domain-invariants";
+import { assertCohortCanReceiveEnrollment, assertEnrollmentIsUnique, assertSameOrganization } from "@/lib/domain-invariants";
 import { db } from "@/lib/db";
-import { ResourceNotFoundError } from "@/lib/errors";
+import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 import type { CreateEnrollmentInput, CreateVentureInput, UpdateVentureInput } from "@/lib/ventures/schemas";
 
 const ventureListSelect = {
@@ -68,9 +68,21 @@ function serializeVenture(record: VentureRecord): VentureDto {
   };
 }
 
-export async function listOrganizationVentures(organizationId: string): Promise<VentureDto[]> {
+export async function listOrganizationVentures(organizationId: string, cohortId?: string): Promise<VentureDto[]> {
+  if (cohortId) {
+    const cohort = await db.cohort.findFirst({
+      where: { organizationId, id: cohortId },
+      select: { id: true, organizationId: true },
+    });
+    if (!cohort) throw new ResourceNotFoundError("COHORT_NOT_FOUND");
+    assertSameOrganization(organizationId, cohort.organizationId);
+  }
   const records = await db.venture.findMany({
-    where: { organizationId, archivedAt: null },
+    where: {
+      organizationId,
+      archivedAt: null,
+      ...(cohortId ? { enrollments: { some: { organizationId, cohortId } } } : {}),
+    },
     select: ventureListSelect,
     orderBy: { name: "asc" },
   });
@@ -158,29 +170,70 @@ export async function enrollVenture(
   cohortId: string,
   input: CreateEnrollmentInput,
 ): Promise<{ id: string; status: string; enrolledAt: string; cohortId: string; ventureId: string }> {
-  const [cohort, venture] = await Promise.all([
-    db.cohort.findFirst({ where: { id: cohortId, organizationId }, select: { id: true, organizationId: true } }),
-    db.venture.findFirst({ where: { id: input.ventureId, organizationId, archivedAt: null }, select: { id: true, organizationId: true } }),
-  ]);
-  if (!cohort) throw new ResourceNotFoundError("COHORT_NOT_FOUND");
-  if (!venture) throw new ResourceNotFoundError("VENTURE_NOT_FOUND");
-  assertSameOrganization(organizationId, cohort.organizationId, venture.organizationId);
+  const enrollment = await db.$transaction(async (tx) => {
+    const [cohort, venture] = await Promise.all([
+      tx.cohort.findFirst({ where: { id: cohortId, organizationId }, select: { id: true, organizationId: true, status: true } }),
+      tx.venture.findFirst({ where: { id: input.ventureId, organizationId, archivedAt: null }, select: { id: true, organizationId: true } }),
+    ]);
+    if (!cohort) throw new ResourceNotFoundError("COHORT_NOT_FOUND");
+    if (!venture) throw new ResourceNotFoundError("VENTURE_NOT_FOUND");
+    assertSameOrganization(organizationId, cohort.organizationId, venture.organizationId);
+    assertCohortCanReceiveEnrollment(cohort.status);
 
-  const existing = await db.ventureEnrollment.findUnique({
-    where: { organizationId_cohortId_ventureId: { organizationId, cohortId, ventureId: input.ventureId } },
-    select: { id: true },
-  });
-  assertEnrollmentIsUnique(existing?.id ?? null);
+    const existing = await tx.ventureEnrollment.findUnique({
+      where: { organizationId_cohortId_ventureId: { organizationId, cohortId, ventureId: input.ventureId } },
+      select: { id: true },
+    });
+    assertEnrollmentIsUnique(existing?.id ?? null);
 
-  const enrollment = await db.ventureEnrollment.create({
-    data: {
-      organizationId,
-      cohortId,
-      ventureId: input.ventureId,
-      externalReference: input.externalReference ?? null,
-      enrolledAt: input.enrolledAt ?? new Date(),
-    },
-    select: { id: true, status: true, enrolledAt: true, cohortId: true, ventureId: true },
+    const enrollment = await tx.ventureEnrollment.create({
+      data: {
+        organizationId,
+        cohortId,
+        ventureId: input.ventureId,
+        externalReference: input.externalReference ?? null,
+        enrolledAt: input.enrolledAt ?? new Date(),
+      },
+      select: { id: true, status: true, enrolledAt: true, cohortId: true, ventureId: true },
+    });
+    const applicableWaves = await tx.followUpWave.findMany({
+      where: { organizationId, cohortId, status: { in: ["PLANNED", "OPEN"] } },
+      select: { id: true },
+    });
+    if (applicableWaves.length) {
+      await tx.ventureObservation.createMany({
+        data: applicableWaves.map((wave) => ({
+          organizationId,
+          cohortId,
+          ventureEnrollmentId: enrollment.id,
+          followUpWaveId: wave.id,
+          status: "PENDING" as const,
+        })),
+        skipDuplicates: true,
+      });
+    }
+    return enrollment;
   });
   return { ...enrollment, enrolledAt: enrollment.enrolledAt.toISOString() };
+}
+
+export async function withdrawEnrollment(
+  organizationId: string,
+  cohortId: string,
+  enrollmentId: string,
+): Promise<{ id: string; status: string }> {
+  const current = await db.ventureEnrollment.findFirst({
+    where: { id: enrollmentId, organizationId, cohortId },
+    select: { id: true, organizationId: true, status: true },
+  });
+  if (!current) throw new ResourceNotFoundError("VENTURE_ENROLLMENT_NOT_FOUND");
+  assertSameOrganization(organizationId, current.organizationId);
+  if (current.status !== "ACTIVE") throw new DomainConflictError("ENROLLMENT_NOT_ACTIVE");
+
+  const updated = await db.ventureEnrollment.update({
+    where: { id: enrollmentId },
+    data: { status: "WITHDRAWN" },
+    select: { id: true, status: true },
+  });
+  return updated;
 }

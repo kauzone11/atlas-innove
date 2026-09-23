@@ -1,9 +1,9 @@
 import type { Prisma } from "@prisma/client";
 
-import { assertSameOrganization } from "@/lib/domain-invariants";
+import { assertProgramCanReceiveCohort, assertSameOrganization } from "@/lib/domain-invariants";
 import { db } from "@/lib/db";
-import { ResourceNotFoundError } from "@/lib/errors";
-import type { CreateCohortInput } from "@/lib/cohorts/schemas";
+import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
+import type { CreateCohortInput, UpdateCohortInput } from "@/lib/cohorts/schemas";
 
 const cohortSummarySelect = {
   id: true,
@@ -95,10 +95,11 @@ export async function createCohort(
 ): Promise<CohortDto> {
   const program = await db.fundingProgram.findFirst({
     where: { id: fundingProgramId, organizationId },
-    select: { id: true, organizationId: true },
+    select: { id: true, organizationId: true, status: true },
   });
   if (!program) throw new ResourceNotFoundError("FUNDING_PROGRAM_NOT_FOUND");
   assertSameOrganization(organizationId, program.organizationId);
+  assertProgramCanReceiveCohort(program.status);
 
   const record = await db.cohort.create({
     data: {
@@ -114,4 +115,37 @@ export async function createCohort(
     select: cohortSummarySelect,
   });
   return serializeCohort(record);
+}
+
+export async function updateCohort(
+  organizationId: string,
+  cohortId: string,
+  input: UpdateCohortInput,
+): Promise<CohortDto> {
+  const current = await db.cohort.findFirst({
+    where: { id: cohortId, organizationId },
+    select: { organizationId: true, startsAt: true, endsAt: true },
+  });
+  if (!current) throw new ResourceNotFoundError("COHORT_NOT_FOUND");
+  assertSameOrganization(organizationId, current.organizationId);
+  const startsAt = input.startsAt !== undefined ? input.startsAt : current.startsAt;
+  const endsAt = input.endsAt !== undefined ? input.endsAt : current.endsAt;
+  if (startsAt && endsAt && endsAt < startsAt) {
+    throw new DomainConflictError("COHORT_DATE_RANGE_INVALID");
+  }
+
+  await db.cohort.updateMany({
+    where: { id: cohortId, organizationId },
+    data: {
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.code !== undefined ? { code: input.code } : {}),
+      ...(input.referenceYear !== undefined ? { referenceYear: input.referenceYear } : {}),
+      ...(input.startsAt !== undefined ? { startsAt: input.startsAt } : {}),
+      ...(input.endsAt !== undefined ? { endsAt: input.endsAt } : {}),
+      ...(input.status !== undefined ? { status: input.status } : {}),
+    },
+  });
+  const updated = await getOrganizationCohort(organizationId, cohortId);
+  if (!updated) throw new ResourceNotFoundError("COHORT_NOT_FOUND");
+  return updated;
 }

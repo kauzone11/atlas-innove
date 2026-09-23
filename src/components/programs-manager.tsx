@@ -14,6 +14,7 @@ function CreateProgramForm({ organizationId }: { organizationId: string }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [code, setCode] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +30,7 @@ function CreateProgramForm({ organizationId }: { organizationId: string }) {
     } catch { setError("Não foi possível conectar ao servidor."); } finally { setPending(false); }
   }
 
-  return <form onSubmit={submit} className="rounded-2xl border border-line bg-white p-6 shadow-panel"><h2 className="font-semibold text-ink">Criar programa</h2><p className="mt-1 text-sm text-slate">Registre a iniciativa de apoio antes de cadastrar suas coortes.</p><div className="mt-5 grid gap-4 md:grid-cols-2"><Field id="program-name" label="Nome" value={name} onChange={setName} required /><Field id="program-slug" label="Identificador" value={slug} onChange={setSlug} required hint="Use letras minúsculas, números e hífens." /><Field id="program-code" label="Código" value={code} onChange={setCode} /><label className="block space-y-2 text-sm font-medium text-ink md:col-span-2"><span>Descrição</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} maxLength={2000} className="w-full rounded-lg border border-line px-3 py-2.5" /></label></div>{error ? <p className="mt-4 text-sm text-red-800" role="alert">{error}</p> : null}<button disabled={pending} className="mt-5 rounded-lg bg-accent px-4 py-2.5 font-semibold text-white hover:bg-accent-dark disabled:opacity-60">{pending ? "Salvando…" : "Criar programa"}</button></form>;
+  return <form onSubmit={submit} className="rounded-2xl border border-line bg-white p-6 shadow-panel"><h2 className="font-semibold text-ink">Criar programa</h2><p className="mt-1 text-sm text-slate">Registre a iniciativa de apoio antes de cadastrar suas coortes.</p><div className="mt-5 grid gap-4 md:grid-cols-2"><Field id="program-name" label="Nome" value={name} onChange={(value) => { setName(value); if (!slugManuallyEdited) setSlug(slugify(value)); }} required /><Field id="program-slug" label="Identificador" value={slug} onChange={(value) => { setSlug(value); setSlugManuallyEdited(true); }} required hint="Gerado a partir do nome; ajuste apenas se precisar." /><Field id="program-code" label="Código" value={code} onChange={setCode} /><label className="block space-y-2 text-sm font-medium text-ink md:col-span-2"><span>Descrição</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} maxLength={2000} className="w-full rounded-lg border border-line px-3 py-2.5" /></label></div>{error ? <p className="mt-4 text-sm text-red-800" role="alert">{error}</p> : null}<button disabled={pending} className="mt-5 rounded-lg bg-accent px-4 py-2.5 font-semibold text-white hover:bg-accent-dark disabled:opacity-60">{pending ? "Salvando…" : "Criar programa"}</button></form>;
 }
 
 function Field({ id, label, value, onChange, required, hint }: { id: string; label: string; value: string; onChange: (value: string) => void; required?: boolean; hint?: string }) {
@@ -38,4 +39,8 @@ function Field({ id, label, value, onChange, required, hint }: { id: string; lab
 
 function statusLabel(status: string) {
   return ({ DRAFT: "Rascunho", ACTIVE: "Ativo", CLOSED: "Encerrado", ARCHIVED: "Arquivado" } as Record<string, string>)[status] ?? status;
+}
+
+function slugify(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 64);
 }

@@ -63,6 +63,25 @@ enum VentureEnrollmentStatus {
   WITHDRAWN
 }
 
+enum FollowUpWaveKind {
+  BASELINE
+  FOLLOW_UP
+}
+
+enum FollowUpWaveStatus {
+  PLANNED
+  OPEN
+  CLOSED
+  ARCHIVED
+}
+
+enum VentureObservationStatus {
+  PENDING
+  IN_PROGRESS
+  SUBMITTED
+  MISSED
+}
+
 model User {
   id                     String                   @id @default(cuid())
   email                  String                   @unique
@@ -104,6 +123,8 @@ model Organization {
   cohorts         Cohort[]
   ventures        Venture[]
   enrollments     VentureEnrollment[]
+  followUpWaves   FollowUpWave[]
+  observations    VentureObservation[]
 }
 
 model OrganizationMembership {
@@ -190,7 +211,7 @@ model FundingProgram {
 }
 
 model Cohort {
-  id               String              @id @default(cuid())
+  id               String               @id @default(cuid())
   organizationId   String
   fundingProgramId String
   name             String
@@ -198,14 +219,17 @@ model Cohort {
   referenceYear    Int?
   startsAt         DateTime?
   endsAt           DateTime?
-  status           CohortStatus        @default(PLANNED)
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
-  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  fundingProgram   FundingProgram      @relation(fields: [organizationId, fundingProgramId], references: [organizationId, id], onDelete: Cascade)
+  status           CohortStatus         @default(PLANNED)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  organization     Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fundingProgram   FundingProgram       @relation(fields: [organizationId, fundingProgramId], references: [organizationId, id], onDelete: Cascade)
   enrollments      VentureEnrollment[]
+  followUpWaves    FollowUpWave[]
+  observations     VentureObservation[]
 
   @@unique([organizationId, id])
+  @@unique([organizationId, fundingProgramId, code])
   @@index([organizationId, fundingProgramId, status])
 }
 
@@ -239,8 +263,55 @@ model VentureEnrollment {
   organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   cohort            Cohort                  @relation(fields: [organizationId, cohortId], references: [organizationId, id], onDelete: Cascade)
   venture           Venture                 @relation(fields: [organizationId, ventureId], references: [organizationId, id], onDelete: Cascade)
+  observations      VentureObservation[]
 
   @@unique([organizationId, cohortId, ventureId])
+  @@unique([organizationId, cohortId, id])
   @@index([organizationId, cohortId, status])
   @@index([organizationId, ventureId, status])
+}
+
+model FollowUpWave {
+  id             String               @id @default(cuid())
+  organizationId String
+  cohortId       String
+  name           String
+  kind           FollowUpWaveKind     @default(FOLLOW_UP)
+  sequence       Int
+  offsetMonths   Int?
+  scheduledFor   DateTime?
+  opensAt        DateTime?
+  closesAt       DateTime?
+  status         FollowUpWaveStatus   @default(PLANNED)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  cohort         Cohort               @relation(fields: [organizationId, cohortId], references: [organizationId, id], onDelete: Cascade)
+  observations   VentureObservation[]
+
+  @@unique([organizationId, cohortId, id])
+  @@unique([organizationId, cohortId, sequence])
+  @@index([organizationId, cohortId, status])
+}
+
+model VentureObservation {
+  id                  String                   @id @default(cuid())
+  organizationId      String
+  cohortId            String
+  ventureEnrollmentId String
+  followUpWaveId      String
+  status              VentureObservationStatus @default(PENDING)
+  startedAt           DateTime?
+  submittedAt         DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  organization        Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  cohort              Cohort                   @relation(fields: [organizationId, cohortId], references: [organizationId, id], onDelete: Cascade)
+  ventureEnrollment   VentureEnrollment        @relation(fields: [organizationId, cohortId, ventureEnrollmentId], references: [organizationId, cohortId, id], onDelete: Cascade)
+  followUpWave        FollowUpWave             @relation(fields: [organizationId, cohortId, followUpWaveId], references: [organizationId, cohortId, id], onDelete: Cascade)
+
+  @@unique([organizationId, ventureEnrollmentId, followUpWaveId])
+  @@index([organizationId, cohortId, status])
+  @@index([organizationId, ventureEnrollmentId, status])
+  @@index([organizationId, followUpWaveId, status])
 }

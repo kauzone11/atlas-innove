@@ -18,7 +18,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
-    "test:security": "tsx --test src/lib/auth/authorization.test.ts src/lib/auth/tenant.test.ts src/lib/domain-invariants.test.ts"
+    "test:security": "tsx --test src/lib/auth/authorization.test.ts src/lib/auth/tenant.test.ts src/lib/domain-invariants.test.ts",
+    "test:domain": "tsx --test src/lib/domain-integration.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.2.1",

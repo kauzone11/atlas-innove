@@ -34,6 +34,15 @@ export type VentureKind = (typeof ventureKinds)[number];
 export const ventureEnrollmentStatuses = ["ACTIVE", "WITHDRAWN"] as const;
 export type VentureEnrollmentStatus = (typeof ventureEnrollmentStatuses)[number];
 
+export const followUpWaveKinds = ["BASELINE", "FOLLOW_UP"] as const;
+export type FollowUpWaveKind = (typeof followUpWaveKinds)[number];
+
+export const followUpWaveStatuses = ["PLANNED", "OPEN", "CLOSED", "ARCHIVED"] as const;
+export type FollowUpWaveStatus = (typeof followUpWaveStatuses)[number];
+
+export const ventureObservationStatuses = ["PENDING", "IN_PROGRESS", "SUBMITTED", "MISSED"] as const;
+export type VentureObservationStatus = (typeof ventureObservationStatuses)[number];
+
 export const FUNDING_PROGRAM_STATUS_LABELS: Record<FundingProgramStatus, string> = {
   DRAFT: "Rascunho",
   ACTIVE: "Ativo",
@@ -58,4 +67,23 @@ export const VENTURE_KIND_LABELS: Record<VentureKind, string> = {
 export const VENTURE_ENROLLMENT_STATUS_LABELS: Record<VentureEnrollmentStatus, string> = {
   ACTIVE: "Ativa",
   WITHDRAWN: "Retirada",
+};
+
+export const FOLLOW_UP_WAVE_KIND_LABELS: Record<FollowUpWaveKind, string> = {
+  BASELINE: "Baseline",
+  FOLLOW_UP: "Follow-up",
+};
+
+export const FOLLOW_UP_WAVE_STATUS_LABELS: Record<FollowUpWaveStatus, string> = {
+  PLANNED: "Planejada",
+  OPEN: "Aberta",
+  CLOSED: "Encerrada",
+  ARCHIVED: "Arquivada",
+};
+
+export const VENTURE_OBSERVATION_STATUS_LABELS: Record<VentureObservationStatus, string> = {
+  PENDING: "Pendente",
+  IN_PROGRESS: "Em andamento",
+  SUBMITTED: "Enviada",
+  MISSED: "Não respondida",
 };
