@@ -50,7 +50,7 @@ export function AuthForm({ mode, redirectTo = "/app" }: { mode: AuthMode; redire
       <Field label="E-mail" type="email" value={email} onChange={setEmail} autoComplete="email" required />
       <Field label="Senha" type="password" value={password} onChange={setPassword} autoComplete={isRegister ? "new-password" : "current-password"} required minLength={isRegister ? 12 : 1} />
       {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{error}</p> : null}
-      <button type="submit" disabled={pending} className="w-full rounded-lg bg-accent px-4 py-3 font-semibold text-white hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-60">
+      <button type="submit" disabled={pending} className="button-primary w-full">
         {pending ? "Aguarde…" : isRegister ? "Criar organização" : "Entrar"}
       </button>
     </form>
@@ -69,7 +69,7 @@ function Field({ label, value, onChange, type = "text", autoComplete, required, 
   return (
     <label className="block space-y-2 text-sm font-medium text-ink">
       <span>{label}</span>
-      <input className="w-full rounded-lg border border-line bg-white px-3 py-2.5 text-ink placeholder:text-slate/60" type={type} value={value} onChange={(event) => onChange(event.target.value)} autoComplete={autoComplete} required={required} minLength={minLength} />
+      <input className="field-control" type={type} value={value} onChange={(event) => onChange(event.target.value)} autoComplete={autoComplete} required={required} minLength={minLength} />
     </label>
   );
 }

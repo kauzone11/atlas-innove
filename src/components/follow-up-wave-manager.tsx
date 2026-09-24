@@ -87,16 +87,13 @@ export function FollowUpWaveManager({ organizationId, cohortId, waves, canManage
   }
 
   return (
-    <section className="rounded-2xl border border-line bg-white shadow-panel">
-      <div className="border-b border-line px-6 py-5">
-        <h2 className="font-semibold text-ink">Ondas de acompanhamento</h2>
-        <p className="mt-1 text-sm text-slate">A baseline é a sequência 0; as ondas seguintes podem seguir qualquer agenda definida pela instituição.</p>
-      </div>
+    <section className="panel">
+      <div className="panel-header"><h2>Ondas de acompanhamento</h2><p>A baseline é a sequência 0; as ondas seguintes podem seguir qualquer agenda definida pela instituição.</p></div>
       {canManage ? (
         <form onSubmit={createWave} className="border-b border-line px-6 py-5">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Field id="wave-name" label="Nome" value={name} onChange={setName} required />
-            <label htmlFor="wave-kind" className="block space-y-2 text-sm font-medium text-ink"><span>Tipo</span><select id="wave-kind" value={kind} onChange={(event) => { setKind(event.target.value); if (event.target.value === "BASELINE") setSequence("0"); else if (sequence === "0") setSequence((defaultSequence || 1).toString()); }} className="w-full rounded-lg border border-line px-3 py-2.5"><option value="BASELINE">Baseline</option><option value="FOLLOW_UP">Follow-up</option></select></label>
+            <label htmlFor="wave-kind" className="block space-y-2 text-sm font-medium text-ink"><span>Tipo</span><select id="wave-kind" value={kind} onChange={(event) => { setKind(event.target.value); if (event.target.value === "BASELINE") setSequence("0"); else if (sequence === "0") setSequence((defaultSequence || 1).toString()); }} className="field-control"><option value="BASELINE">Baseline</option><option value="FOLLOW_UP">Follow-up</option></select></label>
             <Field id="wave-sequence" label="Sequência" value={sequence} onChange={setSequence} type="number" min="0" required />
             <Field id="wave-offset" label="Distância em meses" value={offsetMonths} onChange={setOffsetMonths} type="number" min="0" />
             <Field id="wave-scheduled" label="Data de referência" value={scheduledFor} onChange={setScheduledFor} type="datetime-local" />
@@ -104,7 +101,7 @@ export function FollowUpWaveManager({ organizationId, cohortId, waves, canManage
             <Field id="wave-closes" label="Encerramento" value={closesAt} onChange={setClosesAt} type="datetime-local" />
           </div>
           {error ? <p className="mt-4 text-sm text-red-800" role="alert">{error}</p> : null}
-          <button disabled={pending} className="mt-5 rounded-lg bg-accent px-4 py-2.5 font-semibold text-white hover:bg-accent-dark disabled:opacity-60">{pending ? "Salvando…" : "Criar onda"}</button>
+          <button disabled={pending} className="button-primary mt-5">{pending ? "Salvando…" : "Criar onda"}</button>
         </form>
       ) : null}
       {waves.length ? (
@@ -113,11 +110,11 @@ export function FollowUpWaveManager({ organizationId, cohortId, waves, canManage
             <li key={wave.id} className="px-6 py-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.12em] text-accent">{wave.kind === "BASELINE" ? "Baseline" : `Onda ${wave.sequence}`}</p>
+                  <p className="text-sm font-medium text-slate">{wave.kind === "BASELINE" ? "Baseline" : `Onda ${wave.sequence}`}</p>
                   <h3 className="mt-1 font-medium text-ink">{wave.name}</h3>
                   <p className="mt-1 text-sm text-slate">{timing(wave)}{wave.offsetMonths !== null ? ` · ${wave.offsetMonths} ${wave.offsetMonths === 1 ? "mês" : "meses"}` : ""}</p>
                 </div>
-                <span className="shrink-0 text-sm font-semibold text-accent">{statusLabel(wave.status)}</span>
+                <span className={`status-badge ${wave.status === "OPEN" ? "status-success" : wave.status === "PLANNED" ? "status-brand" : "status-neutral"}`}>{statusLabel(wave.status)}</span>
               </div>
               <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate">
                 <span>{wave.observationCounts.expected} esperada(s)</span>
@@ -126,7 +123,7 @@ export function FollowUpWaveManager({ organizationId, cohortId, waves, canManage
                 {wave.observationCounts.submitted ? <span>{wave.observationCounts.submitted} enviada(s)</span> : null}
                 {wave.observationCounts.missed ? <span>{wave.observationCounts.missed} não respondida(s)</span> : null}
               </div>
-              {canManage && nextStatus[wave.status]?.length ? <div className="mt-4 flex flex-wrap gap-2">{nextStatus[wave.status].map((status) => <button key={status} type="button" onClick={() => void changeStatus(wave.id, status)} disabled={pendingStatus !== null} className="rounded-lg border border-line px-3 py-2 text-sm font-semibold text-slate hover:border-accent hover:text-accent disabled:opacity-60">{pendingStatus === `${wave.id}:${status}` ? "Salvando…" : actionLabel(status)}</button>)}</div> : null}
+              {canManage && nextStatus[wave.status]?.length ? <div className="mt-4 flex flex-wrap gap-2">{nextStatus[wave.status].map((status) => <button key={status} type="button" onClick={() => void changeStatus(wave.id, status)} disabled={pendingStatus !== null} className="button-secondary min-h-9 px-3 text-xs">{pendingStatus === `${wave.id}:${status}` ? "Salvando…" : actionLabel(status)}</button>)}</div> : null}
             </li>
           ))}
         </ol>
@@ -136,7 +133,7 @@ export function FollowUpWaveManager({ organizationId, cohortId, waves, canManage
 }
 
 function Field({ id, label, value, onChange, type = "text", required, min }: { id: string; label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean; min?: string }) {
-  return <label htmlFor={id} className="block space-y-2 text-sm font-medium text-ink"><span>{label}</span><input id={id} type={type} value={value} onChange={(event) => onChange(event.target.value)} required={required} min={min} className="w-full rounded-lg border border-line px-3 py-2.5" /></label>;
+  return <label htmlFor={id} className="block space-y-2 text-sm font-medium text-ink"><span>{label}</span><input id={id} type={type} value={value} onChange={(event) => onChange(event.target.value)} required={required} min={min} className="field-control" /></label>;
 }
 
 function toIso(value: string): string | null {

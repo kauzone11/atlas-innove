@@ -41,7 +41,7 @@ export function ProgramEditForm({ organizationId, program, canManage }: { organi
   }
 
   return (
-    <form onSubmit={submit} className="rounded-2xl border border-line bg-white p-6 shadow-panel">
+    <form onSubmit={submit} className="panel p-6">
       <h2 className="font-semibold text-ink">Editar programa</h2>
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         <Field id="program-edit-name" label="Nome" value={name} onChange={setName} required />
@@ -49,7 +49,7 @@ export function ProgramEditForm({ organizationId, program, canManage }: { organi
         <Field id="program-edit-code" label="Código" value={code} onChange={setCode} />
         <label className="block space-y-2 text-sm font-medium text-ink">
           <span>Status</span>
-          <select value={status} onChange={(event) => setStatus(event.target.value)} className="w-full rounded-lg border border-line px-3 py-2.5">
+          <select value={status} onChange={(event) => setStatus(event.target.value)} className="field-control">
             <option value="DRAFT">Rascunho</option>
             <option value="ACTIVE">Ativo</option>
             <option value="CLOSED">Encerrado</option>
@@ -58,11 +58,11 @@ export function ProgramEditForm({ organizationId, program, canManage }: { organi
         </label>
         <label className="block space-y-2 text-sm font-medium text-ink md:col-span-2">
           <span>Descrição</span>
-          <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} maxLength={2000} className="w-full rounded-lg border border-line px-3 py-2.5" />
+          <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} maxLength={2000} className="field-control" />
         </label>
       </div>
       {error ? <p className="mt-4 text-sm text-red-800" role="alert">{error}</p> : null}
-      <button disabled={pending} className="mt-5 rounded-lg bg-accent px-4 py-2.5 font-semibold text-white hover:bg-accent-dark disabled:opacity-60">
+      <button disabled={pending} className="button-primary mt-5">
         {pending ? "Salvando…" : "Salvar alterações"}
       </button>
     </form>
@@ -73,7 +73,7 @@ function Field({ id, label, value, onChange, required }: { id: string; label: st
   return (
     <label htmlFor={id} className="block space-y-2 text-sm font-medium text-ink">
       <span>{label}</span>
-      <input id={id} value={value} onChange={(event) => onChange(event.target.value)} required={required} className="w-full rounded-lg border border-line px-3 py-2.5" />
+      <input id={id} value={value} onChange={(event) => onChange(event.target.value)} required={required} className="field-control" />
     </label>
   );
 }

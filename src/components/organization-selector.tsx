@@ -35,9 +35,9 @@ export function OrganizationSelector({ organizations, activeId }: { organization
   return (
     <div className="space-y-3">
       {organizations.map((organization) => (
-        <button key={organization.id} type="button" disabled={pending} onClick={() => select(organization.id)} className={`flex w-full items-center justify-between rounded-xl border bg-white p-4 text-left hover:border-accent ${activeId === organization.id ? "border-accent" : "border-line"}`}>
+        <button key={organization.id} type="button" disabled={pending} onClick={() => select(organization.id)} className={`flex min-h-16 w-full items-center justify-between rounded-lg border bg-white p-4 text-left transition-colors ${activeId === organization.id ? "border-brand bg-brand-soft" : "border-line hover:border-brand"}`}>
           <span><span className="block font-semibold text-ink">{organization.name}</span><span className="mt-1 block text-sm text-slate">{organization.role}</span></span>
-          <span className="text-sm font-semibold text-accent">{activeId === organization.id ? "Selecionada" : "Selecionar"}</span>
+          <span className="text-sm font-semibold text-brand">{activeId === organization.id ? "Selecionada" : "Selecionar"}</span>
         </button>
       ))}
       {error ? <p className="text-sm text-red-700" role="alert">{error}</p> : null}

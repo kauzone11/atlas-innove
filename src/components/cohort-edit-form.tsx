@@ -57,7 +57,7 @@ export function CohortEditForm({ organizationId, cohort, canManage }: { organiza
   }
 
   return (
-    <form onSubmit={submit} className="rounded-2xl border border-line bg-white p-6 shadow-panel">
+    <form onSubmit={submit} className="panel p-6">
       <h2 className="font-semibold text-ink">Dados da coorte</h2>
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         <Field id="cohort-edit-name" label="Nome" value={name} onChange={setName} required />
@@ -65,7 +65,7 @@ export function CohortEditForm({ organizationId, cohort, canManage }: { organiza
         <Field id="cohort-edit-year" label="Ano de referência" value={referenceYear} onChange={setReferenceYear} type="number" min="1900" max="2200" />
         <label className="block space-y-2 text-sm font-medium text-ink">
           <span>Status</span>
-          <select value={status} onChange={(event) => setStatus(event.target.value)} className="w-full rounded-lg border border-line px-3 py-2.5">
+          <select value={status} onChange={(event) => setStatus(event.target.value)} className="field-control">
             <option value="PLANNED">Planejada</option>
             <option value="ACTIVE">Ativa</option>
             <option value="CLOSED">Encerrada</option>
@@ -76,7 +76,7 @@ export function CohortEditForm({ organizationId, cohort, canManage }: { organiza
         <Field id="cohort-edit-end" label="Fim" value={endsAt} onChange={setEndsAt} type="date" />
       </div>
       {error ? <p className="mt-4 text-sm text-red-800" role="alert">{error}</p> : null}
-      <button disabled={pending} className="mt-5 rounded-lg bg-accent px-4 py-2.5 font-semibold text-white hover:bg-accent-dark disabled:opacity-60">
+      <button disabled={pending} className="button-primary mt-5">
         {pending ? "Salvando…" : "Salvar alterações"}
       </button>
     </form>
@@ -87,7 +87,7 @@ function Field({ id, label, value, onChange, type = "text", required, min, max }
   return (
     <label htmlFor={id} className="block space-y-2 text-sm font-medium text-ink">
       <span>{label}</span>
-      <input id={id} type={type} value={value} onChange={(event) => onChange(event.target.value)} required={required} min={min} max={max} className="w-full rounded-lg border border-line px-3 py-2.5" />
+      <input id={id} type={type} value={value} onChange={(event) => onChange(event.target.value)} required={required} min={min} max={max} className="field-control" />
     </label>
   );
 }

@@ -10,5 +10,5 @@ export function LogoutButton() {
     router.push("/login");
     router.refresh();
   }
-  return <button type="button" onClick={logout} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate hover:bg-white hover:text-ink"><LogOut size={16} aria-hidden="true" /> Sair</button>;
+  return <button type="button" onClick={logout} className="button-tertiary min-h-11 w-full justify-start px-2 text-sm text-slate hover:text-ink"><LogOut size={16} aria-hidden="true" /> Sair</button>;
 }

@@ -19,5 +19,5 @@ export function AcceptInvitationAction({ token }: { token: string }) {
     } catch { setError("Não foi possível conectar ao servidor."); } finally { setPending(false); }
   }
 
-  return <div><p className="mt-3 text-sm leading-6 text-slate">Você está autenticado. Aceite o convite para entrar na organização.</p><button type="button" onClick={accept} disabled={pending} className="mt-6 rounded-lg bg-accent px-4 py-2.5 font-semibold text-white hover:bg-accent-dark disabled:opacity-60">{pending ? "Aceitando…" : "Aceitar convite"}</button>{error ? <p className="mt-4 text-sm text-red-800" role="alert">{error}</p> : null}</div>;
+  return <div><p className="mt-3 text-sm leading-6 text-slate">Você está autenticado. Aceite o convite para entrar na organização.</p><button type="button" onClick={accept} disabled={pending} className="button-primary mt-6">{pending ? "Aceitando…" : "Aceitar convite"}</button>{error ? <p className="mt-4 text-sm text-danger" role="alert">{error}</p> : null}</div>;
 }

@@ -65,26 +65,23 @@ export function CohortEnrollmentManager({ organizationId, cohortId, enrollments,
   }
 
   return (
-    <section className="rounded-2xl border border-line bg-white shadow-panel">
-      <div className="border-b border-line px-6 py-5">
-        <h2 className="font-semibold text-ink">Empreendimentos inscritos</h2>
-        <p className="mt-1 text-sm text-slate">A participação pode ser retirada sem apagar seu histórico.</p>
-      </div>
+    <section className="panel">
+      <div className="panel-header"><h2>Empreendimentos inscritos</h2><p>A participação pode ser retirada sem apagar seu histórico.</p></div>
       {canManage && availableVentures.length ? (
         <form onSubmit={createEnrollment} className="border-b border-line px-6 py-5">
           <div className="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
             <label htmlFor="cohort-venture" className="block space-y-2 text-sm font-medium text-ink">
               <span>Adicionar empreendimento</span>
-              <select id="cohort-venture" required value={ventureId} onChange={(event) => setVentureId(event.target.value)} className="w-full rounded-lg border border-line px-3 py-2.5">
+              <select id="cohort-venture" required value={ventureId} onChange={(event) => setVentureId(event.target.value)} className="field-control">
                 <option value="">Selecione um empreendimento</option>
                 {availableVentures.map((venture) => <option key={venture.id} value={venture.id}>{venture.name} · {kindLabel(venture.kind)}</option>)}
               </select>
             </label>
             <label htmlFor="cohort-venture-reference" className="block space-y-2 text-sm font-medium text-ink">
               <span>Referência nesta participação</span>
-              <input id="cohort-venture-reference" value={externalReference} onChange={(event) => setExternalReference(event.target.value)} className="w-full rounded-lg border border-line px-3 py-2.5" />
+              <input id="cohort-venture-reference" value={externalReference} onChange={(event) => setExternalReference(event.target.value)} className="field-control" />
             </label>
-            <button disabled={creating || !ventureId} className="rounded-lg bg-accent px-4 py-2.5 font-semibold text-white hover:bg-accent-dark disabled:opacity-60">{creating ? "Salvando…" : "Adicionar"}</button>
+            <button disabled={creating || !ventureId} className="button-primary">{creating ? "Salvando…" : "Adicionar"}</button>
           </div>
         </form>
       ) : canManage ? <p className="border-b border-line px-6 py-5 text-sm text-slate">Todos os empreendimentos ativos da organização já estão registrados ou não há entidades disponíveis.</p> : null}
@@ -93,12 +90,12 @@ export function CohortEnrollmentManager({ organizationId, cohortId, enrollments,
           {enrollments.map((enrollment) => (
             <div key={enrollment.id} className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <Link href={`/app/ventures/${enrollment.venture.id}`} className="font-medium text-ink hover:text-accent">{enrollment.venture.name}</Link>
+                <Link href={`/app/ventures/${enrollment.venture.id}`} className="font-medium text-ink hover:text-brand">{enrollment.venture.name}</Link>
                 <p className="mt-1 text-sm text-slate">{kindLabel(enrollment.venture.kind)} · entrada em {formatDate(enrollment.enrolledAt)}{enrollment.externalReference ? ` · ${enrollment.externalReference}` : ""}</p>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-sm text-accent">{enrollment.status === "ACTIVE" ? "Ativa" : "Retirada"}</span>
-                {canManage && enrollment.status === "ACTIVE" ? <button type="button" onClick={() => void withdraw(enrollment.id, enrollment.venture.name)} disabled={pendingId === enrollment.id} className="rounded-lg border border-line px-3 py-2 text-sm font-semibold text-slate hover:border-accent hover:text-accent disabled:opacity-60">{pendingId === enrollment.id ? "Salvando…" : "Retirar"}</button> : null}
+                <span className={`status-badge ${enrollment.status === "ACTIVE" ? "status-success" : "status-neutral"}`}>{enrollment.status === "ACTIVE" ? "Ativa" : "Retirada"}</span>
+                {canManage && enrollment.status === "ACTIVE" ? <button type="button" onClick={() => void withdraw(enrollment.id, enrollment.venture.name)} disabled={pendingId === enrollment.id} className="button-secondary min-h-9 px-3 text-xs">{pendingId === enrollment.id ? "Salvando…" : "Retirar"}</button> : null}
               </div>
             </div>
           ))}
