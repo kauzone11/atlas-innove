@@ -18,6 +18,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
+    "db:seed:demo": "tsx prisma/seed-demo.ts",
+    "test:demo": "tsx --test src/lib/demo/demo.test.ts",
     "test:security": "tsx --test src/lib/auth/authorization.test.ts src/lib/auth/tenant.test.ts src/lib/domain-invariants.test.ts",
     "test:domain": "tsx --test src/lib/domain-integration.test.ts"
   },

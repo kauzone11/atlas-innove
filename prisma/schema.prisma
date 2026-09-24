@@ -44,6 +44,45 @@ enum FundingProgramStatus {
   ARCHIVED
 }
 
+enum FundingCallStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  ARCHIVED
+}
+
+enum FundingCallDocumentType {
+  NOTICE
+  ANNEX
+  AMENDMENT
+  RESULT
+  OTHER
+}
+
+enum IndicatorValueType {
+  INTEGER
+  CURRENCY
+  ENUM
+}
+
+enum MilestoneType {
+  MVP_LAUNCHED
+  FIRST_CUSTOMER
+  COMPANY_FORMALIZED
+  RECURRING_CONTRACT
+  ADDITIONAL_INVESTMENT
+  TEAM_EXPANSION
+  PIVOT
+  CLOSED
+}
+
+enum OpportunityStatus {
+  OPEN
+  UPCOMING
+  CLOSED
+  ARCHIVED
+}
+
 enum CohortStatus {
   PLANNED
   ACTIVE
@@ -110,21 +149,29 @@ model UserProfile {
 }
 
 model Organization {
-  id              String                   @id @default(cuid())
-  name            String
-  slug            String                   @unique
-  status          OrganizationStatus       @default(ACTIVE)
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
-  memberships     OrganizationMembership[]
-  invites         OrganizationInvite[]
-  activeSessions  Session[]                @relation("SessionActiveOrganization")
-  fundingPrograms FundingProgram[]
-  cohorts         Cohort[]
-  ventures        Venture[]
-  enrollments     VentureEnrollment[]
-  followUpWaves   FollowUpWave[]
-  observations    VentureObservation[]
+  id                   String                    @id @default(cuid())
+  name                 String
+  slug                 String                    @unique
+  status               OrganizationStatus        @default(ACTIVE)
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  memberships          OrganizationMembership[]
+  invites              OrganizationInvite[]
+  activeSessions       Session[]                 @relation("SessionActiveOrganization")
+  fundingPrograms      FundingProgram[]
+  fundingCalls         FundingCall[]
+  fundingCallDocuments FundingCallDocument[]
+  cohorts              Cohort[]
+  ventures             Venture[]
+  enrollments          VentureEnrollment[]
+  followUpWaves        FollowUpWave[]
+  observations         VentureObservation[]
+  trackingProtocols    TrackingProtocol[]
+  protocolVersions     TrackingProtocolVersion[]
+  indicatorDefinitions IndicatorDefinition[]
+  observationValues    ObservationValue[]
+  milestones           Milestone[]
+  opportunities        Opportunity[]
 }
 
 model OrganizationMembership {
@@ -204,10 +251,56 @@ model FundingProgram {
   organization    Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdBy       User                 @relation("FundingProgramCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
   cohorts         Cohort[]
+  fundingCalls    FundingCall[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, slug])
   @@index([organizationId, status])
+}
+
+model FundingCall {
+  id                  String                @id @default(cuid())
+  organizationId      String
+  fundingProgramId    String
+  title               String
+  shortTitle          String?
+  callNumber          String
+  objective           String?
+  status              FundingCallStatus     @default(DRAFT)
+  publishedAt         DateTime?
+  applicationStartsAt DateTime?
+  applicationEndsAt   DateTime?
+  totalBudget         Decimal?              @db.Decimal(14, 2)
+  maximumSupport      Decimal?              @db.Decimal(14, 2)
+  targetProjects      Int?
+  executionMonths     Int?
+  sourceUrl           String
+  sourceCheckedAt     DateTime
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  organization        Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fundingProgram      FundingProgram        @relation(fields: [organizationId, fundingProgramId], references: [organizationId, id], onDelete: Cascade)
+  documents           FundingCallDocument[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, callNumber])
+  @@index([organizationId, status])
+}
+
+model FundingCallDocument {
+  id             String                  @id @default(cuid())
+  organizationId String
+  fundingCallId  String
+  type           FundingCallDocumentType
+  title          String
+  externalUrl    String
+  publishedAt    DateTime?
+  createdAt      DateTime                @default(now())
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fundingCall    FundingCall             @relation(fields: [organizationId, fundingCallId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, fundingCallId, title])
+  @@index([organizationId, fundingCallId])
 }
 
 model Cohort {
@@ -237,6 +330,7 @@ model Venture {
   id                String              @id @default(cuid())
   organizationId    String
   name              String
+  slug              String?
   legalName         String?
   kind              VentureKind
   externalReference String?
@@ -245,8 +339,10 @@ model Venture {
   updatedAt         DateTime            @updatedAt
   organization      Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   enrollments       VentureEnrollment[]
+  milestones        Milestone[]
 
   @@unique([organizationId, id])
+  @@unique([organizationId, slug])
   @@index([organizationId, kind, archivedAt])
 }
 
@@ -309,9 +405,116 @@ model VentureObservation {
   cohort              Cohort                   @relation(fields: [organizationId, cohortId], references: [organizationId, id], onDelete: Cascade)
   ventureEnrollment   VentureEnrollment        @relation(fields: [organizationId, cohortId, ventureEnrollmentId], references: [organizationId, cohortId, id], onDelete: Cascade)
   followUpWave        FollowUpWave             @relation(fields: [organizationId, cohortId, followUpWaveId], references: [organizationId, cohortId, id], onDelete: Cascade)
+  values              ObservationValue[]
 
+  @@unique([organizationId, id])
   @@unique([organizationId, ventureEnrollmentId, followUpWaveId])
   @@index([organizationId, cohortId, status])
   @@index([organizationId, ventureEnrollmentId, status])
   @@index([organizationId, followUpWaveId, status])
+}
+
+model TrackingProtocol {
+  id             String                    @id @default(cuid())
+  organizationId String
+  slug           String
+  name           String
+  description    String?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  versions       TrackingProtocolVersion[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, slug])
+}
+
+model TrackingProtocolVersion {
+  id                 String                @id @default(cuid())
+  organizationId     String
+  trackingProtocolId String
+  version            Int
+  label              String?
+  createdAt          DateTime              @default(now())
+  organization       Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  trackingProtocol   TrackingProtocol      @relation(fields: [organizationId, trackingProtocolId], references: [organizationId, id], onDelete: Cascade)
+  indicators         IndicatorDefinition[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, trackingProtocolId, version])
+}
+
+model IndicatorDefinition {
+  id                        String                  @id @default(cuid())
+  organizationId            String
+  trackingProtocolVersionId String
+  key                       String
+  label                     String
+  valueType                 IndicatorValueType
+  unit                      String?
+  position                  Int                     @default(0)
+  allowedValues             Json?
+  organization              Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  trackingProtocolVersion   TrackingProtocolVersion @relation(fields: [organizationId, trackingProtocolVersionId], references: [organizationId, id], onDelete: Cascade)
+  observationValues         ObservationValue[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, trackingProtocolVersionId, key])
+  @@index([organizationId, trackingProtocolVersionId, position])
+}
+
+model ObservationValue {
+  id                    String              @id @default(cuid())
+  organizationId        String
+  observationId         String
+  indicatorDefinitionId String
+  integerValue          Int?
+  decimalValue          Decimal?            @db.Decimal(14, 2)
+  textValue             String?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  organization          Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  observation           VentureObservation  @relation(fields: [organizationId, observationId], references: [organizationId, id], onDelete: Cascade)
+  indicatorDefinition   IndicatorDefinition @relation(fields: [organizationId, indicatorDefinitionId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, observationId, indicatorDefinitionId])
+  @@index([organizationId, indicatorDefinitionId])
+}
+
+model Milestone {
+  id             String        @id @default(cuid())
+  organizationId String
+  ventureId      String
+  type           MilestoneType
+  title          String
+  description    String?
+  occurredAt     DateTime
+  createdAt      DateTime      @default(now())
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  venture        Venture       @relation(fields: [organizationId, ventureId], references: [organizationId, id], onDelete: Cascade)
+
+  @@unique([organizationId, ventureId, occurredAt, title])
+  @@index([organizationId, ventureId, occurredAt])
+}
+
+model Opportunity {
+  id                String            @id @default(cuid())
+  organizationId    String
+  institution       String
+  callNumber        String
+  title             String
+  objective         String
+  territory         String
+  audience          String?
+  status            OpportunityStatus
+  publishedAt       DateTime?
+  applicationEndsAt DateTime?
+  sourceUrl         String
+  sourceCheckedAt   DateTime
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, callNumber])
+  @@index([organizationId, status])
 }
