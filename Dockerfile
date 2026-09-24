@@ -24,6 +24,9 @@ COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
+# The production image also runs the explicit, idempotent demo seed during deployment.
+COPY --from=builder /app/src/lib/db.ts ./src/lib/db.ts
+COPY --from=builder /app/src/demo/fixtures/index.ts ./src/demo/fixtures/index.ts
 COPY package.json package-lock.json ./
 
 RUN chown -R nextjs:nodejs /app
