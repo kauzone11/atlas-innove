@@ -1,33 +1,69 @@
-# Atlas Innove
+<p align="center">
+  <img src="./public/brand/atlas-innove-lockup.svg" alt="Atlas Innove" width="280" />
+</p>
 
-Atlas Innove is a multi-tenant SaaS platform for longitudinal monitoring of ventures supported by innovation and funding programs. Institutions can organize supported ventures into comparable cohorts and build structured evidence about how those ventures evolve over time.
+<p align="center">
+  <strong>Infraestrutura digital para acompanhar programas de fomento, empreendimentos e resultados ao longo do tempo.</strong>
+</p>
 
-The product connects institutional context, funding cycles and the history of each supported venture:
+<div align="center">
+  <h3>Demonstração pública</h3>
+  <p><strong><a href="https://innove.ouseagency.com/demo">innove.ouseagency.com/demo →</a></strong></p>
+  <p><sub>Explore a visão institucional, o acompanhamento longitudinal e as oportunidades públicas sem necessidade de login.</sub></p>
+</div>
 
-**Institution → Funding Program → Cohort → Venture → Follow-up Waves → Evidence → Analysis**
+---
 
-## Product model
+## Sobre o Atlas Innove
 
-- A funding program represents a policy, grant program, funding mechanism or institutional innovation-support initiative.
-- A cohort represents a group of ventures entering longitudinal monitoring in the same cycle, edition or funding round.
-- A venture represents the persistent startup, company, technological project or initiative being followed.
-- Follow-up waves represent repeated observation periods so that evidence can be compared without overwriting the past.
+O Atlas Innove é uma plataforma SaaS multi-institucional voltada ao acompanhamento de iniciativas apoiadas por programas de inovação e fomento.
 
-Longitudinal observation matters because a venture's identity and its participation in a funding cycle are different from the evidence collected about its trajectory. Atlas Innove preserves those distinctions and supports structured monitoring over time. The platform organizes and describes evidence; it does not imply automatic causal attribution from that evidence.
+A proposta é organizar, em uma mesma infraestrutura, o contexto do apoio recebido e a trajetória posterior de cada empreendimento. Em vez de encerrar a leitura no resultado de um edital, a plataforma preserva observações sucessivas ao longo do tempo e permite acompanhar como projetos e empreendimentos evoluem após o ingresso em uma política, programa ou chamada de incentivo.
 
-## Demo
+O modelo conceitual parte desta sequência:
 
-[Explore the public demonstration](https://innove.ouseagency.com/demo)
+**Instituição → Programa de fomento → Edital → Coorte → Empreendimento → Ondas de acompanhamento → Evidências → Análise**
 
-The platform is multi-institutional. Each organization has its own members, programs, cohorts and ventures, with server-side tenant boundaries on every organization-owned operation.
+## Como o modelo funciona
 
-## Architecture
+- **Instituição** representa o órgão, fundação ou organização responsável pelo acompanhamento.
+- **Programa de fomento** representa uma política, mecanismo ou iniciativa continuada de apoio à inovação.
+- **Edital** representa uma chamada específica, com regras, recursos, cronograma e documentos próprios.
+- **Coorte** reúne empreendimentos que ingressam no acompanhamento dentro de um mesmo ciclo comparável.
+- **Empreendimento** preserva a identidade da iniciativa acompanhada ao longo do tempo.
+- **Ondas de acompanhamento** representam momentos sucessivos de observação, como baseline, 6, 12 ou 24 meses.
+- **Evidências** registram indicadores, marcos e informações observadas em cada momento, sem sobrescrever o histórico.
+- **Análise** transforma esse histórico em uma leitura agregada da coorte e em trajetórias individuais dos empreendimentos.
 
-The application uses Next.js 15 App Router, React 19, TypeScript in strict mode, Prisma 6 with PostgreSQL, Tailwind CSS, Zod, bcryptjs, date-fns and lucide-react. Authentication is server-validated. Every organization-owned route receives an explicit organization identifier and checks the authenticated user's active membership and role before reading or mutating data.
+## Acompanhamento longitudinal
 
-The database migrations in `prisma/migrations` are the source-controlled schema history. Set `DATABASE_URL` and `SESSION_SECRET` using `.env` before running the application.
+O núcleo do Atlas Innove é a separação entre identidade e observação.
 
-## Local development
+Um empreendimento continua sendo a mesma entidade ao longo do tempo, enquanto faturamento, equipe, clientes, estágio do produto, capital captado e outros indicadores podem mudar a cada onda. Essa estrutura permite comparar diferentes momentos sem substituir dados anteriores.
+
+A plataforma também preserva a diferença entre ausência de resposta e valor zero. Uma observação não realizada permanece identificada como ausência de informação, evitando que lacunas sejam interpretadas como resultados.
+
+O acompanhamento organiza e descreve evidências. Ele não transforma, por si só, uma associação observada em atribuição causal ao programa de fomento.
+
+## Demonstração
+
+A demonstração pública apresenta um recorte funcional do modelo longitudinal do Atlas Innove.
+
+Ela utiliza metadados públicos de um programa de fomento como referência de contexto. Empreendimentos, pessoas, marcos e resultados exibidos no cenário demonstrativo são fictícios e existem exclusivamente para mostrar o funcionamento da plataforma.
+
+**[Acessar a demonstração pública →](https://innove.ouseagency.com/demo)**
+
+## Arquitetura
+
+O Atlas Innove utiliza Next.js 15 com App Router, React 19, TypeScript em modo estrito, Prisma 6, PostgreSQL, Tailwind CSS, Zod, bcryptjs, date-fns e lucide-react.
+
+A aplicação é multi-tenant. Dados pertencentes a uma instituição são isolados por organização, e operações autenticadas validam sessão, vínculo ativo e permissões no servidor antes de acessar ou modificar recursos institucionais.
+
+As migrations em `prisma/migrations` formam o histórico versionado do schema do banco de dados.
+
+## Desenvolvimento local
+
+Use `.env.example` como referência para a configuração do ambiente e defina, no mínimo, `DATABASE_URL` e `SESSION_SECRET`.
 
 ```bash
 npm install
@@ -39,4 +75,4 @@ npm run test:security
 npm run dev
 ```
 
-Use `.env.example` as the starting point for local configuration. `ALLOW_DEV_RESET_TOKEN` and `ALLOW_DEV_INVITE_TOKEN` are development-only conveniences and must remain disabled in production.
+As flags `ALLOW_DEV_RESET_TOKEN` e `ALLOW_DEV_INVITE_TOKEN` são exclusivas para desenvolvimento e devem permanecer desativadas em produção.
