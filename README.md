@@ -15,6 +15,10 @@ The product connects institutional context, funding cycles and the history of ea
 
 Longitudinal observation matters because a venture's identity and its participation in a funding cycle are different from the evidence collected about its trajectory. Atlas Innove preserves those distinctions and supports structured monitoring over time. The platform organizes and describes evidence; it does not imply automatic causal attribution from that evidence.
 
+## Demo
+
+[Explore the public demonstration](https://innove.ouseagency.com/demo)
+
 The platform is multi-institutional. Each organization has its own members, programs, cohorts and ventures, with server-side tenant boundaries on every organization-owned operation.
 
 ## Architecture
