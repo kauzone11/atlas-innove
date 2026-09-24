@@ -127,7 +127,7 @@ function MetricStrip({ dataset }: { dataset: DemoDataset }) {
     { label: "Empreendimentos", value: dataset.metrics.ventureCount, detail: "no recorte demo", tone: "orange" },
     { label: "Ondas", value: dataset.metrics.waveCount, detail: "baseline a 24 meses", tone: "purple" },
     { label: "Cobertura da última onda", value: `${dataset.metrics.latestWaveCoverage}%`, detail: `${dataset.metrics.latestSubmitted} de ${dataset.metrics.latestExpected} respondidas`, tone: "green" },
-    { label: "Equipe observada", value: dataset.metrics.latestTeamSize, detail: `na onda de ${dataset.metrics.latestWaveName}`, tone: "orange" },
+    { label: "Equipe observada", value: dataset.metrics.latestTeamSize, detail: `${dataset.metrics.latestSubmitted} respostas válidas na onda de ${dataset.metrics.latestWaveName}`, tone: "orange" },
   ];
   return <dl className="demo-metric-strip">{items.map((item) => <div className={`demo-metric demo-metric-${item.tone}`} key={item.label}><dt><span aria-hidden="true" />{item.label}</dt><dd>{item.value}</dd><small>{item.detail}</small></div>)}</dl>;
 }

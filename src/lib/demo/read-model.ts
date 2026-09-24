@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { db } from "@/lib/db";
-import { calculateDemoCoverage, configuredDemoOrganizationSlug, sumDemoMoney } from "@/lib/demo/invariants";
+import { calculateDemoCoverage, configuredDemoOrganizationSlug, sumDemoIntegers, sumDemoMoney } from "@/lib/demo/invariants";
 
 export type DemoIndicator = {
   key: string;
@@ -261,8 +261,11 @@ export async function getDemoDataset(): Promise<DemoDataset | null> {
 
   const latestWave = serializedWaves.at(-1) ?? { sequence: 0, name: "Sem onda", offsetMonths: 0, scheduledFor: null, status: "PLANNED", expected: 0, submitted: 0, pending: 0, missed: 0, coverage: 0 };
   const activeVentures = ventures.filter((venture) => venture.status === "ACTIVE");
-  const latestTeamSize = activeVentures.reduce((total, venture) => total + (getValue(venture, latestWave.sequence, "team_size")?.integerValue ?? 0), 0);
-  const venturesWithCustomers = activeVentures.filter((venture) => (getValue(venture, latestWave.sequence, "paying_customers")?.integerValue ?? 0) > 0).length;
+  const latestTeamSize = sumDemoIntegers(activeVentures.map((venture) => getValue(venture, latestWave.sequence, "team_size")?.integerValue));
+  const venturesWithCustomers = activeVentures.filter((venture) => {
+    const value = getValue(venture, latestWave.sequence, "paying_customers")?.integerValue;
+    return typeof value === "number" && value > 0;
+  }).length;
   const latestMonthlyRevenue = sumDemoMoney(activeVentures.map((venture) => getValue(venture, latestWave.sequence, "monthly_revenue")?.decimalValue ?? null));
   const latestAdditionalCapital = sumDemoMoney(activeVentures.map((venture) => getValue(venture, latestWave.sequence, "additional_capital")?.decimalValue ?? null));
 

@@ -2,10 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { demoVentureFixtures } from "@/demo/fixtures";
-import { calculateDemoCoverage, configuredDemoOrganizationSlug, sumDemoMoney } from "@/lib/demo/invariants";
+import { calculateDemoCoverage, configuredDemoOrganizationSlug, sumDemoIntegers, sumDemoMoney } from "@/lib/demo/invariants";
 
 test("demo aggregation keeps missing monetary observations out of the total", () => {
   assert.equal(sumDemoMoney([null, undefined, "1200.00", null]), "1200.00");
+});
+
+test("demo aggregation skips missing integer observations instead of treating them as zero", () => {
+  assert.equal(sumDemoIntegers([3, null, undefined, 4]), 7);
 });
 
 test("demo coverage uses an explicit denominator and never treats overflow as extra coverage", () => {

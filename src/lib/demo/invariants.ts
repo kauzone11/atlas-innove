@@ -13,3 +13,7 @@ export function calculateDemoCoverage(expected: number, submitted: number): numb
 export function sumDemoMoney(values: ReadonlyArray<string | null | undefined>): string {
   return values.reduce((total, value) => total.plus(value ?? 0), new Prisma.Decimal(0)).toFixed(2);
 }
+
+export function sumDemoIntegers(values: ReadonlyArray<number | null | undefined>): number {
+  return values.reduce<number>((total, value) => (typeof value === "number" ? total + value : total), 0);
+}
