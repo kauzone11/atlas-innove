@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import type { FundingProgramDetailsDto } from "@/lib/programs/service";
 
-export function ProgramEditForm({ organizationId, program, canManage }: { organizationId: string; program: FundingProgramDetailsDto; canManage: boolean }) {
+export function ProgramEditForm({ organizationId, program, canManage, onSuccess }: { organizationId: string; program: FundingProgramDetailsDto; canManage: boolean; onSuccess?: () => void }) {
   const router = useRouter();
   const [name, setName] = useState(program.name);
   const [slug, setSlug] = useState(program.slug);
@@ -32,6 +32,7 @@ export function ProgramEditForm({ organizationId, program, canManage }: { organi
         setError(payload.error ?? "Não foi possível atualizar o programa.");
         return;
       }
+      onSuccess?.();
       router.refresh();
     } catch {
       setError("Não foi possível conectar ao servidor.");
@@ -41,9 +42,8 @@ export function ProgramEditForm({ organizationId, program, canManage }: { organi
   }
 
   return (
-    <form onSubmit={submit} className="panel p-6">
-      <h2 className="font-semibold text-ink">Editar programa</h2>
-      <div className="mt-5 grid gap-4 md:grid-cols-2">
+    <form onSubmit={submit} className="space-y-5">
+      <div className="grid gap-4 md:grid-cols-2">
         <Field id="program-edit-name" label="Nome" value={name} onChange={setName} required />
         <Field id="program-edit-slug" label="Identificador" value={slug} onChange={setSlug} required />
         <Field id="program-edit-code" label="Código" value={code} onChange={setCode} />
@@ -61,8 +61,8 @@ export function ProgramEditForm({ organizationId, program, canManage }: { organi
           <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} maxLength={2000} className="field-control" />
         </label>
       </div>
-      {error ? <p className="mt-4 text-sm text-red-800" role="alert">{error}</p> : null}
-      <button disabled={pending} className="button-primary mt-5">
+      {error ? <p className="text-sm text-danger" role="alert">{error}</p> : null}
+      <button disabled={pending} className="button-primary w-full">
         {pending ? "Salvando…" : "Salvar alterações"}
       </button>
     </form>

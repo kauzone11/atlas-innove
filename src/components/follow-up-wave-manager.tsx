@@ -2,7 +2,9 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 
+import { Dialog } from "@/components/dialog";
 import type { FollowUpWaveDto } from "@/lib/follow-up/service";
 
 export function FollowUpWaveManager({ organizationId, cohortId, waves, canManage }: { organizationId: string; cohortId: string; waves: FollowUpWaveDto[]; canManage: boolean }) {
@@ -19,6 +21,7 @@ export function FollowUpWaveManager({ organizationId, cohortId, waves, canManage
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
 
   const nextStatus = useMemo(() => ({ PLANNED: ["OPEN", "ARCHIVED"], OPEN: ["CLOSED"], CLOSED: ["ARCHIVED"], ARCHIVED: [] } as Record<string, string[]>), []);
 
@@ -56,6 +59,7 @@ export function FollowUpWaveManager({ organizationId, cohortId, waves, canManage
       } else {
         setSequence(String(Number(sequence) + 1));
       }
+      setOpen(false);
       router.refresh();
     } catch {
       setError("Não foi possível conectar ao servidor.");
@@ -89,21 +93,7 @@ export function FollowUpWaveManager({ organizationId, cohortId, waves, canManage
   return (
     <section className="panel">
       <div className="panel-header"><h2>Ondas de acompanhamento</h2><p>A baseline é a sequência 0; as ondas seguintes podem seguir qualquer agenda definida pela instituição.</p></div>
-      {canManage ? (
-        <form onSubmit={createWave} className="border-b border-line px-6 py-5">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Field id="wave-name" label="Nome" value={name} onChange={setName} required />
-            <label htmlFor="wave-kind" className="block space-y-2 text-sm font-medium text-ink"><span>Tipo</span><select id="wave-kind" value={kind} onChange={(event) => { setKind(event.target.value); if (event.target.value === "BASELINE") setSequence("0"); else if (sequence === "0") setSequence((defaultSequence || 1).toString()); }} className="field-control"><option value="BASELINE">Baseline</option><option value="FOLLOW_UP">Follow-up</option></select></label>
-            <Field id="wave-sequence" label="Sequência" value={sequence} onChange={setSequence} type="number" min="0" required />
-            <Field id="wave-offset" label="Distância em meses" value={offsetMonths} onChange={setOffsetMonths} type="number" min="0" />
-            <Field id="wave-scheduled" label="Data de referência" value={scheduledFor} onChange={setScheduledFor} type="datetime-local" />
-            <Field id="wave-opens" label="Abertura" value={opensAt} onChange={setOpensAt} type="datetime-local" />
-            <Field id="wave-closes" label="Encerramento" value={closesAt} onChange={setClosesAt} type="datetime-local" />
-          </div>
-          {error ? <p className="mt-4 text-sm text-red-800" role="alert">{error}</p> : null}
-          <button disabled={pending} className="button-primary mt-5">{pending ? "Salvando…" : "Criar onda"}</button>
-        </form>
-      ) : null}
+      {canManage ? <div className="flex justify-end border-b border-line px-6 py-4"><button type="button" className="button-secondary" onClick={() => setOpen(true)}><Plus size={16} aria-hidden="true" /> Nova onda</button><Dialog open={open} onClose={() => setOpen(false)} title="Nova onda de acompanhamento" description="Defina o primeiro ponto ou uma nova etapa de observação."><form onSubmit={createWave} className="space-y-5"><div className="grid gap-4 sm:grid-cols-2"><Field id="wave-name" label="Nome" value={name} onChange={setName} required /><label htmlFor="wave-kind" className="block space-y-2 text-sm font-medium text-ink"><span>Tipo</span><select id="wave-kind" value={kind} onChange={(event) => { setKind(event.target.value); if (event.target.value === "BASELINE") setSequence("0"); else if (sequence === "0") setSequence((defaultSequence || 1).toString()); }} className="field-control"><option value="BASELINE">Baseline</option><option value="FOLLOW_UP">Follow-up</option></select></label><Field id="wave-sequence" label="Sequência" value={sequence} onChange={setSequence} type="number" min="0" required /><Field id="wave-offset" label="Distância em meses" value={offsetMonths} onChange={setOffsetMonths} type="number" min="0" /><Field id="wave-scheduled" label="Data de referência" value={scheduledFor} onChange={setScheduledFor} type="datetime-local" /><Field id="wave-opens" label="Abertura" value={opensAt} onChange={setOpensAt} type="datetime-local" /><Field id="wave-closes" label="Encerramento" value={closesAt} onChange={setClosesAt} type="datetime-local" /></div>{error ? <p className="text-sm text-danger" role="alert">{error}</p> : null}<button disabled={pending} className="button-primary w-full">{pending ? "Salvando…" : "Criar onda"}</button></form></Dialog></div> : null}
       {waves.length ? (
         <ol className="divide-y divide-line">
           {waves.map((wave) => (
@@ -114,7 +104,7 @@ export function FollowUpWaveManager({ organizationId, cohortId, waves, canManage
                   <h3 className="mt-1 font-medium text-ink">{wave.name}</h3>
                   <p className="mt-1 text-sm text-slate">{timing(wave)}{wave.offsetMonths !== null ? ` · ${wave.offsetMonths} ${wave.offsetMonths === 1 ? "mês" : "meses"}` : ""}</p>
                 </div>
-                <span className={`status-badge ${wave.status === "OPEN" ? "status-success" : wave.status === "PLANNED" ? "status-brand" : "status-neutral"}`}>{statusLabel(wave.status)}</span>
+                <span className={`status-badge ${wave.status === "OPEN" ? "status-success" : "status-neutral"}`}>{statusLabel(wave.status)}</span>
               </div>
               <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate">
                 <span>{wave.observationCounts.expected} esperada(s)</span>

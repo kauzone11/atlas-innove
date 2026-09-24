@@ -2,6 +2,9 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+import { PasswordField } from "@/components/auth/password-field";
 
 type AuthMode = "login" | "register";
 
@@ -48,10 +51,11 @@ export function AuthForm({ mode, redirectTo = "/app" }: { mode: AuthMode; redire
         </>
       ) : null}
       <Field label="E-mail" type="email" value={email} onChange={setEmail} autoComplete="email" required />
-      <Field label="Senha" type="password" value={password} onChange={setPassword} autoComplete={isRegister ? "new-password" : "current-password"} required minLength={isRegister ? 12 : 1} />
-      {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{error}</p> : null}
+      <PasswordField value={password} onChange={setPassword} autoComplete={isRegister ? "new-password" : "current-password"} required minLength={isRegister ? 12 : 1} />
+      {!isRegister ? <div className="-mt-1 text-right"><Link href="/recover" className="text-sm font-medium text-accent-hover underline-offset-4 hover:underline">Esqueci minha senha</Link></div> : null}
+      {error ? <p className="rounded-lg border border-danger/20 bg-danger-soft px-3 py-2 text-sm text-danger" role="alert">{error}</p> : null}
       <button type="submit" disabled={pending} className="button-primary w-full">
-        {pending ? "Aguarde…" : isRegister ? "Criar organização" : "Entrar"}
+        {pending ? "Aguarde…" : isRegister ? "Criar conta" : "Entrar"}
       </button>
     </form>
   );

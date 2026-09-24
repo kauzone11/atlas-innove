@@ -1,6 +1,9 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { Plus } from "lucide-react";
+
+import { Dialog } from "@/components/dialog";
 
 type Member = { id: string; role: string; status: "ACTIVE" | "DISABLED"; user: { email: string; fullName: string } };
 
@@ -11,6 +14,7 @@ export function TeamManager({ organizationId, canManage }: { organizationId: str
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const loadMembers = useCallback(async () => {
     const response = await fetch(`/api/organizations/${organizationId}/members`);
@@ -29,6 +33,7 @@ export function TeamManager({ organizationId, canManage }: { organizationId: str
       const payload = (await response.json()) as { error?: string; developmentToken?: string };
       if (!response.ok) { setError(payload.error ?? "Não foi possível criar o convite."); return; }
       setEmail("");
+      setOpen(false);
       setNotice(payload.developmentToken ? `Convite criado. Token de desenvolvimento: ${payload.developmentToken}` : "Convite criado. A entrega por e-mail será conectada em uma etapa posterior.");
       await loadMembers();
     } catch { setError("Não foi possível conectar ao servidor."); } finally { setPending(false); }
@@ -45,11 +50,11 @@ export function TeamManager({ organizationId, canManage }: { organizationId: str
   }
 
   return (
-    <div className="space-y-8">
-      {canManage ? <form onSubmit={invite} className="panel p-6"><h2 className="font-semibold text-ink">Convidar pessoa</h2><p className="mt-1 text-sm text-slate">Defina o papel da pessoa antes de enviar o convite.</p><div className="mt-5 grid gap-3 sm:grid-cols-[1fr_10rem_auto] sm:items-end"><label className="block space-y-2 text-sm font-medium text-ink" htmlFor="invite-email"><span>E-mail</span><input id="invite-email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nome@instituicao.org" autoComplete="email" className="field-control" /></label><label className="block space-y-2 text-sm font-medium text-ink" htmlFor="invite-role"><span>Papel</span><select id="invite-role" value={role} onChange={(event) => setRole(event.target.value)} className="field-control"><option value="VIEWER">Visualizador</option><option value="ANALYST">Analista</option><option value="MANAGER">Gestor</option><option value="ADMIN">Administrador</option></select></label><button disabled={pending} className="button-primary">Convidar</button></div></form> : null}
-      {notice ? <p className="break-all rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900" role="status">{notice}</p> : null}
-      {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{error}</p> : null}
-      <section className="panel"><div className="panel-header"><h2>Pessoas com acesso</h2><p>{members.length} {members.length === 1 ? "pessoa" : "pessoas"} nesta organização.</p></div><div className="divide-y divide-line">{members.map((member) => <div key={member.id} className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium text-ink">{member.user.fullName}</p><p className="text-sm text-slate">{member.user.email}</p></div><div className="flex items-center gap-3"><span className="status-badge status-neutral">{roleLabel(member.role)} · {member.status === "ACTIVE" ? "Ativo" : "Desativado"}</span>{canManage && member.role !== "OWNER" ? <button type="button" disabled={pending} onClick={() => toggle(member)} className="button-secondary min-h-9 px-3 text-xs">{member.status === "ACTIVE" ? "Desativar" : "Reativar"}</button> : null}</div></div>)}{members.length === 0 ? <p className="px-6 py-8 text-sm text-slate">Nenhuma pessoa encontrada.</p> : null}</div></section>
+    <div className="space-y-5">
+      {canManage ? <div className="flex justify-end"><button type="button" className="button-primary" onClick={() => setOpen(true)}><Plus size={17} aria-hidden="true" /> Convidar pessoa</button><Dialog open={open} onClose={() => setOpen(false)} title="Convidar pessoa" description="Defina o papel antes de criar o convite."><form onSubmit={invite} className="space-y-5"><label className="block space-y-2 text-sm font-medium text-ink" htmlFor="invite-email"><span>E-mail</span><input id="invite-email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nome@instituicao.org" autoComplete="email" className="field-control" /></label><label className="block space-y-2 text-sm font-medium text-ink" htmlFor="invite-role"><span>Papel</span><select id="invite-role" value={role} onChange={(event) => setRole(event.target.value)} className="field-control"><option value="VIEWER">Visualizador</option><option value="ANALYST">Analista</option><option value="MANAGER">Gestor</option><option value="ADMIN">Administrador</option></select></label><button disabled={pending} className="button-primary w-full">{pending ? "Convidando…" : "Criar convite"}</button></form></Dialog></div> : null}
+      {notice ? <p className="break-all rounded-lg border border-success/20 bg-success-soft px-4 py-3 text-sm text-success" role="status">{notice}</p> : null}
+      {error ? <p className="rounded-lg border border-danger/20 bg-danger-soft px-4 py-3 text-sm text-danger" role="alert">{error}</p> : null}
+      <section className="panel"><div className="panel-header"><h2>Pessoas com acesso</h2><p>{members.length} {members.length === 1 ? "pessoa" : "pessoas"}</p></div><div className="divide-y divide-line">{members.map((member) => <div key={member.id} className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium text-ink">{member.user.fullName}</p><p className="text-sm text-slate">{member.user.email}</p></div><div className="flex items-center gap-3"><span className="status-badge status-neutral">{roleLabel(member.role)} · {member.status === "ACTIVE" ? "Ativo" : "Desativado"}</span>{canManage && member.role !== "OWNER" ? <button type="button" disabled={pending} onClick={() => toggle(member)} className="button-secondary min-h-9 px-3 text-xs">{member.status === "ACTIVE" ? "Desativar" : "Reativar"}</button> : null}</div></div>)}{members.length === 0 ? <p className="px-6 py-8 text-sm text-slate">Nenhuma pessoa encontrada.</p> : null}</div></section>
     </div>
   );
 }

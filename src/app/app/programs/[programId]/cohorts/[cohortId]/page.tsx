@@ -1,13 +1,13 @@
 import { notFound, redirect } from "next/navigation";
 
-import { CohortEditForm } from "@/components/cohort-edit-form";
+import { CohortDetailActions } from "@/components/cohort-detail-actions";
 import { CohortEnrollmentManager } from "@/components/cohort-enrollment-manager";
 import { FollowUpWaveManager } from "@/components/follow-up-wave-manager";
 import { hasAtLeastRole } from "@/lib/auth/authorization";
 import { getActiveOrganizationContext } from "@/lib/auth/session";
 import { getCohortWorkspace } from "@/lib/follow-up/service";
 import { listOrganizationVentures } from "@/lib/ventures/service";
-import { Breadcrumbs, PageHeader, Panel, PanelHeader, StatusBadge, statusTone } from "@/components/ui";
+import { Breadcrumbs, PageHeader, Panel, PanelHeader } from "@/components/ui";
 
 type PageProps = { params: Promise<{ programId: string; cohortId: string }> };
 
@@ -26,10 +26,9 @@ export default async function CohortDetailPage({ params }: PageProps) {
 
   return (
     <div className="space-y-7">
-      <PageHeader breadcrumbs={<Breadcrumbs items={[{ label: "Programas", href: "/app/programs" }, { label: workspace.cohort.fundingProgram.name, href: `/app/programs/${programId}` }, { label: workspace.cohort.name }]} />} title={workspace.cohort.name} description={`${workspace.cohort.fundingProgram.name}${workspace.cohort.code ? ` · ${workspace.cohort.code}` : ""}`} action={<StatusBadge label={statusLabel(workspace.cohort.status)} tone={statusTone(workspace.cohort.status)} />} />
-      <CohortEditForm organizationId={context.organization.id} cohort={workspace.cohort} canManage={canManage} />
+      <PageHeader breadcrumbs={<Breadcrumbs items={[{ label: "Programas", href: "/app/programs" }, { label: workspace.cohort.fundingProgram.name, href: `/app/programs/${programId}` }, { label: workspace.cohort.name }]} />} title={workspace.cohort.name} description={`${workspace.cohort.fundingProgram.name}${workspace.cohort.code ? ` · ${workspace.cohort.code}` : ""}`} action={<CohortDetailActions organizationId={context.organization.id} cohort={workspace.cohort} canManage={canManage} />} />
       <Panel>
-        <PanelHeader title="Cobertura das observações" description="Os números abaixo refletem somente registros existentes." />
+        <PanelHeader title="Cobertura das observações" />
         <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <SummaryItem label="Esperadas" value={workspace.observationCounts.expected} />
           <SummaryItem label="Pendentes" value={workspace.observationCounts.pending} />
@@ -46,8 +45,4 @@ export default async function CohortDetailPage({ params }: PageProps) {
 
 function SummaryItem({ label, value }: { label: string; value: number }) {
   return <div className="px-6 pb-5 first:pt-0 sm:px-6"><dt className="text-sm text-slate">{label}</dt><dd className="mt-1 text-2xl font-semibold tabular-nums text-ink">{value}</dd></div>;
-}
-
-function statusLabel(status: string): string {
-  return ({ PLANNED: "Planejada", ACTIVE: "Ativa", CLOSED: "Encerrada", ARCHIVED: "Arquivada" } as Record<string, string>)[status] ?? status;
 }

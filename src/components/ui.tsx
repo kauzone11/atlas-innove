@@ -19,7 +19,7 @@ export function PageHeader({
         <h1>{title}</h1>
         {description ? <p>{description}</p> : null}
       </div>
-      {action ? <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div> : null}
+      {action ? <div className="page-header-actions">{action}</div> : null}
     </header>
   );
 }
@@ -39,7 +39,7 @@ export function Breadcrumbs({ items }: { items: Array<{ label: string; href?: st
   );
 }
 
-export function StatusBadge({ label, tone = "neutral" }: { label: string; tone?: "neutral" | "brand" | "success" | "warning" | "danger" }) {
+export function StatusBadge({ label, tone = "neutral" }: { label: string; tone?: "neutral" | "accent" | "success" | "warning" | "danger" }) {
   return <span className={`status-badge status-${tone}`}>{label}</span>;
 }
 
@@ -59,9 +59,9 @@ export function PanelHeader({ title, description, action }: { title: string; des
   );
 }
 
-export function statusTone(status: string): "neutral" | "brand" | "success" | "warning" | "danger" {
+export function statusTone(status: string): "neutral" | "accent" | "success" | "warning" | "danger" {
   if (["ACTIVE", "OPEN"].includes(status)) return "success";
-  if (["DRAFT", "PLANNED"].includes(status)) return "brand";
+  if (["DRAFT", "PLANNED"].includes(status)) return "neutral";
   if (["CLOSED", "ARCHIVED", "DISABLED"].includes(status)) return "neutral";
   return "neutral";
 }

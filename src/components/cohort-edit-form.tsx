@@ -13,7 +13,7 @@ type EditableCohort = {
   status: string;
 };
 
-export function CohortEditForm({ organizationId, cohort, canManage }: { organizationId: string; cohort: EditableCohort; canManage: boolean }) {
+export function CohortEditForm({ organizationId, cohort, canManage, onSuccess }: { organizationId: string; cohort: EditableCohort; canManage: boolean; onSuccess?: () => void }) {
   const router = useRouter();
   const [name, setName] = useState(cohort.name);
   const [code, setCode] = useState(cohort.code ?? "");
@@ -48,6 +48,7 @@ export function CohortEditForm({ organizationId, cohort, canManage }: { organiza
         setError(payload.error ?? "Não foi possível atualizar a coorte.");
         return;
       }
+      onSuccess?.();
       router.refresh();
     } catch {
       setError("Não foi possível conectar ao servidor.");
@@ -57,9 +58,8 @@ export function CohortEditForm({ organizationId, cohort, canManage }: { organiza
   }
 
   return (
-    <form onSubmit={submit} className="panel p-6">
-      <h2 className="font-semibold text-ink">Dados da coorte</h2>
-      <div className="mt-5 grid gap-4 md:grid-cols-2">
+    <form onSubmit={submit} className="space-y-5">
+      <div className="grid gap-4 md:grid-cols-2">
         <Field id="cohort-edit-name" label="Nome" value={name} onChange={setName} required />
         <Field id="cohort-edit-code" label="Código" value={code} onChange={setCode} />
         <Field id="cohort-edit-year" label="Ano de referência" value={referenceYear} onChange={setReferenceYear} type="number" min="1900" max="2200" />
@@ -75,8 +75,8 @@ export function CohortEditForm({ organizationId, cohort, canManage }: { organiza
         <Field id="cohort-edit-start" label="Início" value={startsAt} onChange={setStartsAt} type="date" />
         <Field id="cohort-edit-end" label="Fim" value={endsAt} onChange={setEndsAt} type="date" />
       </div>
-      {error ? <p className="mt-4 text-sm text-red-800" role="alert">{error}</p> : null}
-      <button disabled={pending} className="button-primary mt-5">
+      {error ? <p className="text-sm text-danger" role="alert">{error}</p> : null}
+      <button disabled={pending} className="button-primary w-full">
         {pending ? "Salvando…" : "Salvar alterações"}
       </button>
     </form>

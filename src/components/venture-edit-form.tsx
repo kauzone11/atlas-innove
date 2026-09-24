@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import type { VentureDto } from "@/lib/ventures/service";
 
-export function VentureEditForm({ organizationId, venture, canManage }: { organizationId: string; venture: VentureDto; canManage: boolean }) {
+export function VentureEditForm({ organizationId, venture, canManage, onSuccess }: { organizationId: string; venture: VentureDto; canManage: boolean; onSuccess?: () => void }) {
   const router = useRouter();
   const [name, setName] = useState(venture.name);
   const [legalName, setLegalName] = useState(venture.legalName ?? "");
@@ -31,6 +31,7 @@ export function VentureEditForm({ organizationId, venture, canManage }: { organi
         setError(payload.error ?? "Não foi possível atualizar o empreendimento.");
         return;
       }
+      onSuccess?.();
       router.refresh();
     } catch {
       setError("Não foi possível conectar ao servidor.");
@@ -40,10 +41,8 @@ export function VentureEditForm({ organizationId, venture, canManage }: { organi
   }
 
   return (
-    <form onSubmit={submit} className="panel p-6">
-      <h2 className="font-semibold text-ink">Editar identidade</h2>
-      <p className="mt-1 text-sm text-slate">Estes são os dados estáveis do empreendimento. Resultados longitudinais pertencem às observações.</p>
-      <div className="mt-5 grid gap-4 md:grid-cols-2">
+    <form onSubmit={submit} className="space-y-5">
+      <div className="grid gap-4 md:grid-cols-2">
         <Field id="venture-edit-name" label="Nome de uso" value={name} onChange={setName} required />
         <Field id="venture-edit-legal-name" label="Razão social ou nome legal" value={legalName} onChange={setLegalName} />
         <label htmlFor="venture-edit-kind" className="block space-y-2 text-sm font-medium text-ink">
@@ -57,8 +56,8 @@ export function VentureEditForm({ organizationId, venture, canManage }: { organi
         </label>
         <Field id="venture-edit-reference" label="Referência externa" value={externalReference} onChange={setExternalReference} />
       </div>
-      {error ? <p className="mt-4 text-sm text-red-800" role="alert">{error}</p> : null}
-      <button disabled={pending} className="button-primary mt-5">
+      {error ? <p className="text-sm text-danger" role="alert">{error}</p> : null}
+      <button disabled={pending} className="button-primary w-full">
         {pending ? "Salvando…" : "Salvar alterações"}
       </button>
     </form>

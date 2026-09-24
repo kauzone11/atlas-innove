@@ -18,7 +18,7 @@ export default async function OrganizationsPage() {
 
   return (
     <div className="max-w-3xl">
-      <PageHeader title="Suas organizações" description="Escolha o espaço institucional em que deseja trabalhar." />
+      <PageHeader title="Organizações" />
       {organizations.length ? <OrganizationSelector organizations={organizations} activeId={auth.session.activeOrganizationId} /> : <Panel className="p-6 text-sm text-slate">Sua conta ainda não possui uma organização ativa.</Panel>}
     </div>
   );
