@@ -53,6 +53,7 @@ export type CohortWorkspaceEnrollmentDto = {
   id: string;
   status: string;
   enrolledAt: string;
+  withdrawnAt: string | null;
   externalReference: string | null;
   venture: {
     id: string;
@@ -143,6 +144,7 @@ export async function getCohortWorkspace(
           id: true,
           status: true,
           enrolledAt: true,
+          withdrawnAt: true,
           externalReference: true,
           venture: { select: { id: true, name: true, legalName: true, kind: true, externalReference: true } },
         },
@@ -177,6 +179,7 @@ export async function getCohortWorkspace(
       id: enrollment.id,
       status: enrollment.status,
       enrolledAt: enrollment.enrolledAt.toISOString(),
+      withdrawnAt: enrollment.withdrawnAt?.toISOString() ?? null,
       externalReference: enrollment.externalReference,
       venture: enrollment.venture,
     })),

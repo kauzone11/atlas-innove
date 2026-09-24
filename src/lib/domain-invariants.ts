@@ -13,6 +13,22 @@ export function assertSameCohort(...cohortIds: string[]): void {
   }
 }
 
+export function assertCohortFundingCallScope(
+  cohortOrganizationId: string,
+  cohortFundingProgramId: string,
+  callOrganizationId: string,
+  callFundingProgramId: string,
+): void {
+  assertSameOrganization(cohortOrganizationId, callOrganizationId);
+  if (!cohortFundingProgramId || cohortFundingProgramId !== callFundingProgramId) {
+    throw new DomainConflictError("FUNDING_CALL_PROGRAM_MISMATCH");
+  }
+}
+
+export function assertCohortProtocolVersionScope(cohortOrganizationId: string, versionOrganizationId: string): void {
+  assertSameOrganization(cohortOrganizationId, versionOrganizationId);
+}
+
 export function assertProgramCanReceiveCohort(status: string): void {
   if (status !== "DRAFT" && status !== "ACTIVE") {
     throw new DomainConflictError("PROGRAM_NOT_ELIGIBLE_FOR_COHORT");

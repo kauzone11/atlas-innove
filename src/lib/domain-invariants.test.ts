@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   assertCohortCanReceiveEnrollment,
+  assertCohortFundingCallScope,
+  assertCohortProtocolVersionScope,
   assertEnrollmentIsUnique,
   assertObservationIsUnique,
   assertProgramCanReceiveCohort,
@@ -15,6 +17,17 @@ import { assertActiveOrganizationAccess } from "@/lib/auth/authorization";
 test("domain relationships cannot cross organization boundaries", () => {
   assert.doesNotThrow(() => assertSameOrganization("org-a", "org-a", "org-a"));
   assert.throws(() => assertSameOrganization("org-a", "org-b"), { code: "TENANT_SCOPE_MISMATCH" });
+});
+
+test("cohorts can only reference a funding call from the same organization and program", () => {
+  assert.doesNotThrow(() => assertCohortFundingCallScope("org-a", "program-a", "org-a", "program-a"));
+  assert.throws(() => assertCohortFundingCallScope("org-a", "program-a", "org-b", "program-a"), { code: "TENANT_SCOPE_MISMATCH" });
+  assert.throws(() => assertCohortFundingCallScope("org-a", "program-a", "org-a", "program-b"), { code: "FUNDING_CALL_PROGRAM_MISMATCH" });
+});
+
+test("a cohort keeps its applied protocol version inside the tenant boundary", () => {
+  assert.doesNotThrow(() => assertCohortProtocolVersionScope("org-a", "org-a"));
+  assert.throws(() => assertCohortProtocolVersionScope("org-a", "org-b"), { code: "TENANT_SCOPE_MISMATCH" });
 });
 
 test("a venture cannot be enrolled twice in the same cohort", () => {

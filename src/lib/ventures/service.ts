@@ -20,6 +20,7 @@ const ventureListSelect = {
       id: true,
       status: true,
       enrolledAt: true,
+      withdrawnAt: true,
       cohort: { select: { id: true, name: true, fundingProgram: { select: { id: true, name: true } } } },
     },
     orderBy: { enrolledAt: "desc" },
@@ -32,6 +33,7 @@ export type VentureEnrollmentDto = {
   id: string;
   status: string;
   enrolledAt: string;
+  withdrawnAt: string | null;
   cohort: { id: string; name: string; fundingProgram: { id: string; name: string } };
 };
 
@@ -63,6 +65,7 @@ function serializeVenture(record: VentureRecord): VentureDto {
       id: enrollment.id,
       status: enrollment.status,
       enrolledAt: enrollment.enrolledAt.toISOString(),
+      withdrawnAt: enrollment.withdrawnAt?.toISOString() ?? null,
       cohort: enrollment.cohort,
     })),
   };
@@ -151,6 +154,7 @@ export async function listCohortVentures(organizationId: string, cohortId: strin
       id: true,
       status: true,
       enrolledAt: true,
+      withdrawnAt: true,
       externalReference: true,
       venture: { select: { id: true, name: true, legalName: true, kind: true, externalReference: true } },
     },
@@ -160,6 +164,7 @@ export async function listCohortVentures(organizationId: string, cohortId: strin
     id: enrollment.id,
     status: enrollment.status,
     enrolledAt: enrollment.enrolledAt.toISOString(),
+    withdrawnAt: enrollment.withdrawnAt?.toISOString() ?? null,
     externalReference: enrollment.externalReference,
     venture: enrollment.venture,
   }));
@@ -169,7 +174,7 @@ export async function enrollVenture(
   organizationId: string,
   cohortId: string,
   input: CreateEnrollmentInput,
-): Promise<{ id: string; status: string; enrolledAt: string; cohortId: string; ventureId: string }> {
+): Promise<{ id: string; status: string; enrolledAt: string; withdrawnAt: string | null; cohortId: string; ventureId: string }> {
   const enrollment = await db.$transaction(async (tx) => {
     const [cohort, venture] = await Promise.all([
       tx.cohort.findFirst({ where: { id: cohortId, organizationId }, select: { id: true, organizationId: true, status: true } }),
@@ -194,7 +199,7 @@ export async function enrollVenture(
         externalReference: input.externalReference ?? null,
         enrolledAt: input.enrolledAt ?? new Date(),
       },
-      select: { id: true, status: true, enrolledAt: true, cohortId: true, ventureId: true },
+      select: { id: true, status: true, enrolledAt: true, withdrawnAt: true, cohortId: true, ventureId: true },
     });
     const applicableWaves = await tx.followUpWave.findMany({
       where: { organizationId, cohortId, status: { in: ["PLANNED", "OPEN"] } },
@@ -214,7 +219,7 @@ export async function enrollVenture(
     }
     return enrollment;
   });
-  return { ...enrollment, enrolledAt: enrollment.enrolledAt.toISOString() };
+  return { ...enrollment, enrolledAt: enrollment.enrolledAt.toISOString(), withdrawnAt: enrollment.withdrawnAt?.toISOString() ?? null };
 }
 
 export async function withdrawEnrollment(
@@ -232,7 +237,7 @@ export async function withdrawEnrollment(
 
   const updated = await db.ventureEnrollment.update({
     where: { id: enrollmentId },
-    data: { status: "WITHDRAWN" },
+    data: { status: "WITHDRAWN", withdrawnAt: new Date() },
     select: { id: true, status: true },
   });
   return updated;

@@ -23,6 +23,7 @@ export type DemoVentureFixture = {
   kind: "COMPANY" | "PROJECT" | "INITIATIVE" | "OTHER";
   status: "ACTIVE" | "WITHDRAWN";
   enrolledAt: string;
+  withdrawnAt?: string;
   observations: DemoObservationFixture[];
   milestones: Array<{
     type: "MVP_LAUNCHED" | "FIRST_CUSTOMER" | "COMPANY_FORMALIZED" | "RECURRING_CONTRACT" | "ADDITIONAL_INVESTMENT" | "TEAM_EXPANSION" | "PIVOT" | "CLOSED";
@@ -199,6 +200,7 @@ export const demoVentureFixtures: DemoVentureFixture[] = [
     kind: "COMPANY",
     status: "WITHDRAWN",
     enrolledAt: "2023-02-14",
+    withdrawnAt: "2024-11-18",
     observations: [
       { sequence: 0, status: "SUBMITTED", values: { team_size: 2, paying_customers: 0, monthly_revenue: "0.00", additional_capital: "0.00", product_stage: "CONCEPT" } },
       { sequence: 1, status: "SUBMITTED", values: { team_size: 2, paying_customers: 1, monthly_revenue: "900.00", additional_capital: "0.00", product_stage: "PROTOTYPE" } },
@@ -238,7 +240,7 @@ export const demoOpportunities = [
     objective: "Apoiar projetos voltados ao desenvolvimento territorial sustentável, geração de renda e inclusão produtiva.",
     territory: "Comunidades sergipanas",
     audience: "Projetos com participação comunitária e impacto social mensurável",
-    status: "OPEN" as const,
+    status: "IN_REVIEW" as const,
     publishedAt: "2026-08-20",
     applicationEndsAt: null,
     sourceUrl: "https://fapitec.se.gov.br/editais-abertos/edital-fapitec-se-funtec-no-10-2026-tecnologias-sociais/",
@@ -250,7 +252,7 @@ export const demoOpportunities = [
     objective: "Selecionar projetos inovadores apresentados por empresas juniores federadas sediadas em Sergipe.",
     territory: "Sergipe",
     audience: "Empresas Juniores Federadas com parceria formal",
-    status: "OPEN" as const,
+    status: "IN_REVIEW" as const,
     publishedAt: "2026-08-21",
     applicationEndsAt: null,
     sourceUrl: "https://fapitec.se.gov.br/editais-em-andamento/edital-fapitec-se-funtec-no-11-2026-programa-de-apoio-as-empresas-juniores/",
@@ -261,6 +263,6 @@ export const demoIndicatorDefinitions = [
   { key: "team_size", label: "Tamanho da equipe", valueType: "INTEGER" as const, unit: "pessoas", position: 0 },
   { key: "paying_customers", label: "Clientes pagantes", valueType: "INTEGER" as const, unit: "clientes", position: 1 },
   { key: "monthly_revenue", label: "Faturamento mensal", valueType: "CURRENCY" as const, unit: "BRL", position: 2 },
-  { key: "additional_capital", label: "Capital adicional captado", valueType: "CURRENCY" as const, unit: "BRL", position: 3 },
+  { key: "additional_capital", label: "Capital adicional acumulado", valueType: "CURRENCY" as const, unit: "BRL", position: 3 },
   { key: "product_stage", label: "Estágio do produto", valueType: "ENUM" as const, unit: null, position: 4, allowedValues: ["CONCEPT", "PROTOTYPE", "MVP", "VALIDATION", "MARKET", "SCALE"] },
 ];

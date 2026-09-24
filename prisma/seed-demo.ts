@@ -1,4 +1,7 @@
+import { randomBytes } from "node:crypto";
+
 import { Prisma } from "@prisma/client";
+import { hash } from "bcryptjs";
 
 import { db } from "../src/lib/db";
 import {
@@ -20,10 +23,11 @@ function date(value: string): Date {
 }
 
 async function main() {
+  const unusableDemoPasswordHash = await hash(randomBytes(32).toString("base64url"), 12);
   const seedUser = await db.user.upsert({
     where: { id: demoSeedUserId },
-    update: { email: "demo-seed@atlas-innove.invalid", passwordHash: "demo-seed-only" },
-    create: { id: demoSeedUserId, email: "demo-seed@atlas-innove.invalid", passwordHash: "demo-seed-only" },
+    update: { email: "demo-seed@atlas-innove.invalid", passwordHash: unusableDemoPasswordHash, platformRole: "USER" },
+    create: { id: demoSeedUserId, email: "demo-seed@atlas-innove.invalid", passwordHash: unusableDemoPasswordHash, platformRole: "USER" },
     select: { id: true },
   });
 
@@ -107,7 +111,7 @@ async function main() {
 
   const cohort = await db.cohort.upsert({
     where: { organizationId_fundingProgramId_code: { organizationId: organization.id, fundingProgramId: program.id, code: DEMO_COHORT_CODE } },
-    update: { name: "Coorte demonstrativa · Centelha 2", referenceYear: 2023, startsAt: date("2023-02-14"), endsAt: date("2025-02-14"), status: "CLOSED" },
+    update: { name: "Coorte demonstrativa · Centelha 2", referenceYear: 2023, startsAt: date("2023-02-14"), endsAt: date("2025-02-14"), status: "CLOSED", fundingCallId: call.id },
     create: {
       id: "demo-cohort-centelha-2",
       organizationId: organization.id,
@@ -118,6 +122,7 @@ async function main() {
       startsAt: date("2023-02-14"),
       endsAt: date("2025-02-14"),
       status: "CLOSED",
+      fundingCallId: call.id,
     },
     select: { id: true },
   });
@@ -140,6 +145,11 @@ async function main() {
     update: { label: "Versão demonstrativa · 1" },
     create: { id: "demo-tracking-protocol-v1", organizationId: organization.id, trackingProtocolId: protocol.id, version: 1, label: "Versão demonstrativa · 1" },
     select: { id: true },
+  });
+
+  await db.cohort.update({
+    where: { id: cohort.id },
+    data: { trackingProtocolVersionId: protocolVersion.id },
   });
 
   const definitions = new Map<string, { id: string }>();
@@ -173,8 +183,8 @@ async function main() {
     });
     const enrollment = await db.ventureEnrollment.upsert({
       where: { organizationId_cohortId_ventureId: { organizationId: organization.id, cohortId: cohort.id, ventureId: venture.id } },
-      update: { enrolledAt: date(fixture.enrolledAt), status: fixture.status },
-      create: { id: `demo-enrollment-${fixture.slug}`, organizationId: organization.id, cohortId: cohort.id, ventureId: venture.id, enrolledAt: date(fixture.enrolledAt), status: fixture.status },
+      update: { enrolledAt: date(fixture.enrolledAt), withdrawnAt: fixture.withdrawnAt ? date(fixture.withdrawnAt) : null, status: fixture.status },
+      create: { id: `demo-enrollment-${fixture.slug}`, organizationId: organization.id, cohortId: cohort.id, ventureId: venture.id, enrolledAt: date(fixture.enrolledAt), withdrawnAt: fixture.withdrawnAt ? date(fixture.withdrawnAt) : null, status: fixture.status },
       select: { id: true },
     });
 

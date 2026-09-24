@@ -25,7 +25,7 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 RUN npx prisma generate
-# The production image also runs the explicit, idempotent demo seed during deployment.
+# The production image runs migrations and the explicit, idempotent demo seed before serving traffic.
 COPY --from=builder /app/src/lib/db.ts ./src/lib/db.ts
 COPY --from=builder /app/src/demo/fixtures/index.ts ./src/demo/fixtures/index.ts
 COPY package.json package-lock.json ./
@@ -36,4 +36,4 @@ USER nextjs
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD wget -qO- http://127.0.0.1:3000/api/health || exit 1
 
-CMD ["npm", "start"]
+CMD ["sh", "-c", "npx prisma migrate deploy && npm run db:seed:demo && npm start"]

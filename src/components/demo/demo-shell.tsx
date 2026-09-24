@@ -6,6 +6,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Activity, BarChart3, ChartNoAxesCombined, ChevronRight, ClipboardCheck, Compass, Files, FolderKanban, LayoutDashboard, Menu, Network, PanelLeft, UserRound, Users, X } from "lucide-react";
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 
+import { useDemoDialog } from "@/components/demo/demo-dialog";
+
 type Perspective = "instituicao" | "participante";
 type PreviewKey = "team" | "projects" | "evaluation" | "ranking" | "profile" | "network";
 
@@ -47,13 +49,6 @@ function DemoShellContent({ children }: { children: ReactNode }) {
 
   useEffect(() => setPerspective(initialPerspective), [initialPerspective]);
   useEffect(() => setMobileOpen(false), [pathname]);
-  useEffect(() => {
-    if (!mobileOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = previousOverflow; };
-  }, [mobileOpen]);
-
   function changePerspective(nextPerspective: Perspective) {
     setPerspective(nextPerspective);
     const params = new URLSearchParams(searchParams.toString());
@@ -139,22 +134,7 @@ function PreviewNavButton({ icon: Icon, label, onClick }: { icon: typeof Users; 
 
 function MobileDemoNavigation({ perspective, navigation, pathname, onChangePerspective, onClose, onPreview }: { perspective: Perspective; navigation: typeof institutionalNavigation; pathname: string; onChangePerspective: (value: Perspective) => void; onClose: () => void; onPreview: (key: PreviewKey) => void }) {
   const dialogRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    dialog.querySelector<HTMLElement>("button, a")?.focus();
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") { event.preventDefault(); onClose(); }
-      if (event.key !== "Tab" || !dialog) return;
-      const elements = Array.from(dialog.querySelectorAll<HTMLElement>("a, button"));
-      if (!elements.length) return;
-      const first = elements[0]; const last = elements[elements.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  useDemoDialog({ open: true, onClose, surfaceRef: dialogRef });
   return <div className="demo-mobile-overlay"><button type="button" className="demo-mobile-scrim" onClick={onClose} aria-label="Fechar menu" /><div ref={dialogRef} className="demo-mobile-drawer" role="dialog" aria-modal="true" aria-label="Menu da demonstração"><div className="flex items-center justify-between border-b border-[#e9e4d9] px-5 py-4"><DemoBrand /><button type="button" className="demo-icon-button" onClick={onClose} aria-label="Fechar menu"><X size={18} aria-hidden="true" /></button></div><div className="p-4"><p className="demo-sidebar-kicker">Perspectiva</p><PerspectiveSwitch value={perspective} onChange={onChangePerspective} /><nav className="demo-nav mt-5" aria-label="Menu móvel">{navigation.map((item) => <DemoNavItem key={item.href + item.label} item={item} pathname={pathname} perspective={perspective} />)}<div className="demo-nav-divider" />{perspective === "instituicao" ? <><PreviewNavButton icon={Users} label="Equipes" onClick={() => { onPreview("team"); onClose(); }} /><PreviewNavButton icon={ClipboardCheck} label="Avaliação" onClick={() => { onPreview("evaluation"); onClose(); }} /><PreviewNavButton icon={BarChart3} label="Ranking" onClick={() => { onPreview("ranking"); onClose(); }} /></> : <><PreviewNavButton icon={FolderKanban} label="Meus projetos" onClick={() => { onPreview("projects"); onClose(); }} /><PreviewNavButton icon={Users} label="Minhas equipes" onClick={() => { onPreview("team"); onClose(); }} /><PreviewNavButton icon={UserRound} label="Perfil" onClick={() => { onPreview("profile"); onClose(); }} /></>}</nav></div><div className="mt-auto border-t border-[#e9e4d9] px-5 py-4 text-xs text-[#9e9688]">Ambiente demonstrativo</div></div></div>;
 }
 
@@ -162,22 +142,6 @@ function FeaturePreview({ preview, onClose }: { preview: PreviewKey; onClose: ()
   const content = previewContent[preview];
   const Icon = content.icon;
   const surfaceRef = useRef<HTMLDivElement>(null);
-  const restoreFocus = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    restoreFocus.current = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    surfaceRef.current?.querySelector<HTMLElement>("button")?.focus();
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") { event.preventDefault(); onClose(); return; }
-      if (event.key !== "Tab" || !surfaceRef.current) return;
-      const elements = Array.from(surfaceRef.current.querySelectorAll<HTMLElement>("button, a"));
-      const first = elements[0]; const last = elements[elements.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => { document.body.style.overflow = previousOverflow; document.removeEventListener("keydown", onKeyDown); restoreFocus.current?.focus(); };
-  }, [onClose]);
+  useDemoDialog({ open: true, onClose, surfaceRef });
   return <div className="demo-preview-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><div ref={surfaceRef} className="demo-preview-surface" role="dialog" aria-modal="true" aria-labelledby="demo-preview-title" aria-describedby="demo-preview-description"><div className="flex items-start justify-between gap-4 border-b border-[#e9e4d9] px-6 py-5"><div className="flex min-w-0 items-center gap-3"><div className="demo-preview-icon"><Icon size={18} aria-hidden="true" /></div><div><p className="demo-eyebrow">Prévia de funcionalidade</p><h2 id="demo-preview-title" className="mt-1 text-[1.1rem] font-semibold tracking-[-0.025em] text-[#2e2b26]">{content.title}</h2></div></div><button type="button" className="demo-icon-button" onClick={onClose} aria-label="Fechar prévia"><X size={18} aria-hidden="true" /></button></div><div className="px-6 py-6"><p id="demo-preview-description" className="max-w-[44ch] text-sm leading-6 text-[#6f695f]">{content.description}</p><ul className="demo-preview-list">{content.bullets.map((bullet) => <li key={bullet}><span aria-hidden="true" />{bullet}</li>)}</ul><button type="button" className="demo-button-secondary mt-7 w-full sm:w-auto" onClick={onClose}>Fechar</button></div></div></div>;
 }

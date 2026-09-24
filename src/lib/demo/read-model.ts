@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { db } from "@/lib/db";
-import { calculateDemoCoverage, configuredDemoOrganizationSlug, sumDemoIntegers, sumDemoMoney } from "@/lib/demo/invariants";
+import { calculateDemoCoverage, configuredDemoOrganizationSlug, isEnrollmentEligibleForWave, sumDemoIntegers, sumDemoMoney } from "@/lib/demo/invariants";
 
 export type DemoIndicator = {
   key: string;
@@ -37,6 +37,7 @@ export type DemoVenture = {
   kind: string;
   status: "ACTIVE" | "WITHDRAWN";
   enrolledAt: string;
+  withdrawnAt: string | null;
   observations: DemoObservation[];
   milestones: Array<{ type: string; title: string; description: string | null; occurredAt: string }>;
 };
@@ -51,6 +52,7 @@ export type DemoWave = {
   submitted: number;
   pending: number;
   missed: number;
+  notExpected: number;
   coverage: number;
 };
 
@@ -90,7 +92,7 @@ export type DemoDataset = {
       documents: Array<{ type: string; title: string; externalUrl: string; publishedAt: string | null }>;
     } | null;
   };
-  cohort: { name: string; code: string | null; referenceYear: number | null; startsAt: string | null; endsAt: string | null };
+  cohort: { name: string; code: string | null; referenceYear: number | null; startsAt: string | null; endsAt: string | null; fundingCallNumber: string | null };
   protocol: { name: string; version: number; label: string | null; indicators: DemoIndicator[] };
   waves: DemoWave[];
   ventures: DemoVenture[];
@@ -162,6 +164,13 @@ function getValue(venture: DemoVenture, sequence: number, key: string): DemoObse
   return venture.observations.find((observation) => observation.sequence === sequence)?.values.find((value) => value.key === key);
 }
 
+function waveDateFromOffset(offsetMonths: number | null, cohortStartsAt: Date | null): string | null {
+  if (offsetMonths === null || !cohortStartsAt) return null;
+  const date = new Date(cohortStartsAt);
+  date.setUTCMonth(date.getUTCMonth() + offsetMonths);
+  return date.toISOString();
+}
+
 export async function getDemoDataset(): Promise<DemoDataset | null> {
   const organization = await getDemoOrganization();
   if (!organization) return null;
@@ -170,43 +179,50 @@ export async function getDemoDataset(): Promise<DemoDataset | null> {
     where: { organizationId: organization.id, slug: "centelha-2-se-demo" },
     select: { name: true, status: true, description: true },
   });
-  const call = await db.fundingCall.findFirst({
-    where: { organizationId: organization.id, callNumber: "11/2021" },
-    select: {
-      title: true,
-      shortTitle: true,
-      callNumber: true,
-      objective: true,
-      status: true,
-      publishedAt: true,
-      totalBudget: true,
-      maximumSupport: true,
-      targetProjects: true,
-      executionMonths: true,
-      sourceUrl: true,
-      sourceCheckedAt: true,
-      documents: { select: { type: true, title: true, externalUrl: true, publishedAt: true }, orderBy: { title: "asc" } },
-    },
-  });
   const cohort = await db.cohort.findFirst({
     where: { organizationId: organization.id, code: "centelha-2-se-cenario-demo" },
-    select: { id: true, name: true, code: true, referenceYear: true, startsAt: true, endsAt: true },
-  });
-  const protocolVersion = await db.trackingProtocolVersion.findFirst({
-    where: { organizationId: organization.id, trackingProtocol: { slug: "acompanhamento-empreendimentos-inovadores" } },
-    orderBy: { version: "desc" },
     select: {
-      version: true,
-      label: true,
-      trackingProtocol: { select: { name: true } },
-      indicators: { orderBy: { position: "asc" }, select: { key: true, label: true, valueType: true, unit: true, position: true, allowedValues: true } },
+      id: true,
+      name: true,
+      code: true,
+      referenceYear: true,
+      startsAt: true,
+      endsAt: true,
+      fundingCall: {
+        select: {
+          title: true,
+          shortTitle: true,
+          callNumber: true,
+          objective: true,
+          status: true,
+          publishedAt: true,
+          totalBudget: true,
+          maximumSupport: true,
+          targetProjects: true,
+          executionMonths: true,
+          sourceUrl: true,
+          sourceCheckedAt: true,
+          documents: { select: { type: true, title: true, externalUrl: true, publishedAt: true }, orderBy: { title: "asc" } },
+        },
+      },
+      trackingProtocolVersion: {
+        select: {
+          version: true,
+          label: true,
+          trackingProtocol: { select: { name: true } },
+          indicators: { orderBy: { position: "asc" }, select: { key: true, label: true, valueType: true, unit: true, position: true, allowedValues: true } },
+        },
+      },
     },
   });
-  if (!program || !cohort || !protocolVersion) return null;
+  if (!program || !cohort || !cohort.trackingProtocolVersion) return null;
+
+  const call = cohort.fundingCall;
+  const protocolVersion = cohort.trackingProtocolVersion;
 
   const [waves, enrollments, observations, milestones, opportunities] = await Promise.all([
     db.followUpWave.findMany({ where: { organizationId: organization.id, cohortId: cohort.id }, orderBy: { sequence: "asc" }, select: { id: true, name: true, sequence: true, offsetMonths: true, scheduledFor: true, status: true } }),
-    db.ventureEnrollment.findMany({ where: { organizationId: organization.id, cohortId: cohort.id }, orderBy: { venture: { name: "asc" } }, select: { id: true, status: true, enrolledAt: true, venture: { select: { slug: true, name: true, kind: true } } } }),
+    db.ventureEnrollment.findMany({ where: { organizationId: organization.id, cohortId: cohort.id }, orderBy: { venture: { name: "asc" } }, select: { id: true, status: true, enrolledAt: true, withdrawnAt: true, venture: { select: { slug: true, name: true, kind: true } } } }),
     db.ventureObservation.findMany({
       where: { organizationId: organization.id, cohortId: cohort.id },
       select: {
@@ -232,6 +248,7 @@ export async function getDemoDataset(): Promise<DemoDataset | null> {
       kind: enrollment.venture.kind,
       status: enrollment.status,
       enrolledAt: enrollment.enrolledAt.toISOString(),
+      withdrawnAt: enrollment.withdrawnAt?.toISOString() ?? null,
       observations: [],
       milestones: [],
     });
@@ -250,16 +267,17 @@ export async function getDemoDataset(): Promise<DemoDataset | null> {
 
   const ventures = Array.from(ventureMap.values()).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   const serializedWaves: DemoWave[] = waves.map((wave) => {
-    const expectedVentures = ventures.filter((venture) => venture.status === "ACTIVE");
+    const scheduledFor = serializeDate(wave.scheduledFor) ?? waveDateFromOffset(wave.offsetMonths, cohort.startsAt);
+    const expectedVentures = ventures.filter((venture) => isEnrollmentEligibleForWave({ enrolledAt: venture.enrolledAt, withdrawnAt: venture.withdrawnAt }, scheduledFor));
     const waveObservations = expectedVentures.map((venture) => venture.observations.find((observation) => observation.sequence === wave.sequence));
     const submitted = waveObservations.filter((observation) => observation?.status === "SUBMITTED").length;
-    const pending = waveObservations.filter((observation) => observation?.status === "PENDING" || observation?.status === "IN_PROGRESS").length;
+    const pending = waveObservations.filter((observation) => !observation || observation.status === "PENDING" || observation.status === "IN_PROGRESS").length;
     const missed = waveObservations.filter((observation) => observation?.status === "MISSED").length;
     const expected = expectedVentures.length;
-    return { sequence: wave.sequence, name: wave.name, offsetMonths: wave.offsetMonths, scheduledFor: serializeDate(wave.scheduledFor), status: wave.status, expected, submitted, pending, missed, coverage: calculateDemoCoverage(expected, submitted) };
+    return { sequence: wave.sequence, name: wave.name, offsetMonths: wave.offsetMonths, scheduledFor, status: wave.status, expected, submitted, pending, missed, notExpected: ventures.length - expected, coverage: calculateDemoCoverage(expected, submitted) };
   });
 
-  const latestWave = serializedWaves.at(-1) ?? { sequence: 0, name: "Sem onda", offsetMonths: 0, scheduledFor: null, status: "PLANNED", expected: 0, submitted: 0, pending: 0, missed: 0, coverage: 0 };
+  const latestWave = serializedWaves.at(-1) ?? { sequence: 0, name: "Sem onda", offsetMonths: 0, scheduledFor: null, status: "PLANNED", expected: 0, submitted: 0, pending: 0, missed: 0, notExpected: 0, coverage: 0 };
   const activeVentures = ventures.filter((venture) => venture.status === "ACTIVE");
   const latestTeamSize = sumDemoIntegers(activeVentures.map((venture) => getValue(venture, latestWave.sequence, "team_size")?.integerValue));
   const venturesWithCustomers = activeVentures.filter((venture) => {
@@ -277,7 +295,7 @@ export async function getDemoDataset(): Promise<DemoDataset | null> {
       description: program.description,
       call: call ? { ...call, publishedAt: serializeDate(call.publishedAt), totalBudget: serializeMoney(call.totalBudget), maximumSupport: serializeMoney(call.maximumSupport), sourceCheckedAt: call.sourceCheckedAt.toISOString(), documents: call.documents.map((document) => ({ ...document, publishedAt: serializeDate(document.publishedAt) })) } : null,
     },
-    cohort: { name: cohort.name, code: cohort.code, referenceYear: cohort.referenceYear, startsAt: serializeDate(cohort.startsAt), endsAt: serializeDate(cohort.endsAt) },
+    cohort: { name: cohort.name, code: cohort.code, referenceYear: cohort.referenceYear, startsAt: serializeDate(cohort.startsAt), endsAt: serializeDate(cohort.endsAt), fundingCallNumber: call?.callNumber ?? null },
     protocol: { name: protocolVersion.trackingProtocol.name, version: protocolVersion.version, label: protocolVersion.label, indicators: protocolVersion.indicators.map((indicator) => ({ key: indicator.key, label: indicator.label, valueType: indicator.valueType, unit: indicator.unit, position: indicator.position, allowedValues: Array.isArray(indicator.allowedValues) ? indicator.allowedValues.filter((value): value is string => typeof value === "string") : [] })) },
     waves: serializedWaves,
     ventures,
