@@ -34,7 +34,7 @@ const participantNavigation = [
 ];
 
 export function DemoShell({ children }: { children: ReactNode }) {
-  return <Suspense fallback={<div className="min-h-screen bg-[#fdfcf9]" /> }><DemoShellContent>{children}</DemoShellContent></Suspense>;
+  return <Suspense fallback={<div className="demo-shell min-h-screen" /> }><DemoShellContent>{children}</DemoShellContent></Suspense>;
 }
 
 function DemoShellContent({ children }: { children: ReactNode }) {
@@ -60,7 +60,7 @@ function DemoShellContent({ children }: { children: ReactNode }) {
   const isParticipant = perspective === "participante";
 
   return (
-    <div className="demo-shell min-h-screen bg-[#fdfcf9] text-[#2e2b26]">
+    <div className="demo-shell min-h-screen">
       <a className="skip-link" href="#demo-main-content">Ir para o conteúdo</a>
       <div className="demo-layout">
         <aside className="demo-sidebar hidden lg:flex" aria-label="Navegação da demonstração">
@@ -99,7 +99,9 @@ function DemoShellContent({ children }: { children: ReactNode }) {
             <div className="flex items-center gap-3">
               <span className="demo-status-chip"><span aria-hidden="true" /> Dados fictícios</span>
               <div className="hidden sm:block"><PerspectiveSwitch value={perspective} onChange={changePerspective} /></div>
-              <div className="demo-avatar" aria-label={isParticipant ? "Marina Duarte" : "Visão institucional"}>{isParticipant ? "MD" : "VI"}</div>
+              <div className="demo-avatar" aria-label={isParticipant ? "Marina Duarte" : "Visão institucional"}>
+                {isParticipant ? <Image src="/demo/marina-duarte-profile.webp" alt="" width={32} height={32} className="demo-profile-image" /> : "VI"}
+              </div>
             </div>
           </header>
           <div className="demo-mobile-switch sm:hidden"><PerspectiveSwitch value={perspective} onChange={changePerspective} /></div>
@@ -114,7 +116,7 @@ function DemoShellContent({ children }: { children: ReactNode }) {
 }
 
 function DemoBrand() {
-  return <div className="demo-brand-block"><div className="demo-brand-logo-wrap"><Image src="/brand/atlas-innove-lockup.svg" alt="Atlas Innove" width={250} height={83} priority className="demo-brand-logo" /></div><span className="demo-brand-caption">evidência ao longo do tempo</span></div>;
+  return <div className="demo-brand-block"><div className="demo-brand-logo-wrap"><Image src="/brand/atlas-innove-lockup.svg" alt="Atlas Innove" width={250} height={83} priority className="demo-brand-logo" /></div></div>;
 }
 
 function PerspectiveSwitch({ value, onChange, compact = false }: { value: Perspective; onChange: (value: Perspective) => void; compact?: boolean }) {
