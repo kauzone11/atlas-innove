@@ -1,6 +1,5 @@
 import { randomBytes } from "node:crypto";
 
-import { Prisma } from "@prisma/client";
 import { hash } from "bcryptjs";
 
 import { db } from "../src/lib/db";
@@ -68,8 +67,8 @@ async function main() {
       objective: "Estimular o empreendedorismo inovador e apoiar a transformação de ideias em empreendimentos de base tecnológica em Sergipe.",
       status: "CLOSED",
       publishedAt: date("2021-12-03"),
-      totalBudget: new Prisma.Decimal("1200000.00"),
-      maximumSupport: new Prisma.Decimal("53333.33"),
+      totalBudget: "1200000.00",
+      maximumSupport: "53333.33",
       targetProjects: 23,
       executionMonths: 12,
       sourceUrl: "https://fapitec.se.gov.br/editais-em-andamento/edital-no-11-2021-programa-nacional-de-apoio-a-geracao-de-empreendimentos-inovadores-programa-centelha-2-se/",
@@ -85,8 +84,8 @@ async function main() {
       objective: "Estimular o empreendedorismo inovador e apoiar a transformação de ideias em empreendimentos de base tecnológica em Sergipe.",
       status: "CLOSED",
       publishedAt: date("2021-12-03"),
-      totalBudget: new Prisma.Decimal("1200000.00"),
-      maximumSupport: new Prisma.Decimal("53333.33"),
+      totalBudget: "1200000.00",
+      maximumSupport: "53333.33",
       targetProjects: 23,
       executionMonths: 12,
       sourceUrl: "https://fapitec.se.gov.br/editais-em-andamento/edital-no-11-2021-programa-nacional-de-apoio-a-geracao-de-empreendimentos-inovadores-programa-centelha-2-se/",
@@ -200,11 +199,11 @@ async function main() {
 
       if (observationFixture.values) {
         const values = observationFixture.values;
-        const valueInputs: Record<string, { integerValue?: number; decimalValue?: Prisma.Decimal; textValue?: string }> = {
+        const valueInputs: Record<string, { integerValue?: number; decimalValue?: string; textValue?: string }> = {
           team_size: { integerValue: values.team_size },
           paying_customers: { integerValue: values.paying_customers },
-          monthly_revenue: { decimalValue: new Prisma.Decimal(values.monthly_revenue) },
-          additional_capital: { decimalValue: new Prisma.Decimal(values.additional_capital) },
+          monthly_revenue: { decimalValue: values.monthly_revenue },
+          additional_capital: { decimalValue: values.additional_capital },
           product_stage: { textValue: values.product_stage },
         };
         for (const [key, input] of Object.entries(valueInputs)) {

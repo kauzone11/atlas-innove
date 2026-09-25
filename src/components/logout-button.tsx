@@ -10,5 +10,5 @@ export function LogoutButton({ className = "" }: { className?: string }) {
     router.push("/login");
     router.refresh();
   }
-  return <button type="button" role="menuitem" onClick={logout} className={`button-tertiary min-h-11 w-full justify-start px-2 text-sm text-slate hover:text-ink ${className}`}><LogOut size={16} aria-hidden="true" /> Sair</button>;
+  return <button type="button" onClick={logout} className={`button-tertiary min-h-10 w-full justify-start px-2 text-sm text-slate hover:text-ink ${className}`}><LogOut size={16} aria-hidden="true" /> Sair</button>;
 }
