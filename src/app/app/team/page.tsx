@@ -8,5 +8,5 @@ import { PageHeader } from "@/components/ui";
 export default async function TeamPage() {
   const context = await getActiveOrganizationContext();
   if (!context) redirect("/app/organizations");
-  return <div><PageHeader title="Equipe" description="Pessoas, papéis e acesso ao espaço institucional." /><TeamManager organizationId={context.organization.id} canManage={hasAtLeastRole(context.membership.role, "ADMIN")} /></div>;
+  return <div><PageHeader title="Equipe" /><TeamManager organizationId={context.organization.id} canManage={hasAtLeastRole(context.membership.role, "ADMIN")} /></div>;
 }

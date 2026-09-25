@@ -16,14 +16,13 @@ type SurfaceProps = {
 export function Dialog({ open, onClose, title, description, children, mode = "dialog" }: SurfaceProps) {
   const [mounted, setMounted] = useState(false);
   const surfaceRef = useRef<HTMLDivElement>(null);
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!open || !mounted) return;
-    const restoreFocusTarget = document.activeElement as HTMLElement | null;
+    restoreFocusRef.current = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const focusableSelector = "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
@@ -33,7 +32,7 @@ export function Dialog({ open, onClose, title, description, children, mode = "di
     window.requestAnimationFrame(() => initialFocus?.focus());
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") { event.preventDefault(); onCloseRef.current(); return; }
+      if (event.key === "Escape") { event.preventDefault(); onClose(); return; }
       if (event.key !== "Tab" || !surfaceRef.current) return;
       const elements = Array.from(surfaceRef.current.querySelectorAll<HTMLElement>(focusableSelector));
       if (!elements.length) return;
@@ -45,9 +44,9 @@ export function Dialog({ open, onClose, title, description, children, mode = "di
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleKeyDown);
-      if (restoreFocusTarget?.isConnected) restoreFocusTarget.focus();
+      restoreFocusRef.current?.focus();
     };
-  }, [mounted, open]);
+  }, [mounted, onClose, open]);
 
   if (!open || !mounted) return null;
   const headingId = `${mode}-title`;
