@@ -5,15 +5,15 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#1b1a18",
-        slate: "#787369",
-        faint: "#b8b0a1",
-        canvas: "#fdfcf9",
+        ink: "#1d2a36",
+        slate: "#667788",
+        faint: "#9aaaba",
+        canvas: "#f7faff",
         surface: "#ffffff",
-        "surface-subtle": "#faf9f3",
-        "surface-selected": "#f3f0e2",
-        line: "#e8e3d6",
-        "line-strong": "#d5cfc2",
+        "surface-subtle": "#f1f5f9",
+        "surface-selected": "#e8f0f7",
+        line: "#d9e3ec",
+        "line-strong": "#c3d1de",
         accent: "#ff520e",
         "accent-hover": "#e33d07",
         "accent-soft": "#ffecdf",
