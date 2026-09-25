@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Activity, BarChart3, ChartNoAxesCombined, ChevronRight, ClipboardCheck, Compass, Files, FolderKanban, LayoutDashboard, Menu, Network, PanelLeft, UserRound, Users, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, BookMarked, CircleUserRound, ClipboardCheck, ChevronRight, FolderKanban, Handshake, Landmark, Menu, Route, Telescope, Trophy, UsersRound, Waypoints, Workflow, X } from "lucide-react";
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { useDemoDialog } from "@/components/demo/demo-dialog";
@@ -11,26 +11,26 @@ import { useDemoDialog } from "@/components/demo/demo-dialog";
 type Perspective = "instituicao" | "participante";
 type PreviewKey = "team" | "projects" | "evaluation" | "ranking" | "profile" | "network";
 
-const previewContent: Record<PreviewKey, { title: string; description: string; icon: typeof Users; bullets: string[] }> = {
-  team: { title: "Workspace da equipe", description: "Um espaço compartilhado para organizar membros, papéis, projetos, documentos, participação em programas e histórico de atividade.", icon: Users, bullets: ["Papéis e responsabilidades", "Documentos e histórico de atividade", "Participações em programas"] },
+const previewContent: Record<PreviewKey, { title: string; description: string; icon: typeof Landmark; bullets: string[] }> = {
+  team: { title: "Workspace da equipe", description: "Um espaço compartilhado para organizar membros, papéis, projetos, documentos, participação em programas e histórico de atividade.", icon: UsersRound, bullets: ["Papéis e responsabilidades", "Documentos e histórico de atividade", "Participações em programas"] },
   projects: { title: "Projetos", description: "Projetos mantêm a identidade da iniciativa desenvolvida pela equipe e podem participar de diferentes oportunidades ao longo do tempo, sem serem confundidos com o empreendimento resultante.", icon: FolderKanban, bullets: ["Identidade própria da iniciativa", "Vínculos com oportunidades", "Histórico preservado"] },
   evaluation: { title: "Avaliação", description: "Estrutura critérios, fases, pareceres e notas do processo seletivo com histórico e rastreabilidade.", icon: ClipboardCheck, bullets: ["Critérios por edital", "Fases e pareceres", "Histórico auditável"] },
-  ranking: { title: "Classificação do edital", description: "Apresenta a classificação das propostas a partir dos critérios e avaliações daquele edital. Não representa um ranking geral de startups ou pessoas.", icon: BarChart3, bullets: ["Classificação por chamada", "Critérios contextualizados", "Rastreabilidade da decisão"] },
-  profile: { title: "Perfil de inovação", description: "Uma identidade profissional opt-in para reunir projetos, experiências, competências e participações verificadas no ecossistema de inovação.", icon: UserRound, bullets: ["Experiências verificadas", "Projetos e competências", "Visibilidade sob controle da pessoa"] },
-  network: { title: "Rede e conexões", description: "Um espaço para descobrir pessoas, equipes e competências relacionadas ao ecossistema de inovação, sem prometer matching automático.", icon: Network, bullets: ["Busca por competências", "Contexto de participação", "Conexões com consentimento"] },
+  ranking: { title: "Classificação do edital", description: "Apresenta a classificação das propostas a partir dos critérios e avaliações daquele edital. Não representa um ranking geral de startups ou pessoas.", icon: Trophy, bullets: ["Classificação por chamada", "Critérios contextualizados", "Rastreabilidade da decisão"] },
+  profile: { title: "Perfil de inovação", description: "Uma identidade profissional opt-in para reunir projetos, experiências, competências e participações verificadas no ecossistema de inovação.", icon: CircleUserRound, bullets: ["Experiências verificadas", "Projetos e competências", "Visibilidade sob controle da pessoa"] },
+  network: { title: "Rede e conexões", description: "Um espaço para descobrir pessoas, equipes e competências relacionadas ao ecossistema de inovação, sem prometer matching automático.", icon: Waypoints, bullets: ["Busca por competências", "Contexto de participação", "Conexões com consentimento"] },
 };
 
 const institutionalNavigation = [
-  { href: "/demo", label: "Visão geral", icon: LayoutDashboard, exact: true },
-  { href: "/demo/programas", label: "Programas", icon: Files },
-  { href: "/demo/acompanhamentos", label: "Acompanhamentos", icon: ChartNoAxesCombined },
-  { href: "/demo/oportunidades", label: "Oportunidades", icon: Compass },
+  { href: "/demo", label: "Visão geral", icon: Landmark, exact: true },
+  { href: "/demo/programas", label: "Programas", icon: BookMarked },
+  { href: "/demo/acompanhamentos", label: "Acompanhamentos", icon: Workflow },
+  { href: "/demo/oportunidades", label: "Oportunidades", icon: Telescope },
 ];
 
 const participantNavigation = [
-  { href: "/demo", label: "Minha trajetória", icon: Activity, exact: true },
-  { href: "/demo/programas", label: "Meus programas", icon: Files },
-  { href: "/demo/oportunidades", label: "Oportunidades", icon: Compass },
+  { href: "/demo", label: "Minha trajetória", icon: Route, exact: true },
+  { href: "/demo/programas", label: "Meus programas", icon: BookMarked },
+  { href: "/demo/oportunidades", label: "Oportunidades", icon: Telescope },
 ];
 
 export function DemoShell({ children }: { children: ReactNode }) {
@@ -45,10 +45,18 @@ function DemoShellContent({ children }: { children: ReactNode }) {
   const [perspective, setPerspective] = useState<Perspective>(initialPerspective);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [preview, setPreview] = useState<PreviewKey | null>(null);
+  const [welcomeOpen, setWelcomeOpen] = useState(() => pathname === "/demo");
+  const welcomeHasBeenShownRef = useRef(pathname === "/demo");
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => setPerspective(initialPerspective), [initialPerspective]);
   useEffect(() => setMobileOpen(false), [pathname]);
+  useEffect(() => {
+    if (pathname === "/demo" && !welcomeHasBeenShownRef.current) {
+      welcomeHasBeenShownRef.current = true;
+      setWelcomeOpen(true);
+    }
+  }, [pathname]);
   function changePerspective(nextPerspective: Perspective) {
     setPerspective(nextPerspective);
     const params = new URLSearchParams(searchParams.toString());
@@ -74,13 +82,13 @@ function DemoShellContent({ children }: { children: ReactNode }) {
             {navigation.map((item) => <DemoNavItem key={item.href + item.label} item={item} pathname={pathname} perspective={perspective} />)}
             <div className="demo-nav-divider" />
             {perspective === "instituicao" ? <>
-              <PreviewNavButton icon={Users} label="Equipes" onClick={() => setPreview("team")} />
+              <PreviewNavButton icon={UsersRound} label="Equipes" onClick={() => setPreview("team")} />
               <PreviewNavButton icon={ClipboardCheck} label="Avaliação" onClick={() => setPreview("evaluation")} />
-              <PreviewNavButton icon={BarChart3} label="Ranking" onClick={() => setPreview("ranking")} />
+              <PreviewNavButton icon={Trophy} label="Ranking" onClick={() => setPreview("ranking")} />
             </> : <>
               <PreviewNavButton icon={FolderKanban} label="Meus projetos" onClick={() => setPreview("projects")} />
-              <PreviewNavButton icon={Users} label="Minhas equipes" onClick={() => setPreview("team")} />
-              <PreviewNavButton icon={UserRound} label="Perfil" onClick={() => setPreview("profile")} />
+              <PreviewNavButton icon={Handshake} label="Minhas equipes" onClick={() => setPreview("team")} />
+              <PreviewNavButton icon={CircleUserRound} label="Perfil" onClick={() => setPreview("profile")} />
             </>}
           </nav>
           <div className="demo-sidebar-footer">
@@ -111,6 +119,7 @@ function DemoShellContent({ children }: { children: ReactNode }) {
 
       {mobileOpen ? <MobileDemoNavigation perspective={perspective} navigation={navigation} pathname={pathname} onChangePerspective={changePerspective} onClose={() => { setMobileOpen(false); menuButtonRef.current?.focus(); }} onPreview={setPreview} /> : null}
       {preview ? <FeaturePreview preview={preview} onClose={() => setPreview(null)} /> : null}
+      {welcomeOpen ? <WelcomeOverlay onClose={() => setWelcomeOpen(false)} onSelectPerspective={(nextPerspective) => { changePerspective(nextPerspective); setWelcomeOpen(false); }} /> : null}
     </div>
   );
 }
@@ -130,14 +139,20 @@ function DemoNavItem({ item, pathname, perspective }: { item: (typeof institutio
   return <Link href={`${item.href}${params}`} aria-current={active ? "page" : undefined} className={`demo-nav-item ${active ? "is-active" : ""}`}><Icon size={16} strokeWidth={active ? 2 : 1.7} aria-hidden="true" /><span>{item.label}</span>{active ? <ChevronRight size={13} className="ml-auto" aria-hidden="true" /> : null}</Link>;
 }
 
-function PreviewNavButton({ icon: Icon, label, onClick }: { icon: typeof Users; label: string; onClick: () => void }) {
-  return <button type="button" className="demo-nav-item demo-nav-button" onClick={onClick}><Icon size={16} strokeWidth={1.7} aria-hidden="true" /><span>{label}</span><PanelLeft size={12} className="ml-auto opacity-50" aria-hidden="true" /></button>;
+function PreviewNavButton({ icon: Icon, label, onClick }: { icon: typeof Landmark; label: string; onClick: () => void }) {
+  return <button type="button" className="demo-nav-item demo-nav-button" onClick={onClick}><Icon size={16} strokeWidth={1.7} aria-hidden="true" /><span>{label}</span></button>;
 }
 
 function MobileDemoNavigation({ perspective, navigation, pathname, onChangePerspective, onClose, onPreview }: { perspective: Perspective; navigation: typeof institutionalNavigation; pathname: string; onChangePerspective: (value: Perspective) => void; onClose: () => void; onPreview: (key: PreviewKey) => void }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   useDemoDialog({ open: true, onClose, surfaceRef: dialogRef });
-  return <div className="demo-mobile-overlay"><button type="button" className="demo-mobile-scrim" onClick={onClose} aria-label="Fechar menu" /><div ref={dialogRef} className="demo-mobile-drawer" role="dialog" aria-modal="true" aria-label="Menu da demonstração"><div className="flex items-center justify-between border-b border-[#e9e4d9] px-5 py-4"><DemoBrand /><button type="button" className="demo-icon-button" onClick={onClose} aria-label="Fechar menu"><X size={18} aria-hidden="true" /></button></div><div className="p-4"><p className="demo-sidebar-kicker">Perspectiva</p><PerspectiveSwitch value={perspective} onChange={onChangePerspective} /><nav className="demo-nav mt-5" aria-label="Menu móvel">{navigation.map((item) => <DemoNavItem key={item.href + item.label} item={item} pathname={pathname} perspective={perspective} />)}<div className="demo-nav-divider" />{perspective === "instituicao" ? <><PreviewNavButton icon={Users} label="Equipes" onClick={() => { onPreview("team"); onClose(); }} /><PreviewNavButton icon={ClipboardCheck} label="Avaliação" onClick={() => { onPreview("evaluation"); onClose(); }} /><PreviewNavButton icon={BarChart3} label="Ranking" onClick={() => { onPreview("ranking"); onClose(); }} /></> : <><PreviewNavButton icon={FolderKanban} label="Meus projetos" onClick={() => { onPreview("projects"); onClose(); }} /><PreviewNavButton icon={Users} label="Minhas equipes" onClick={() => { onPreview("team"); onClose(); }} /><PreviewNavButton icon={UserRound} label="Perfil" onClick={() => { onPreview("profile"); onClose(); }} /></>}</nav></div><div className="mt-auto border-t border-[#e9e4d9] px-5 py-4 text-xs text-[#9e9688]">Ambiente demonstrativo</div></div></div>;
+  return <div className="demo-mobile-overlay"><button type="button" className="demo-mobile-scrim" onClick={onClose} aria-label="Fechar menu" /><div ref={dialogRef} className="demo-mobile-drawer" role="dialog" aria-modal="true" aria-label="Menu da demonstração"><div className="flex items-center justify-between border-b border-[#e9e4d9] px-5 py-4"><DemoBrand /><button type="button" className="demo-icon-button" onClick={onClose} aria-label="Fechar menu"><X size={18} aria-hidden="true" /></button></div><div className="p-4"><p className="demo-sidebar-kicker">Perspectiva</p><PerspectiveSwitch value={perspective} onChange={onChangePerspective} /><nav className="demo-nav mt-5" aria-label="Menu móvel">{navigation.map((item) => <DemoNavItem key={item.href + item.label} item={item} pathname={pathname} perspective={perspective} />)}<div className="demo-nav-divider" />{perspective === "instituicao" ? <><PreviewNavButton icon={UsersRound} label="Equipes" onClick={() => { onPreview("team"); onClose(); }} /><PreviewNavButton icon={ClipboardCheck} label="Avaliação" onClick={() => { onPreview("evaluation"); onClose(); }} /><PreviewNavButton icon={Trophy} label="Ranking" onClick={() => { onPreview("ranking"); onClose(); }} /></> : <><PreviewNavButton icon={FolderKanban} label="Meus projetos" onClick={() => { onPreview("projects"); onClose(); }} /><PreviewNavButton icon={Handshake} label="Minhas equipes" onClick={() => { onPreview("team"); onClose(); }} /><PreviewNavButton icon={CircleUserRound} label="Perfil" onClick={() => { onPreview("profile"); onClose(); }} /></>}</nav></div><div className="mt-auto border-t border-[#e9e4d9] px-5 py-4 text-xs text-[#9e9688]">Ambiente demonstrativo</div></div></div>;
+}
+
+function WelcomeOverlay({ onClose, onSelectPerspective }: { onClose: () => void; onSelectPerspective: (perspective: Perspective) => void }) {
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  useDemoDialog({ open: true, onClose, surfaceRef });
+  return <div className="demo-welcome-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><div ref={surfaceRef} className="demo-welcome-surface" role="dialog" aria-modal="true" aria-labelledby="demo-welcome-title" aria-describedby="demo-welcome-description"><header className="demo-welcome-header"><Image src="/brand/atlas-innove-lockup.svg" alt="Atlas Innove" width={180} height={60} className="demo-welcome-logo" /><span className="demo-welcome-kicker">Demonstração pública</span><button type="button" className="demo-icon-button demo-welcome-close" onClick={onClose} aria-label="Fechar boas-vindas"><X size={18} aria-hidden="true" /></button></header><div className="demo-welcome-body"><div className="demo-welcome-intro"><p className="demo-eyebrow">Uma leitura em duas perspectivas</p><h2 id="demo-welcome-title">Bem-vindo ao Atlas Innove</h2><p className="demo-welcome-lede">Uma plataforma para conectar programas de fomento, iniciativas inovadoras e acompanhamento ao longo do tempo.</p><p id="demo-welcome-description" className="demo-welcome-description">Nesta demonstração, você pode explorar a experiência sob as perspectivas de Instituição e Participante. Metadados públicos de programas podem ser reais; pessoas, empreendimentos e resultados apresentados são fictícios.</p></div><div className="demo-welcome-perspectives" aria-label="Perspectivas disponíveis"><button type="button" className="demo-welcome-perspective" onClick={() => onSelectPerspective("instituicao")}><span className="demo-welcome-perspective-icon"><Landmark size={19} strokeWidth={1.8} aria-hidden="true" /></span><span className="demo-welcome-perspective-copy"><strong>Instituição</strong><small>Acompanhe programas, coortes e evidências ao longo do tempo.</small></span><ArrowUpRight size={15} aria-hidden="true" /></button><button type="button" className="demo-welcome-perspective" onClick={() => onSelectPerspective("participante")}><span className="demo-welcome-perspective-icon is-purple"><Route size={19} strokeWidth={1.8} aria-hidden="true" /></span><span className="demo-welcome-perspective-copy"><strong>Participante</strong><small>Explore a trajetória de uma persona demonstrativa no ecossistema de inovação.</small></span><ArrowUpRight size={15} aria-hidden="true" /></button></div></div><footer className="demo-welcome-footer"><p><span aria-hidden="true" /> Ambiente somente para exploração</p><button type="button" data-autofocus className="demo-button-primary" onClick={onClose}>Explorar demonstração <ArrowRight size={15} aria-hidden="true" /></button></footer></div></div>;
 }
 
 function FeaturePreview({ preview, onClose }: { preview: PreviewKey; onClose: () => void }) {
