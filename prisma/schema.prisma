@@ -278,8 +278,8 @@ model FundingCall {
   maximumSupport      Decimal?              @db.Decimal(14, 2)
   targetProjects      Int?
   executionMonths     Int?
-  sourceUrl           String
-  sourceCheckedAt     DateTime
+  sourceUrl           String?
+  sourceCheckedAt     DateTime?
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
   organization        Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -411,6 +411,7 @@ model VentureObservation {
   ventureEnrollmentId String
   followUpWaveId      String
   status              VentureObservationStatus @default(PENDING)
+  revision            Int                      @default(0)
   startedAt           DateTime?
   submittedAt         DateTime?
   createdAt           DateTime                 @default(now())

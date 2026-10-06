@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { assertSameOrganization } from "@/lib/domain-invariants";
-import { ResourceNotFoundError } from "@/lib/errors";
+import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 import { db } from "@/lib/db";
 import type { CreateFundingProgramInput, UpdateFundingProgramInput } from "@/lib/programs/schemas";
 
@@ -135,22 +135,28 @@ export async function updateFundingProgram(
   programId: string,
   input: UpdateFundingProgramInput,
 ): Promise<FundingProgramDetailsDto> {
-  const current = await db.fundingProgram.findFirst({
-    where: { id: programId, organizationId },
-    select: { organizationId: true },
-  });
-  if (!current) throw new ResourceNotFoundError("FUNDING_PROGRAM_NOT_FOUND");
-  assertSameOrganization(organizationId, current.organizationId);
+  await db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "FundingProgram" WHERE "id" = ${programId} AND "organizationId" = ${organizationId} FOR UPDATE`;
+    const current = await tx.fundingProgram.findFirst({
+      where: { id: programId, organizationId },
+      select: { organizationId: true, status: true },
+    });
+    if (!current) throw new ResourceNotFoundError("FUNDING_PROGRAM_NOT_FOUND");
+    assertSameOrganization(organizationId, current.organizationId);
+    if (current.status === "ARCHIVED" && input.status !== undefined && input.status !== "ARCHIVED") {
+      throw new DomainConflictError("FUNDING_PROGRAM_ARCHIVED");
+    }
 
-  await db.fundingProgram.updateMany({
-    where: { id: programId, organizationId },
-    data: {
-      ...(input.name !== undefined ? { name: input.name } : {}),
-      ...(input.slug !== undefined ? { slug: input.slug } : {}),
-      ...(input.description !== undefined ? { description: input.description } : {}),
-      ...(input.code !== undefined ? { code: input.code } : {}),
-      ...(input.status !== undefined ? { status: input.status } : {}),
-    },
+    await tx.fundingProgram.updateMany({
+      where: { id: programId, organizationId },
+      data: {
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.slug !== undefined ? { slug: input.slug } : {}),
+        ...(input.description !== undefined ? { description: input.description } : {}),
+        ...(input.code !== undefined ? { code: input.code } : {}),
+        ...(input.status !== undefined ? { status: input.status } : {}),
+      },
+    });
   });
   const updated = await getOrganizationProgram(organizationId, programId);
   if (!updated) throw new ResourceNotFoundError("FUNDING_PROGRAM_NOT_FOUND");

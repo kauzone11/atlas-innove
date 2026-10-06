@@ -76,3 +76,19 @@ npm run dev
 ```
 
 As flags `ALLOW_DEV_RESET_TOKEN` e `ALLOW_DEV_INVITE_TOKEN` são exclusivas para desenvolvimento e devem permanecer desativadas em produção.
+
+## Operational core
+
+The authenticated workspace follows funding program → funding call → cohort → enrollment → follow-up wave → observation. Venture identity stays separate from enrollment and observed outcomes. A funding call can start as an unpublished draft; publication links and linked external documents are optional context.
+
+Managers can register programs, calls, cohorts, ventures, enrollments, waves, observations and milestones. Administrators publish tracking protocols. Members can read organization data. Every API validates the signed session and active organization membership before using explicit organization-scoped filters.
+
+Publish a protocol at `/app/protocols`, then apply its version when creating or editing a cohort. Published versions are immutable; the applied version freezes at the first wave. Later protocol publications leave existing cohorts unchanged. Legacy cohorts with waves but no applied protocol remain readable and cannot acquire a retroactive methodology through ordinary editing.
+
+Each wave provisions observations for enrollments eligible at its reference date. Withdrawal preserves previous observations and does not erase an earlier eligible pending response. Draft saves replace the observation's complete value snapshot and require the current revision. Conflicting saves preserve the editor's unsaved values for comparison. Submitted observations are immutable. Closing and archiving waves preserve their history.
+
+INTEGER, CURRENCY and ENUM values are validated against the exact applied version. Zero is observed data; blank values remain missing. Only submitted, valid values contribute to sums, means and category distributions. Counts and missing values accompany aggregates. Coverage is submitted observations divided by historically provisioned observations; a zero denominator is shown as unavailable. These descriptive results do not establish causal attribution.
+
+The main routes are `/app`, `/app/programs`, `/app/programs/[programId]/calls/[callId]`, `/app/programs/[programId]/cohorts/[cohortId]`, `/app/follow-ups`, `/app/observations/[observationId]`, `/app/ventures/[ventureId]` and `/app/opportunities`. Opportunities are read-only organization records; an empty organization does not receive fictitious opportunities. Public `/demo` remains independent of authentication.
+
+Use Node.js 22 and `npm ci`. Apply reviewed migrations with `npm run db:migrate:deploy`; never reset a shared database. Run `db:format`, `db:validate`, `db:generate`, `typecheck`, `test:security`, `test:domain`, `test:demo` and `build`. Domain integration tests require an explicit disposable PostgreSQL `DATABASE_URL`; without it they report a skip rather than database proof.

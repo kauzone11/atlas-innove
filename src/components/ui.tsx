@@ -49,7 +49,7 @@ export function Panel({ children, className = "" }: { children: ReactNode; class
 
 export function PanelHeader({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
   return (
-    <div className="panel-header flex items-start justify-between gap-4">
+    <div className="panel-header flex flex-col items-start justify-between gap-4 sm:flex-row">
       <div className="min-w-0">
         <h2>{title}</h2>
         {description ? <p>{description}</p> : null}

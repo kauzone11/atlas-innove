@@ -87,8 +87,8 @@ export type DemoDataset = {
       maximumSupport: string | null;
       targetProjects: number | null;
       executionMonths: number | null;
-      sourceUrl: string;
-      sourceCheckedAt: string;
+      sourceUrl: string | null;
+      sourceCheckedAt: string | null;
       documents: Array<{ type: string; title: string; externalUrl: string; publishedAt: string | null }>;
     } | null;
   };
@@ -293,7 +293,7 @@ export async function getDemoDataset(): Promise<DemoDataset | null> {
       name: program.name,
       status: program.status,
       description: program.description,
-      call: call ? { ...call, publishedAt: serializeDate(call.publishedAt), totalBudget: serializeMoney(call.totalBudget), maximumSupport: serializeMoney(call.maximumSupport), sourceCheckedAt: call.sourceCheckedAt.toISOString(), documents: call.documents.map((document) => ({ ...document, publishedAt: serializeDate(document.publishedAt) })) } : null,
+      call: call ? { ...call, publishedAt: serializeDate(call.publishedAt), totalBudget: serializeMoney(call.totalBudget), maximumSupport: serializeMoney(call.maximumSupport), sourceCheckedAt: serializeDate(call.sourceCheckedAt), documents: call.documents.map((document) => ({ ...document, publishedAt: serializeDate(document.publishedAt) })) } : null,
     },
     cohort: { name: cohort.name, code: cohort.code, referenceYear: cohort.referenceYear, startsAt: serializeDate(cohort.startsAt), endsAt: serializeDate(cohort.endsAt), fundingCallNumber: call?.callNumber ?? null },
     protocol: { name: protocolVersion.trackingProtocol.name, version: protocolVersion.version, label: protocolVersion.label, indicators: protocolVersion.indicators.map((indicator) => ({ key: indicator.key, label: indicator.label, valueType: indicator.valueType, unit: indicator.unit, position: indicator.position, allowedValues: Array.isArray(indicator.allowedValues) ? indicator.allowedValues.filter((value): value is string => typeof value === "string") : [] })) },

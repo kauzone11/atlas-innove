@@ -6,6 +6,8 @@ const optionalText = (max: number) => z.string().trim().max(max).optional().null
 const optionalDate = z.coerce.date().optional().nullable();
 
 const cohortFields = z.object({
+  fundingCallId: z.string().trim().min(1).max(200).optional().nullable(),
+  trackingProtocolVersionId: z.string().trim().min(1).max(200).optional().nullable(),
   name: z.string().trim().min(2).max(160),
   code: optionalText(64),
   referenceYear: z.coerce.number().int().min(1900).max(2200).optional().nullable(),

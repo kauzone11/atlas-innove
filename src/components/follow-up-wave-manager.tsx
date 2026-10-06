@@ -2,12 +2,13 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Plus } from "lucide-react";
 
 import { Dialog } from "@/components/dialog";
 import type { FollowUpWaveDto } from "@/lib/follow-up/service";
 
-export function FollowUpWaveManager({ organizationId, cohortId, waves, canManage }: { organizationId: string; cohortId: string; waves: FollowUpWaveDto[]; canManage: boolean }) {
+export function FollowUpWaveManager({ organizationId, cohortId, waves, canManage, canCreateWave = true }: { organizationId: string; cohortId: string; waves: FollowUpWaveDto[]; canManage: boolean; canCreateWave?: boolean }) {
   const router = useRouter();
   const defaultKind = waves.some((wave) => wave.kind === "BASELINE") ? "FOLLOW_UP" : "BASELINE";
   const defaultSequence = waves.length ? Math.max(...waves.map((wave) => wave.sequence)) + 1 : 0;
@@ -69,6 +70,8 @@ export function FollowUpWaveManager({ organizationId, cohortId, waves, canManage
   }
 
   async function changeStatus(waveId: string, status: string) {
+    if (status === "CLOSED" && !window.confirm("Encerrar esta onda? Observações enviadas e rascunhos serão preservados. O preenchimento dos rascunhos ficará indisponível após o encerramento.")) return;
+    if (status === "ARCHIVED" && !window.confirm("Arquivar esta onda? O histórico será preservado e a onda não poderá ser reaberta.")) return;
     setPendingStatus(`${waveId}:${status}`);
     setError(null);
     try {
@@ -93,7 +96,8 @@ export function FollowUpWaveManager({ organizationId, cohortId, waves, canManage
   return (
     <section className="panel">
       <div className="panel-header"><h2>Ondas de acompanhamento</h2><p>A baseline é a sequência 0; as ondas seguintes podem seguir qualquer agenda definida pela instituição.</p></div>
-      {canManage ? <div className="flex justify-end border-b border-line px-6 py-4"><button type="button" className="button-secondary" onClick={() => setOpen(true)}><Plus size={16} aria-hidden="true" /> Nova onda</button><Dialog open={open} onClose={() => setOpen(false)} title="Nova onda de acompanhamento" description="Defina o primeiro ponto ou uma nova etapa de observação."><form onSubmit={createWave} className="space-y-5"><div className="grid gap-4 sm:grid-cols-2"><Field id="wave-name" label="Nome" value={name} onChange={setName} required /><label htmlFor="wave-kind" className="block space-y-2 text-sm font-medium text-ink"><span>Tipo</span><select id="wave-kind" value={kind} onChange={(event) => { setKind(event.target.value); if (event.target.value === "BASELINE") setSequence("0"); else if (sequence === "0") setSequence((defaultSequence || 1).toString()); }} className="field-control"><option value="BASELINE">Baseline</option><option value="FOLLOW_UP">Follow-up</option></select></label><Field id="wave-sequence" label="Sequência" value={sequence} onChange={setSequence} type="number" min="0" required /><Field id="wave-offset" label="Distância em meses" value={offsetMonths} onChange={setOffsetMonths} type="number" min="0" /><Field id="wave-scheduled" label="Data de referência" value={scheduledFor} onChange={setScheduledFor} type="datetime-local" /><Field id="wave-opens" label="Abertura" value={opensAt} onChange={setOpensAt} type="datetime-local" /><Field id="wave-closes" label="Encerramento" value={closesAt} onChange={setClosesAt} type="datetime-local" /></div>{error ? <p className="text-sm text-danger" role="alert">{error}</p> : null}<button disabled={pending} className="button-primary w-full">{pending ? "Salvando…" : "Criar onda"}</button></form></Dialog></div> : null}
+      {canManage && !canCreateWave ? <p className="border-b border-line px-6 py-5 text-sm leading-6 text-slate">Antes da primeira onda, um gestor precisa aplicar uma versão de protocolo na edição da coorte. <Link href="/app/protocols" className="font-medium text-accent hover:underline">Consultar protocolos</Link>.{waves.length ? " Esta coorte possui ondas anteriores sem protocolo. A coleta permanece indisponível para preservar esse histórico." : ""}</p> : null}
+      {canManage && canCreateWave ? <div className="flex justify-end border-b border-line px-6 py-4"><button type="button" className="button-secondary" onClick={() => setOpen(true)}><Plus size={16} aria-hidden="true" /> Nova onda</button><Dialog open={open} onClose={() => { if (!pending) setOpen(false); }} title="Nova onda de acompanhamento" description="Defina o primeiro ponto ou uma nova etapa de observação. As participações vigentes na data de referência receberão uma observação."><form onSubmit={createWave} className="space-y-5"><div className="grid gap-4 sm:grid-cols-2"><Field id="wave-name" label="Nome" value={name} onChange={setName} required /><label htmlFor="wave-kind" className="block space-y-2 text-sm font-medium text-ink"><span>Tipo</span><select id="wave-kind" value={kind} onChange={(event) => { setKind(event.target.value); if (event.target.value === "BASELINE") setSequence("0"); else if (sequence === "0") setSequence((defaultSequence || 1).toString()); }} className="field-control"><option value="BASELINE">Baseline</option><option value="FOLLOW_UP">Follow-up</option></select></label><Field id="wave-sequence" label="Sequência" value={sequence} onChange={setSequence} type="number" min="0" required /><Field id="wave-offset" label="Distância em meses" value={offsetMonths} onChange={setOffsetMonths} type="number" min="0" /><Field id="wave-scheduled" label="Data de referência" value={scheduledFor} onChange={setScheduledFor} type="datetime-local" /><Field id="wave-opens" label="Abertura" value={opensAt} onChange={setOpensAt} type="datetime-local" /><Field id="wave-closes" label="Encerramento" value={closesAt} onChange={setClosesAt} type="datetime-local" /></div>{error ? <p className="text-sm text-danger" role="alert">{error}</p> : null}<button disabled={pending} className="button-primary w-full">{pending ? "Salvando…" : "Criar onda"}</button></form></Dialog></div> : null}
       {waves.length ? (
         <ol className="divide-y divide-line">
           {waves.map((wave) => (
@@ -114,10 +118,12 @@ export function FollowUpWaveManager({ organizationId, cohortId, waves, canManage
                 {wave.observationCounts.missed ? <span>{wave.observationCounts.missed} não respondida(s)</span> : null}
               </div>
               {canManage && nextStatus[wave.status]?.length ? <div className="mt-4 flex flex-wrap gap-2">{nextStatus[wave.status].map((status) => <button key={status} type="button" onClick={() => void changeStatus(wave.id, status)} disabled={pendingStatus !== null} className="button-secondary min-h-9 px-3 text-xs">{pendingStatus === `${wave.id}:${status}` ? "Salvando…" : actionLabel(status)}</button>)}</div> : null}
+              {wave.observations.length ? <details className="mt-5 border-t border-line pt-4" open={wave.status === "OPEN"}><summary className="cursor-pointer text-sm font-medium text-ink">Observações por empreendimento</summary><ul className="mt-3 divide-y divide-line">{wave.observations.map((observation) => <li key={observation.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><Link href={`/app/ventures/${observation.venture.id}`} className="text-sm font-medium text-ink hover:text-accent-hover">{observation.venture.name}</Link><p className="mt-1 text-xs text-slate">{observationStatusLabel(observation.status)}</p></div><Link href={`/app/observations/${observation.id}`} className="button-secondary min-h-11 shrink-0 px-3 text-xs" aria-label={`${canManage && wave.status === "OPEN" && ["PENDING", "IN_PROGRESS"].includes(observation.status) ? "Preencher" : "Consultar"} observação de ${observation.venture.name} em ${wave.name}`}>{canManage && wave.status === "OPEN" && ["PENDING", "IN_PROGRESS"].includes(observation.status) ? "Preencher observação" : "Consultar observação"}</Link></li>)}</ul></details> : <p className="mt-4 text-sm text-slate">Nenhuma participação vigente na data de referência desta onda.</p>}
             </li>
           ))}
         </ol>
       ) : <p className="px-6 py-10 text-sm text-slate">Nenhuma onda definida. Crie a baseline para estabelecer o primeiro ponto de observação.</p>}
+      {error && !open ? <p className="border-t border-line px-6 py-4 text-sm text-danger" role="alert">{error}</p> : null}
     </section>
   );
 }
@@ -147,3 +153,5 @@ function statusLabel(status: string): string {
 function actionLabel(status: string): string {
   return ({ OPEN: "Abrir onda", CLOSED: "Encerrar onda", ARCHIVED: "Arquivar onda" } as Record<string, string>)[status] ?? status;
 }
+
+function observationStatusLabel(status: string): string { return ({ PENDING: "Pendente", IN_PROGRESS: "Rascunho em andamento", SUBMITTED: "Enviada", MISSED: "Não respondida" } as Record<string, string>)[status] ?? status; }

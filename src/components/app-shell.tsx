@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BriefcaseBusiness, Building2, ChevronDown, FolderKanban, Menu, Settings, Users, X } from "lucide-react";
+import { BriefcaseBusiness, Building2, ChevronDown, FolderKanban, Menu, Settings, Users, Workflow, Compass, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -12,7 +12,9 @@ type AppShellProps = { children: React.ReactNode; organizationName?: string; use
 const primaryNavigation = [
   { href: "/app", label: "Visão geral", icon: Building2, exact: true },
   { href: "/app/programs", label: "Programas", icon: FolderKanban },
+  { href: "/app/follow-ups", label: "Acompanhamentos", icon: Workflow },
   { href: "/app/ventures", label: "Empreendimentos", icon: BriefcaseBusiness },
+  { href: "/app/opportunities", label: "Oportunidades", icon: Compass },
 ];
 
 const administrationNavigation = [

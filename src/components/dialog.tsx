@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 type SurfaceProps = {
@@ -17,6 +17,9 @@ export function Dialog({ open, onClose, title, description, children, mode = "di
   const [mounted, setMounted] = useState(false);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const closeRef = useRef(onClose);
+  const surfaceId = useId();
+  closeRef.current = onClose;
 
   useEffect(() => setMounted(true), []);
 
@@ -25,14 +28,19 @@ export function Dialog({ open, onClose, title, description, children, mode = "di
     restoreFocusRef.current = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    const backdrop = surfaceRef.current?.parentElement;
+    const background = Array.from(document.body.children)
+      .filter((element): element is HTMLElement => element instanceof HTMLElement && element !== backdrop)
+      .map((element) => ({ element, inert: element.inert }));
+    for (const { element } of background) element.inert = true;
     const focusableSelector = "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
     const initialFocus = surfaceRef.current?.querySelector<HTMLElement>("[data-autofocus]")
       ?? surfaceRef.current?.querySelector<HTMLElement>("input, select, textarea")
       ?? surfaceRef.current?.querySelector<HTMLElement>("button, a[href]");
-    window.requestAnimationFrame(() => initialFocus?.focus());
+    const focusFrame = window.requestAnimationFrame(() => (initialFocus ?? surfaceRef.current)?.focus());
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") { event.preventDefault(); onClose(); return; }
+      if (event.key === "Escape") { event.preventDefault(); closeRef.current(); return; }
       if (event.key !== "Tab" || !surfaceRef.current) return;
       const elements = Array.from(surfaceRef.current.querySelectorAll<HTMLElement>(focusableSelector));
       if (!elements.length) return;
@@ -43,19 +51,21 @@ export function Dialog({ open, onClose, title, description, children, mode = "di
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
+      window.cancelAnimationFrame(focusFrame);
+      for (const { element, inert } of background) element.inert = inert;
       document.removeEventListener("keydown", handleKeyDown);
       restoreFocusRef.current?.focus();
     };
-  }, [mounted, onClose, open]);
+  }, [mounted, open]);
 
   if (!open || !mounted) return null;
-  const headingId = `${mode}-title`;
-  const descriptionId = description ? `${mode}-description` : undefined;
+  const headingId = `${surfaceId}-title`;
+  const descriptionId = description ? `${surfaceId}-description` : undefined;
   const backdropClassName = mode === "sheet" ? "sheet-backdrop" : "dialog-backdrop";
   const surfaceClassName = mode === "sheet" ? "sheet-surface" : "dialog-surface";
   return createPortal(
     <div className={backdropClassName} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <div ref={surfaceRef} className={surfaceClassName} role="dialog" aria-modal="true" aria-labelledby={headingId} aria-describedby={descriptionId}>
+      <div ref={surfaceRef} tabIndex={-1} className={surfaceClassName} role="dialog" aria-modal="true" aria-labelledby={headingId} aria-describedby={descriptionId}>
         <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4 sm:px-6">
           <div className="min-w-0"><h2 id={headingId} className="text-lg font-semibold tracking-[-0.02em] text-ink">{title}</h2>{description ? <p id={descriptionId} className="mt-1 text-sm leading-6 text-slate">{description}</p> : null}</div>
           <button type="button" className="button-secondary min-h-11 shrink-0 px-3" onClick={onClose} aria-label="Fechar janela"><X size={18} aria-hidden="true" /></button>

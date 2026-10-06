@@ -18,5 +18,5 @@ export default async function VenturesPage({ searchParams }: PageProps) {
   const cohort = cohortId ? await getOrganizationCohort(context.organization.id, cohortId) : null;
   if (cohortId && !cohort) notFound();
   const ventures = await listOrganizationVentures(context.organization.id, cohortId);
-  return <div><PageHeader title="Empreendimentos" /><VenturesManager organizationId={context.organization.id} ventures={ventures} canManage={hasAtLeastRole(context.membership.role, "MANAGER")} cohortFilter={cohort ? { id: cohort.id, name: cohort.name, programName: cohort.fundingProgram.name } : undefined} /></div>;
+  return <div><PageHeader title="Empreendimentos" description="Identidades, participações e trajetórias ao longo dos programas da organização." /><VenturesManager organizationId={context.organization.id} ventures={ventures} canManage={hasAtLeastRole(context.membership.role, "MANAGER")} cohortFilter={cohort ? { id: cohort.id, name: cohort.name, programName: cohort.fundingProgram.name } : undefined} /></div>;
 }

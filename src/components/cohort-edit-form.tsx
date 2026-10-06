@@ -2,8 +2,9 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CohortConfigurationFields, type CohortFundingCallChoice, type CohortProtocolChoice } from "@/components/cohort-create-form";
 
-type EditableCohort = {
+export type EditableCohort = {
   id: string;
   name: string;
   code: string | null;
@@ -11,9 +12,13 @@ type EditableCohort = {
   startsAt: string | null;
   endsAt: string | null;
   status: string;
+  fundingCallId?: string | null;
+  trackingProtocolVersionId?: string | null;
+  waveCount?: number;
+  ventureCount?: number;
 };
 
-export function CohortEditForm({ organizationId, cohort, canManage, onSuccess }: { organizationId: string; cohort: EditableCohort; canManage: boolean; onSuccess?: () => void }) {
+export function CohortEditForm({ organizationId, cohort, canManage, fundingCalls = [], protocols = [], onSuccess }: { organizationId: string; cohort: EditableCohort; canManage: boolean; fundingCalls?: CohortFundingCallChoice[]; protocols?: CohortProtocolChoice[]; onSuccess?: () => void }) {
   const router = useRouter();
   const [name, setName] = useState(cohort.name);
   const [code, setCode] = useState(cohort.code ?? "");
@@ -21,10 +26,12 @@ export function CohortEditForm({ organizationId, cohort, canManage, onSuccess }:
   const [startsAt, setStartsAt] = useState(dateInput(cohort.startsAt));
   const [endsAt, setEndsAt] = useState(dateInput(cohort.endsAt));
   const [status, setStatus] = useState(cohort.status);
+  const [fundingCallId, setFundingCallId] = useState(cohort.fundingCallId ?? "");
+  const [protocolVersionId, setProtocolVersionId] = useState(cohort.trackingProtocolVersionId ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  if (!canManage) return null;
+  if (!canManage || cohort.status === "ARCHIVED") return null;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,11 +48,13 @@ export function CohortEditForm({ organizationId, cohort, canManage, onSuccess }:
           startsAt: startsAt || null,
           endsAt: endsAt || null,
           status,
+          ...(fundingCallId !== (cohort.fundingCallId ?? "") ? { fundingCallId: fundingCallId || null } : {}),
+          ...(protocolVersionId !== (cohort.trackingProtocolVersionId ?? "") ? { trackingProtocolVersionId: protocolVersionId || null } : {}),
         }),
       });
-      const payload = (await response.json()) as { error?: string };
+      const payload = (await response.json()) as { error?: string; issues?: Record<string, string[]> };
       if (!response.ok) {
-        setError(payload.error ?? "Não foi possível atualizar a coorte.");
+        setError(Object.values(payload.issues ?? {}).flat().join(" ") || payload.error || "Não foi possível atualizar a coorte.");
         return;
       }
       onSuccess?.();
@@ -75,6 +84,8 @@ export function CohortEditForm({ organizationId, cohort, canManage, onSuccess }:
         <Field id="cohort-edit-start" label="Início" value={startsAt} onChange={setStartsAt} type="date" />
         <Field id="cohort-edit-end" label="Fim" value={endsAt} onChange={setEndsAt} type="date" />
       </div>
+      <CohortConfigurationFields fundingCalls={fundingCalls} protocols={protocols} fundingCallId={fundingCallId} onFundingCallChange={setFundingCallId} protocolVersionId={protocolVersionId} onProtocolChange={setProtocolVersionId} protocolLocked={(cohort.waveCount ?? 0) > 0} callLocked={(cohort.waveCount ?? 0) > 0 || (cohort.ventureCount ?? 0) > 0} />
+      <p className="text-sm leading-6 text-slate">Ao arquivar, a coorte permanece no histórico e deixa de aceitar alterações, participações e ondas.</p>
       {error ? <p className="text-sm text-danger" role="alert">{error}</p> : null}
       <button disabled={pending} className="button-primary w-full">
         {pending ? "Salvando…" : "Salvar alterações"}

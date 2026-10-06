@@ -14,6 +14,7 @@ export function CohortEnrollmentManager({ organizationId, cohortId, enrollments,
   const router = useRouter();
   const [ventureId, setVentureId] = useState(availableVentures[0]?.id ?? "");
   const [externalReference, setExternalReference] = useState("");
+  const [enrolledAt, setEnrolledAt] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -29,7 +30,7 @@ export function CohortEnrollmentManager({ organizationId, cohortId, enrollments,
       const response = await fetch(`/api/organizations/${organizationId}/cohorts/${cohortId}/enrollments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ventureId, externalReference: externalReference || null }),
+        body: JSON.stringify({ ventureId, externalReference: externalReference || null, ...(enrolledAt ? { enrolledAt } : {}) }),
       });
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) {
@@ -37,6 +38,7 @@ export function CohortEnrollmentManager({ organizationId, cohortId, enrollments,
         return;
       }
       setExternalReference("");
+      setEnrolledAt("");
       setNotice("Participação registrada e observações pendentes provisionadas quando aplicável.");
       setOpen(false);
       router.refresh();
@@ -71,7 +73,7 @@ export function CohortEnrollmentManager({ organizationId, cohortId, enrollments,
   return (
     <section className="panel">
       <div className="panel-header"><h2>Empreendimentos inscritos</h2><p>A participação pode ser retirada sem apagar seu histórico.</p></div>
-      {canManage && availableVentures.length ? <div className="flex justify-end border-b border-line px-6 py-4"><button type="button" className="button-secondary" onClick={() => setOpen(true)}><Plus size={16} aria-hidden="true" /> Adicionar empreendimento</button><Dialog open={open} onClose={() => setOpen(false)} title="Adicionar empreendimento" description="Registre uma participação nesta coorte sem alterar a identidade da entidade."><form onSubmit={createEnrollment} className="space-y-5"><label htmlFor="cohort-venture" className="block space-y-2 text-sm font-medium text-ink"><span>Empreendimento</span><select id="cohort-venture" required value={ventureId} onChange={(event) => setVentureId(event.target.value)} className="field-control"><option value="">Selecione um empreendimento</option>{availableVentures.map((venture) => <option key={venture.id} value={venture.id}>{venture.name} · {kindLabel(venture.kind)}</option>)}</select></label><label htmlFor="cohort-venture-reference" className="block space-y-2 text-sm font-medium text-ink"><span>Referência nesta participação</span><input id="cohort-venture-reference" value={externalReference} onChange={(event) => setExternalReference(event.target.value)} className="field-control" /></label>{error ? <p className="text-sm text-danger" role="alert">{error}</p> : null}<button disabled={creating || !ventureId} className="button-primary w-full">{creating ? "Salvando…" : "Adicionar"}</button></form></Dialog></div> : canManage ? <p className="border-b border-line px-6 py-5 text-sm text-slate">Todos os empreendimentos ativos da organização já estão registrados ou não há entidades disponíveis.</p> : null}
+      {canManage && availableVentures.length ? <div className="flex justify-end border-b border-line px-6 py-4"><button type="button" className="button-secondary" onClick={() => setOpen(true)}><Plus size={16} aria-hidden="true" /> Adicionar empreendimento</button><Dialog open={open} onClose={() => setOpen(false)} title="Adicionar empreendimento" description="Registre uma participação nesta coorte sem alterar a identidade da entidade."><form onSubmit={createEnrollment} className="space-y-5"><label htmlFor="cohort-venture" className="block space-y-2 text-sm font-medium text-ink"><span>Empreendimento</span><select id="cohort-venture" required value={ventureId} onChange={(event) => setVentureId(event.target.value)} className="field-control"><option value="">Selecione um empreendimento</option>{availableVentures.map((venture) => <option key={venture.id} value={venture.id}>{venture.name} · {kindLabel(venture.kind)}</option>)}</select></label><label htmlFor="cohort-venture-enrolled-at" className="block space-y-2 text-sm font-medium text-ink"><span>Data de ingresso (opcional)</span><input id="cohort-venture-enrolled-at" type="date" value={enrolledAt} onChange={(event) => setEnrolledAt(event.target.value)} className="field-control" /><span className="block text-xs font-normal text-slate">Informe a data original para registrar acompanhamentos históricos.</span></label><label className="block space-y-2 text-sm font-medium text-ink"><span>Referência nesta participação</span><input id="cohort-venture-reference" value={externalReference} onChange={(event) => setExternalReference(event.target.value)} className="field-control" /></label>{error ? <p className="text-sm text-danger" role="alert">{error}</p> : null}<button disabled={creating || !ventureId} className="button-primary w-full">{creating ? "Salvando…" : "Adicionar"}</button></form></Dialog></div> : canManage ? <p className="border-b border-line px-6 py-5 text-sm text-slate">Todos os empreendimentos ativos da organização já estão registrados ou não há entidades disponíveis.</p> : null}
       {enrollments.length ? (
         <div className="divide-y divide-line">
           {enrollments.map((enrollment) => (

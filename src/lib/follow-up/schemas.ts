@@ -29,6 +29,7 @@ export const updateFollowUpWaveStatusSchema = z.object({
 
 export const updateObservationStatusSchema = z.object({
   status: z.enum(["IN_PROGRESS", "MISSED"]),
+  expectedRevision: z.number().int().min(0),
 });
 
 export type CreateFollowUpWaveInput = z.infer<typeof createFollowUpWaveSchema>;

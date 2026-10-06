@@ -4,6 +4,7 @@ import { assertCohortCanReceiveEnrollment, assertEnrollmentIsUnique, assertSameO
 import { db } from "@/lib/db";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 import type { CreateEnrollmentInput, CreateVentureInput, UpdateVentureInput } from "@/lib/ventures/schemas";
+import { isEnrollmentEligibleAt } from "@/lib/observations/validation";
 
 const ventureListSelect = {
   id: true,
@@ -176,6 +177,8 @@ export async function enrollVenture(
   input: CreateEnrollmentInput,
 ): Promise<{ id: string; status: string; enrolledAt: string; withdrawnAt: string | null; cohortId: string; ventureId: string }> {
   const enrollment = await db.$transaction(async (tx) => {
+    // Enrollment, withdrawal, protocol assignment and wave writes serialize on the cohort.
+    await tx.$queryRaw`SELECT "id" FROM "Cohort" WHERE "id" = ${cohortId} AND "organizationId" = ${organizationId} FOR UPDATE`;
     const [cohort, venture] = await Promise.all([
       tx.cohort.findFirst({ where: { id: cohortId, organizationId }, select: { id: true, organizationId: true, status: true } }),
       tx.venture.findFirst({ where: { id: input.ventureId, organizationId, archivedAt: null }, select: { id: true, organizationId: true } }),
@@ -203,11 +206,12 @@ export async function enrollVenture(
     });
     const applicableWaves = await tx.followUpWave.findMany({
       where: { organizationId, cohortId, status: { in: ["PLANNED", "OPEN"] } },
-      select: { id: true },
+      select: { id: true, scheduledFor: true, opensAt: true, createdAt: true },
     });
-    if (applicableWaves.length) {
+    const eligibleWaves = applicableWaves.filter((wave) => isEnrollmentEligibleAt(enrollment, wave.scheduledFor ?? wave.opensAt ?? wave.createdAt, Boolean(wave.scheduledFor)));
+    if (eligibleWaves.length) {
       await tx.ventureObservation.createMany({
-        data: applicableWaves.map((wave) => ({
+        data: eligibleWaves.map((wave) => ({
           organizationId,
           cohortId,
           ventureEnrollmentId: enrollment.id,
@@ -227,18 +231,20 @@ export async function withdrawEnrollment(
   cohortId: string,
   enrollmentId: string,
 ): Promise<{ id: string; status: string }> {
-  const current = await db.ventureEnrollment.findFirst({
-    where: { id: enrollmentId, organizationId, cohortId },
-    select: { id: true, organizationId: true, status: true },
+  return db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "Cohort" WHERE "id" = ${cohortId} AND "organizationId" = ${organizationId} FOR UPDATE`;
+    const current = await tx.ventureEnrollment.findFirst({
+      where: { id: enrollmentId, organizationId, cohortId },
+      select: { id: true, organizationId: true, status: true },
+    });
+    if (!current) throw new ResourceNotFoundError("VENTURE_ENROLLMENT_NOT_FOUND");
+    assertSameOrganization(organizationId, current.organizationId);
+    if (current.status !== "ACTIVE") throw new DomainConflictError("ENROLLMENT_NOT_ACTIVE");
+    const updated = await tx.ventureEnrollment.updateMany({
+      where: { id: enrollmentId, organizationId, cohortId, status: "ACTIVE" },
+      data: { status: "WITHDRAWN", withdrawnAt: new Date() },
+    });
+    if (updated.count !== 1) throw new DomainConflictError("ENROLLMENT_NOT_ACTIVE");
+    return { id: enrollmentId, status: "WITHDRAWN" };
   });
-  if (!current) throw new ResourceNotFoundError("VENTURE_ENROLLMENT_NOT_FOUND");
-  assertSameOrganization(organizationId, current.organizationId);
-  if (current.status !== "ACTIVE") throw new DomainConflictError("ENROLLMENT_NOT_ACTIVE");
-
-  const updated = await db.ventureEnrollment.update({
-    where: { id: enrollmentId },
-    data: { status: "WITHDRAWN", withdrawnAt: new Date() },
-    select: { id: true, status: true },
-  });
-  return updated;
 }

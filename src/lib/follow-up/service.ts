@@ -1,9 +1,11 @@
 import type { Prisma } from "@prisma/client";
 
-import { assertCohortCanReceiveWave, assertObservationStatusTransition, assertSameOrganization, assertWaveStatusTransition } from "@/lib/domain-invariants";
+import { assertCohortCanReceiveWave, assertSameOrganization, assertWaveStatusTransition } from "@/lib/domain-invariants";
 import { db } from "@/lib/db";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 import type { CreateFollowUpWaveInput } from "@/lib/follow-up/schemas";
+import { changeObservationStatus } from "@/lib/observations/service";
+import { isEnrollmentEligibleAt } from "@/lib/observations/validation";
 
 const waveSelect = {
   id: true,
@@ -19,7 +21,7 @@ const waveSelect = {
   status: true,
   createdAt: true,
   updatedAt: true,
-  observations: { select: { status: true } },
+  observations: { select: { id: true, status: true, revision: true, ventureEnrollment: { select: { venture: { select: { id: true, name: true } } } } }, orderBy: { ventureEnrollment: { venture: { name: "asc" } } } },
 } as const;
 
 type WaveRecord = Prisma.FollowUpWaveGetPayload<{ select: typeof waveSelect }>;
@@ -45,6 +47,7 @@ export type FollowUpWaveDto = {
   closesAt: string | null;
   status: string;
   observationCounts: ObservationCountsDto;
+  observations: { id: string; status: string; revision: number; venture: { id: string; name: string } }[];
   createdAt: string;
   updatedAt: string;
 };
@@ -75,6 +78,11 @@ export type CohortWorkspaceDto = {
     startsAt: string | null;
     endsAt: string | null;
     status: string;
+    fundingCallId: string | null;
+    fundingCall: { id: string; title: string; callNumber: string } | null;
+    trackingProtocolVersionId: string | null;
+    trackingProtocolVersion: { id: string; version: number; label: string | null; trackingProtocol: { id: string; name: string } } | null;
+    waveCount: number;
     fundingProgram: { id: string; name: string; status: string };
   };
   enrollments: CohortWorkspaceEnrollmentDto[];
@@ -109,6 +117,7 @@ function serializeWave(record: WaveRecord): FollowUpWaveDto {
     closesAt: record.closesAt?.toISOString() ?? null,
     status: record.status,
     observationCounts,
+    observations: record.observations.map((observation) => ({ id: observation.id, status: observation.status, revision: observation.revision, venture: observation.ventureEnrollment.venture })),
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
   };
@@ -138,6 +147,10 @@ export async function getCohortWorkspace(
       startsAt: true,
       endsAt: true,
       status: true,
+      fundingCallId: true,
+      fundingCall: { select: { id: true, title: true, callNumber: true } },
+      trackingProtocolVersionId: true,
+      trackingProtocolVersion: { select: { id: true, version: true, label: true, trackingProtocol: { select: { id: true, name: true } } } },
       fundingProgram: { select: { id: true, name: true, status: true } },
       enrollments: {
         select: {
@@ -173,6 +186,11 @@ export async function getCohortWorkspace(
       startsAt: record.startsAt?.toISOString() ?? null,
       endsAt: record.endsAt?.toISOString() ?? null,
       status: record.status,
+      fundingCallId: record.fundingCallId,
+      fundingCall: record.fundingCall,
+      trackingProtocolVersionId: record.trackingProtocolVersionId,
+      trackingProtocolVersion: record.trackingProtocolVersion,
+      waveCount: record.followUpWaves.length,
       fundingProgram: record.fundingProgram,
     },
     enrollments: record.enrollments.map((enrollment) => ({
@@ -213,13 +231,16 @@ export async function createFollowUpWave(
   input: CreateFollowUpWaveInput,
 ): Promise<FollowUpWaveDto> {
   const waveId = await db.$transaction(async (tx) => {
+    // Protocol assignment and first-wave creation share the cohort lock.
+    await tx.$queryRaw`SELECT "id" FROM "Cohort" WHERE "organizationId" = ${organizationId} AND "id" = ${cohortId} FOR UPDATE`;
     const cohort = await tx.cohort.findFirst({
       where: { id: cohortId, organizationId },
-      select: { id: true, organizationId: true, status: true },
+      select: { id: true, organizationId: true, status: true, trackingProtocolVersion: { select: { _count: { select: { indicators: true } } } } },
     });
     if (!cohort) throw new ResourceNotFoundError("COHORT_NOT_FOUND");
     assertSameOrganization(organizationId, cohort.organizationId);
     assertCohortCanReceiveWave(cohort.status);
+    if (!cohort.trackingProtocolVersion?._count.indicators) throw new DomainConflictError("COHORT_PROTOCOL_REQUIRED");
     if (input.kind === "BASELINE" && input.sequence !== 0) {
       throw new DomainConflictError("BASELINE_SEQUENCE_INVALID");
     }
@@ -246,15 +267,17 @@ export async function createFollowUpWave(
         opensAt: input.opensAt ?? null,
         closesAt: input.closesAt ?? null,
       },
-      select: { id: true },
+      select: { id: true, createdAt: true },
     });
     const enrollments = await tx.ventureEnrollment.findMany({
-      where: { organizationId, cohortId, status: "ACTIVE" },
-      select: { id: true },
+      where: { organizationId, cohortId },
+      select: { id: true, enrolledAt: true, withdrawnAt: true },
     });
-    if (enrollments.length) {
+    const referenceAt = input.scheduledFor ?? input.opensAt ?? wave.createdAt;
+    const eligibleEnrollments = enrollments.filter((enrollment) => isEnrollmentEligibleAt(enrollment, referenceAt, Boolean(input.scheduledFor)));
+    if (eligibleEnrollments.length) {
       await tx.ventureObservation.createMany({
-        data: enrollments.map((enrollment) => ({
+        data: eligibleEnrollments.map((enrollment) => ({
           organizationId,
           cohortId,
           ventureEnrollmentId: enrollment.id,
@@ -278,49 +301,28 @@ export async function updateFollowUpWaveStatus(
   waveId: string,
   status: string,
 ): Promise<FollowUpWaveDto> {
-  const current = await db.followUpWave.findFirst({
-    where: { id: waveId, cohortId, organizationId },
-    select: { id: true, organizationId: true, status: true },
+  return db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "Cohort" WHERE "organizationId" = ${organizationId} AND "id" = ${cohortId} FOR UPDATE`;
+    await tx.$queryRaw`SELECT "id" FROM "FollowUpWave" WHERE "organizationId" = ${organizationId} AND "cohortId" = ${cohortId} AND "id" = ${waveId} FOR UPDATE`;
+    const current = await tx.followUpWave.findFirst({ where: { id: waveId, cohortId, organizationId }, select: { status: true } });
+    if (!current) throw new ResourceNotFoundError("FOLLOW_UP_WAVE_NOT_FOUND");
+    assertWaveStatusTransition(current.status, status);
+    const changed = await tx.followUpWave.updateMany({
+      where: { id: waveId, cohortId, organizationId, status: current.status },
+      data: { status: status as "PLANNED" | "OPEN" | "CLOSED" | "ARCHIVED" },
+    });
+    if (changed.count !== 1) throw new DomainConflictError("WAVE_STATUS_CONFLICT");
+    const updated = await tx.followUpWave.findFirst({ where: { id: waveId, cohortId, organizationId }, select: waveSelect });
+    if (!updated) throw new ResourceNotFoundError("FOLLOW_UP_WAVE_NOT_FOUND");
+    return serializeWave(updated);
   });
-  if (!current) throw new ResourceNotFoundError("FOLLOW_UP_WAVE_NOT_FOUND");
-  assertSameOrganization(organizationId, current.organizationId);
-  assertWaveStatusTransition(current.status, status);
-
-  await db.followUpWave.updateMany({
-    where: { id: waveId, cohortId, organizationId },
-    data: { status: status as "PLANNED" | "OPEN" | "CLOSED" | "ARCHIVED" },
-  });
-  const updated = await db.followUpWave.findFirst({ where: { id: waveId, cohortId, organizationId }, select: waveSelect });
-  if (!updated) throw new ResourceNotFoundError("FOLLOW_UP_WAVE_NOT_FOUND");
-  return serializeWave(updated);
 }
 
 export async function updateObservationStatus(
   organizationId: string,
   observationId: string,
-  status: string,
-): Promise<{ id: string; status: string; startedAt: string | null; submittedAt: string | null }> {
-  const current = await db.ventureObservation.findFirst({
-    where: { id: observationId, organizationId },
-    select: { id: true, organizationId: true, status: true, startedAt: true, submittedAt: true },
-  });
-  if (!current) throw new ResourceNotFoundError("VENTURE_OBSERVATION_NOT_FOUND");
-  assertSameOrganization(organizationId, current.organizationId);
-  assertObservationStatusTransition(current.status, status);
-
-  const updated = await db.ventureObservation.update({
-    where: { id: observationId },
-    data: {
-      status: status as "IN_PROGRESS" | "MISSED" | "SUBMITTED",
-      ...(status === "IN_PROGRESS" && !current.startedAt ? { startedAt: new Date() } : {}),
-      ...(status === "SUBMITTED" ? { submittedAt: new Date() } : {}),
-    },
-    select: { id: true, status: true, startedAt: true, submittedAt: true },
-  });
-  return {
-    id: updated.id,
-    status: updated.status,
-    startedAt: updated.startedAt?.toISOString() ?? null,
-    submittedAt: updated.submittedAt?.toISOString() ?? null,
-  };
+  status: "IN_PROGRESS" | "MISSED",
+  expectedRevision: number,
+) {
+  return changeObservationStatus(organizationId, observationId, status, expectedRevision);
 }

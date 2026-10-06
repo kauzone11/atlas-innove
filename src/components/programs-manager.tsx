@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -9,7 +9,18 @@ import type { FundingProgramDto } from "@/lib/programs/service";
 import { Dialog } from "@/components/dialog";
 
 export function ProgramsManager({ organizationId, programs, canManage }: { organizationId: string; programs: FundingProgramDto[]; canManage: boolean }) {
-  return <div className="space-y-5">{canManage ? <CreateProgramDialog organizationId={organizationId} /> : null}<section className="panel"><div className="panel-header"><h2>Programas da organização</h2></div>{programs.length ? <div className="divide-y divide-line">{programs.map((program) => <Link key={program.id} href={`/app/programs/${program.id}`} className="flex min-h-20 items-center justify-between gap-4 px-6 py-4 transition-colors hover:bg-surface-subtle"><span className="min-w-0"><span className="block truncate font-medium text-ink">{program.name}</span><span className="mt-1 block text-sm text-slate">{program.code ? `${program.code} · ` : ""}{program.cohortCount} {program.cohortCount === 1 ? "coorte" : "coortes"}</span></span><span className="status-badge status-neutral shrink-0">{statusLabel(program.status)}</span></Link>)}</div> : <p className="px-6 py-10 text-sm text-slate">Nenhum programa cadastrado. Crie o primeiro ciclo de apoio desta organização.</p>}</section></div>;
+  const [search, setSearch] = useState("");
+  const query = normalizeSearch(search);
+  const visiblePrograms = programs.filter((program) => normalizeSearch(`${program.name} ${program.code ?? ""} ${program.description ?? ""}`).includes(query));
+  return <div className="space-y-5">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {programs.length ? <label className="relative block w-full sm:max-w-sm"><span className="sr-only">Buscar programas</span><Search size={17} aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 text-slate" /><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nome ou código" className="field-control pl-10" /></label> : <p className="text-sm text-slate">Organize chamadas e acompanhe a trajetória dos empreendimentos.</p>}
+      {canManage ? <CreateProgramDialog organizationId={organizationId} /> : null}
+    </div>
+    <section className="panel"><div className="panel-header"><h2>Programas da organização</h2></div>
+      {visiblePrograms.length ? <div className="divide-y divide-line">{visiblePrograms.map((program) => <Link key={program.id} href={`/app/programs/${program.id}`} className="flex min-h-20 flex-col gap-3 px-5 py-4 transition-colors hover:bg-surface-subtle sm:flex-row sm:items-center sm:justify-between sm:px-6"><span className="min-w-0"><span className="block break-words font-medium text-ink">{program.name}</span><span className="mt-1 block text-sm text-slate">{program.code ? `${program.code} · ` : ""}{program.cohortCount} {program.cohortCount === 1 ? "coorte" : "coortes"}</span></span><span className="status-badge status-neutral w-fit shrink-0">{statusLabel(program.status)}</span></Link>)}</div> : <div className="px-6 py-9"><h3 className="font-medium text-ink">{programs.length ? "Nenhum programa encontrado" : "Comece com um programa"}</h3><p className="mt-2 max-w-xl text-sm leading-6 text-slate">{programs.length ? "Ajuste a busca para encontrar o programa desejado." : `Um programa reúne editais e coortes ao longo de diferentes ciclos de apoio. ${canManage ? "Use Novo programa para iniciar o acompanhamento." : "Um gestor pode criar o primeiro programa da organização."}`}</p></div>}
+    </section>
+  </div>;
 }
 
 function CreateProgramDialog({ organizationId }: { organizationId: string }) {
@@ -51,4 +62,8 @@ function statusLabel(status: string) {
 
 function slugify(value: string): string {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 64);
+}
+
+function normalizeSearch(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }

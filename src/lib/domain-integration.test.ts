@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { createCohort } from "@/lib/cohorts/service";
 import { createFollowUpWave } from "@/lib/follow-up/service";
 import { ResourceNotFoundError } from "@/lib/errors";
+import { createProtocolVersion } from "@/lib/tracking-protocols/service";
 import { enrollVenture, getOrganizationVenture, withdrawEnrollment } from "@/lib/ventures/service";
 
 const databaseAvailable = Boolean(process.env.DATABASE_URL);
@@ -33,15 +34,18 @@ test("services and database preserve tenant, lifecycle and longitudinal invarian
     ]);
     organizationAId = organizationA.id;
     organizationBId = organizationB.id;
+    const [protocolA, protocolB] = await Promise.all([organizationA, organizationB].map((organization) => createProtocolVersion(organization.id, {
+      name: "Domain tracking", indicators: [{ key: "team", label: "Team size", valueType: "INTEGER" }],
+    })));
 
     const [programA, programB] = await Promise.all([
       db.fundingProgram.create({ data: { organizationId: organizationA.id, createdByUserId: user.id, name: "Program A", slug: `program-a-${suffix}` }, select: { id: true } }),
       db.fundingProgram.create({ data: { organizationId: organizationB.id, createdByUserId: user.id, name: "Program B", slug: `program-b-${suffix}` }, select: { id: true } }),
     ]);
     const [cohortA, cohortB, cohortA2] = await Promise.all([
-      db.cohort.create({ data: { organizationId: organizationA.id, fundingProgramId: programA.id, name: "Cohort A" }, select: { id: true } }),
-      db.cohort.create({ data: { organizationId: organizationB.id, fundingProgramId: programB.id, name: "Cohort B" }, select: { id: true } }),
-      db.cohort.create({ data: { organizationId: organizationA.id, fundingProgramId: programA.id, name: "Cohort A2" }, select: { id: true } }),
+      db.cohort.create({ data: { organizationId: organizationA.id, fundingProgramId: programA.id, trackingProtocolVersionId: protocolA.versions[0].id, name: "Cohort A" }, select: { id: true } }),
+      db.cohort.create({ data: { organizationId: organizationB.id, fundingProgramId: programB.id, trackingProtocolVersionId: protocolB.versions[0].id, name: "Cohort B" }, select: { id: true } }),
+      db.cohort.create({ data: { organizationId: organizationA.id, fundingProgramId: programA.id, trackingProtocolVersionId: protocolA.versions[0].id, name: "Cohort A2" }, select: { id: true } }),
     ]);
     const [ventureA, ventureB, ventureC, ventureD] = await Promise.all([
       db.venture.create({ data: { organizationId: organizationA.id, name: "Venture A", kind: "COMPANY" }, select: { id: true } }),
