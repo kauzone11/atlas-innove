@@ -19,7 +19,7 @@ async function fixture() {
   const suffix = randomUUID().slice(0, 8); const passwordHash = await hash(password, 10);
   const users = await Promise.all(["Ana", "Bruno"].map((name) => db.user.create({ data: {
     email: `media-browser-${name.toLowerCase()}-${suffix}@example.test`, passwordHash, profile: { create: { fullName: `${name} Imagem` } },
-    innovationProfile: { create: { handle: `${name.toLowerCase()}-media-${suffix}`, headline: "Pesquisa aplicada e colaboração profissional", profileVisibility: "PUBLIC", publishedAt: new Date(), directoryEnabled: true, primaryProfileAction: "FOLLOW" } },
+    innovationProfile: { create: { handle: `${name.toLowerCase()}-media-${suffix}`, headline: "Pesquisa aplicada e colaboração profissional", profileVisibility: "PUBLIC", publishedAt: new Date(), directoryEnabled: true, collaborationStatus: "OPEN", primaryProfileAction: "FOLLOW" } },
   }, include: { innovationProfile: true } })));
   const ids = users.map((user) => user.id);
   return { a: users[0], b: users[1], async cleanup() {
@@ -153,6 +153,16 @@ test("real object storage supports profile crop replacement, image composition a
     await dialog.getByRole("combobox", { name: /^Visibilidade/ }).selectOption("PUBLIC"); await dialog.getByRole("button", { name: "Publicar", exact: true }).click(); await expect(dialog).not.toBeVisible();
     const single = await db.socialPost.findFirstOrThrow({ where: { authorUserId: f.a.id, media: { some: {} } }, include: { media: true } });
     expect(single.body).toBeNull(); expect(single.media).toHaveLength(1); await page.goto(`/posts/${single.id}`); await snapshot(page, info, "one-image-post");
+    const singleImage = page.getByRole("button", { name: /^Ampliar imagem 1 de 1/ });
+    const singleViewer = page.getByRole("dialog", { name: "Imagem 1 de 1", exact: true });
+    await singleImage.click();
+    await expect(singleViewer.getByRole("group", { name: "Imagem ampliada", exact: true })).toBeFocused();
+    await page.keyboard.press("Tab"); await expect(singleViewer.getByRole("button", { name: "Fechar janela", exact: true })).toBeFocused();
+    await page.keyboard.press("Escape"); await expect(singleViewer).not.toBeVisible(); await expect(singleImage).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(singleViewer.getByRole("group", { name: "Imagem ampliada", exact: true })).toBeFocused();
+    await page.keyboard.press("Shift+Tab"); await expect(singleViewer.getByRole("button", { name: "Fechar janela", exact: true })).toBeFocused();
+    await page.keyboard.press("Escape"); await expect(singleViewer).not.toBeVisible(); await expect(singleImage).toBeFocused();
 
     dialog = await composer(page); await dialog.getByLabel("Selecionar imagens da publicação", { exact: true }).setInputFiles(await Promise.all(["#BFCBC8", "#D8AA8A", "#C9C3D9", "#D8CBB6"].map(async (color, index) => ({ name: `image-${index + 1}.png`, mimeType: "image/png", buffer: await image(color) }))));
     const descriptions = dialog.getByLabel("Descrição da imagem (opcional)", { exact: true }); await expect(descriptions).toHaveCount(4);
@@ -167,6 +177,7 @@ test("real object storage supports profile crop replacement, image composition a
     await page.goto(`/posts/${four.id}`); await snapshot(page, info, "four-image-post");
     const openImage = page.getByRole("button", { name: /^Ampliar imagem 1 de 4/ }); await openImage.focus(); await page.keyboard.press("Enter");
     const viewer = page.getByRole("dialog", { name: "Imagem 1 de 4", exact: true }); await expect(viewer).toBeVisible();
+    await expect(viewer.getByRole("group", { name: "Imagem ampliada", exact: true })).toBeFocused();
     await page.keyboard.press("ArrowRight"); await expect(page.getByRole("dialog", { name: "Imagem 2 de 4", exact: true })).toBeVisible();
     await page.keyboard.press("ArrowLeft"); await expect(viewer).toBeVisible();
     await page.keyboard.press("Escape"); await expect(page.getByRole("dialog")).toHaveCount(0); await expect(openImage).toBeFocused();

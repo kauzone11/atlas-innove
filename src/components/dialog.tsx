@@ -46,7 +46,8 @@ export function Dialog({ open, onClose, title, description, children, mode = "di
       const elements = Array.from(surfaceRef.current.querySelectorAll<HTMLElement>(focusableSelector));
       if (!elements.length) return;
       const first = elements[0]; const last = elements[elements.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      if (!elements.some((element) => element === document.activeElement)) { event.preventDefault(); (event.shiftKey ? last : first).focus(); }
+      else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     }
     document.addEventListener("keydown", handleKeyDown);
