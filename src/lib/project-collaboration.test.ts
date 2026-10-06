@@ -97,6 +97,7 @@ test("project collaboration enforces current access, role boundaries, revisions 
       await assert.rejects(() => createProjectTask(owner.id, projectId!, { title: "Archived work" }), /PROJECT_ARCHIVED/);
     });
   } finally {
+    await db.notification.deleteMany({ where: { OR: [{ recipientUserId: { in: userIds } }, { actorUserId: { in: userIds } }] } });
     await db.project.deleteMany({ where: { id: { in: [projectId, otherProjectId].filter((value): value is string => Boolean(value)) } } });
     if (teamId) await db.team.delete({ where: { id: teamId } });
     await db.user.deleteMany({ where: { id: { in: userIds } } });

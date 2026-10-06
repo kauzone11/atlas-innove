@@ -232,49 +232,73 @@ enum OpportunityTerritoryScope {
 }
 
 model User {
-  id                         String                          @id @default(cuid())
-  email                      String                          @unique
-  passwordHash               String
-  platformRole               PlatformRole                    @default(USER)
-  sessionVersion             Int                             @default(0)
-  createdAt                  DateTime                        @default(now())
-  updatedAt                  DateTime                        @updatedAt
-  profile                    UserProfile?
-  memberships                OrganizationMembership[]
-  invitationsSent            OrganizationInvite[]            @relation("InvitedBy")
-  sessions                   Session[]
-  passwordResetTokens        PasswordResetToken[]
-  fundingProgramsCreated     FundingProgram[]                @relation("FundingProgramCreatedBy")
-  teamsCreated               Team[]                          @relation("TeamCreatedBy")
-  teamMemberships            TeamMembership[]
-  teamInvitesSent            TeamInvite[]                    @relation("TeamInvitedBy")
-  teamInvitesAccepted        TeamInvite[]                    @relation("TeamInviteAcceptedBy")
-  projectsCreated            Project[]                       @relation("ProjectCreatedBy")
-  projectMemberships         ProjectMembership[]
-  applicationsSubmitted      Application[]                   @relation("ApplicationSubmittedBy")
-  applicationDecisions       Application[]                   @relation("ApplicationDecidedBy")
-  applicationEvaluations     ApplicationEvaluation[]
-  innovationProfile          InnovationProfile?
-  savedFundingCalls          SavedFundingCall[]
-  savedExternalOpportunities SavedExternalOpportunity[]
-  awardsCreated              Award[]                         @relation("AwardCreatedBy")
-  awardStatusChanges         AwardStatusHistory[]
-  awardObligationsCreated    AwardObligation[]               @relation("AwardObligationCreatedBy")
-  awardObligationsWaived     AwardObligation[]               @relation("AwardObligationWaivedBy")
-  awardDueDateChanges        AwardObligationDueDateHistory[]
-  awardSubmissionsAuthored   AwardSubmission[]               @relation("AwardSubmissionCreatedBy")
-  awardSubmissionsSent       AwardSubmission[]               @relation("AwardSubmissionSubmittedBy")
-  awardSubmissionsReviewed   AwardSubmission[]               @relation("AwardSubmissionReviewedBy")
-  awardDisbursementsCreated  AwardDisbursement[]             @relation("AwardDisbursementCreatedBy")
-  awardDisbursementsRecorded AwardDisbursement[]             @relation("AwardDisbursementPaidBy")
-  awardDocumentsCreated      AwardDocument[]
-  projectTasksCreated        ProjectTask[]                   @relation("ProjectTaskCreatedBy")
-  projectTasksAssigned       ProjectTask[]                   @relation("ProjectTaskAssignee")
-  projectResourcesCreated    ProjectResource[]
-  analyticsReportsGenerated  AnalyticsReportSnapshot[]       @relation("AnalyticsReportGeneratedBy")
-  dataExports                DataExportAudit[]
-  resultPublicationsCreated  PublicResultPublication[]       @relation("ResultPublicationCreatedBy")
-  resultPublicationsApproved PublicResultPublication[]       @relation("ResultPublicationPublishedBy")
+  id                           String                          @id @default(cuid())
+  email                        String                          @unique
+  passwordHash                 String
+  platformRole                 PlatformRole                    @default(USER)
+  sessionVersion               Int                             @default(0)
+  createdAt                    DateTime                        @default(now())
+  updatedAt                    DateTime                        @updatedAt
+  profile                      UserProfile?
+  memberships                  OrganizationMembership[]
+  invitationsSent              OrganizationInvite[]            @relation("InvitedBy")
+  sessions                     Session[]
+  passwordResetTokens          PasswordResetToken[]
+  fundingProgramsCreated       FundingProgram[]                @relation("FundingProgramCreatedBy")
+  teamsCreated                 Team[]                          @relation("TeamCreatedBy")
+  teamMemberships              TeamMembership[]
+  teamInvitesSent              TeamInvite[]                    @relation("TeamInvitedBy")
+  teamInvitesAccepted          TeamInvite[]                    @relation("TeamInviteAcceptedBy")
+  projectsCreated              Project[]                       @relation("ProjectCreatedBy")
+  projectMemberships           ProjectMembership[]
+  applicationsSubmitted        Application[]                   @relation("ApplicationSubmittedBy")
+  applicationDecisions         Application[]                   @relation("ApplicationDecidedBy")
+  applicationEvaluations       ApplicationEvaluation[]
+  innovationProfile            InnovationProfile?
+  savedFundingCalls            SavedFundingCall[]
+  savedExternalOpportunities   SavedExternalOpportunity[]
+  awardsCreated                Award[]                         @relation("AwardCreatedBy")
+  awardStatusChanges           AwardStatusHistory[]
+  awardObligationsCreated      AwardObligation[]               @relation("AwardObligationCreatedBy")
+  awardObligationsWaived       AwardObligation[]               @relation("AwardObligationWaivedBy")
+  awardDueDateChanges          AwardObligationDueDateHistory[]
+  awardSubmissionsAuthored     AwardSubmission[]               @relation("AwardSubmissionCreatedBy")
+  awardSubmissionsSent         AwardSubmission[]               @relation("AwardSubmissionSubmittedBy")
+  awardSubmissionsReviewed     AwardSubmission[]               @relation("AwardSubmissionReviewedBy")
+  awardDisbursementsCreated    AwardDisbursement[]             @relation("AwardDisbursementCreatedBy")
+  awardDisbursementsRecorded   AwardDisbursement[]             @relation("AwardDisbursementPaidBy")
+  awardDocumentsCreated        AwardDocument[]
+  projectTasksCreated          ProjectTask[]                   @relation("ProjectTaskCreatedBy")
+  projectTasksAssigned         ProjectTask[]                   @relation("ProjectTaskAssignee")
+  projectResourcesCreated      ProjectResource[]
+  analyticsReportsGenerated    AnalyticsReportSnapshot[]       @relation("AnalyticsReportGeneratedBy")
+  dataExports                  DataExportAudit[]
+  resultPublicationsCreated    PublicResultPublication[]       @relation("ResultPublicationCreatedBy")
+  resultPublicationsApproved   PublicResultPublication[]       @relation("ResultPublicationPublishedBy")
+  targetedTeamInvites          TeamInvite[]                    @relation("TeamInviteTarget")
+  connectionRequestsSent       ConnectionRequest[]             @relation("ConnectionRequester")
+  connectionRequestsReceived   ConnectionRequest[]             @relation("ConnectionRecipient")
+  connectionsA                 NetworkConnection[]             @relation("ConnectionUserA")
+  connectionsB                 NetworkConnection[]             @relation("ConnectionUserB")
+  connectionsEnded             NetworkConnection[]             @relation("ConnectionEndedBy")
+  projectCollaborationRequests ProjectCollaborationRequest[]   @relation("ProjectRequestRequester")
+  projectRequestsReviewed      ProjectCollaborationRequest[]   @relation("ProjectRequestReviewer")
+  projectInvitesReceived       ProjectInvite[]                 @relation("ProjectInviteTarget")
+  projectInvitesSent           ProjectInvite[]                 @relation("ProjectInviter")
+  blocksInitiated              UserBlock[]                     @relation("BlockInitiator")
+  blocksReceived               UserBlock[]                     @relation("BlockTarget")
+  notificationsReceived        Notification[]                  @relation("NotificationRecipient")
+  notificationsActed           Notification[]                  @relation("NotificationActor")
+  conversationsA               Conversation[]                  @relation("ConversationUserA")
+  conversationsB               Conversation[]                  @relation("ConversationUserB")
+  conversationParticipations   ConversationParticipant[]
+  directMessages               DirectMessage[]
+  discussionsCreated           ProjectDiscussion[]
+  discussionMessages           ProjectDiscussionMessage[]
+  discussionSubscriptions      ProjectDiscussionSubscription[]
+  safetyReportsFiled           SafetyReport[]                  @relation("SafetyReporter")
+  safetyReportsReceived        SafetyReport[]                  @relation("SafetyReported")
+  safetyReportsReviewed        SafetyReport[]                  @relation("SafetyReviewer")
 }
 
 model UserProfile {
@@ -305,6 +329,9 @@ model InnovationProfile {
   verifiedParticipationVisibility VisibilityScope     @default(PRIVATE)
   projectsVisibility              VisibilityScope     @default(PRIVATE)
   publishedAt                     DateTime?
+  directoryEnabled                Boolean             @default(false)
+  collaborationStatus             CollaborationStatus @default(NOT_AVAILABLE)
+  collaborationNote               String?
   createdAt                       DateTime            @default(now())
   updatedAt                       DateTime            @updatedAt
   user                            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -312,6 +339,8 @@ model InnovationProfile {
   education                       ProfileEducation[]
   experience                      ProfileExperience[]
   links                           ProfileLink[]
+
+  @@index([directoryEnabled, profileVisibility, collaborationStatus, userId])
 }
 
 model ProfileTopic {
@@ -978,6 +1007,7 @@ model TeamInvite {
   id               String    @id @default(cuid())
   teamId           String
   invitedByUserId  String
+  invitedUserId    String?
   email            String?
   role             TeamRole  @default(MEMBER)
   tokenHash        String    @unique
@@ -985,41 +1015,52 @@ model TeamInvite {
   acceptedAt       DateTime?
   acceptedByUserId String?
   revokedAt        DateTime?
+  declinedAt       DateTime?
   createdAt        DateTime  @default(now())
   team             Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
   invitedBy        User      @relation("TeamInvitedBy", fields: [invitedByUserId], references: [id], onDelete: Restrict)
   acceptedBy       User?     @relation("TeamInviteAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: Restrict)
+  invitedUser      User?     @relation("TeamInviteTarget", fields: [invitedUserId], references: [id], onDelete: Restrict)
 
   @@index([teamId, expiresAt])
+  @@index([invitedByUserId, createdAt])
+  @@index([invitedUserId, expiresAt])
 }
 
 model Project {
-  id              String              @id @default(cuid())
-  name            String
-  summary         String
-  description     String?
-  status          ProjectStatus       @default(IDEA)
-  createdByUserId String
-  primaryTeamId   String?
-  archivedAt      DateTime?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-  createdBy       User                @relation("ProjectCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  primaryTeam     Team?               @relation(fields: [primaryTeamId], references: [id], onDelete: Restrict)
-  memberships     ProjectMembership[]
-  applications    Application[]
-  ventures        Venture[]
-  publicSlug      String?             @unique @db.VarChar(64)
-  visibility      VisibilityScope     @default(PRIVATE)
-  thematicAreas   String[]            @default([])
-  websiteUrl      String?
-  repositoryUrl   String?
-  demoUrl         String?
-  publishedAt     DateTime?
-  tasks           ProjectTask[]
-  resources       ProjectResource[]
+  id                    String                        @id @default(cuid())
+  name                  String
+  summary               String
+  description           String?
+  status                ProjectStatus                 @default(IDEA)
+  createdByUserId       String
+  primaryTeamId         String?
+  archivedAt            DateTime?
+  createdAt             DateTime                      @default(now())
+  updatedAt             DateTime                      @updatedAt
+  createdBy             User                          @relation("ProjectCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  primaryTeam           Team?                         @relation(fields: [primaryTeamId], references: [id], onDelete: Restrict)
+  memberships           ProjectMembership[]
+  applications          Application[]
+  ventures              Venture[]
+  publicSlug            String?                       @unique @db.VarChar(64)
+  visibility            VisibilityScope               @default(PRIVATE)
+  thematicAreas         String[]                      @default([])
+  websiteUrl            String?
+  repositoryUrl         String?
+  demoUrl               String?
+  publishedAt           DateTime?
+  tasks                 ProjectTask[]
+  resources             ProjectResource[]
+  directoryEnabled      Boolean                       @default(false)
+  collaborationOpen     Boolean                       @default(false)
+  collaborationNote     String?
+  collaborationRequests ProjectCollaborationRequest[]
+  invites               ProjectInvite[]
+  discussions           ProjectDiscussion[]
 
   @@index([primaryTeamId, archivedAt])
+  @@index([directoryEnabled, visibility, archivedAt, status, id])
 }
 
 model ProjectMembership {
@@ -1416,4 +1457,270 @@ model ProjectResource {
   createdBy       User                @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
 
   @@index([projectId, type])
+}
+
+enum CollaborationStatus {
+  OPEN
+  SELECTIVE
+  NOT_AVAILABLE
+}
+
+enum NetworkRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+}
+
+enum NotificationKind {
+  CONNECTION_REQUEST
+  CONNECTION_ACCEPTED
+  TEAM_INVITE
+  TEAM_INVITE_ACCEPTED
+  PROJECT_INVITE
+  PROJECT_INVITE_ACCEPTED
+  PROJECT_COLLABORATION_REQUEST
+  PROJECT_COLLABORATION_ACCEPTED
+  PROJECT_TASK_ASSIGNED
+  PROJECT_DISCUSSION
+  PROJECT_MENTION
+  APPLICATION_RESULT
+  AWARD_STATUS_CHANGED
+  AWARD_REVIEW_CHANGES_REQUESTED
+  AWARD_REVIEW_APPROVED
+  DIRECT_MESSAGE
+}
+
+enum ProjectDiscussionStatus {
+  OPEN
+  CLOSED
+}
+
+enum SafetyReportReason {
+  SPAM
+  HARASSMENT
+  IMPERSONATION
+  INAPPROPRIATE_CONTENT
+  OTHER
+}
+
+enum SafetyReportStatus {
+  OPEN
+  REVIEWED
+  DISMISSED
+  ACTIONED
+}
+
+model ConnectionRequest {
+  id              String               @id @default(cuid())
+  requesterUserId String
+  recipientUserId String
+  userAId         String
+  userBId         String
+  message         String?
+  status          NetworkRequestStatus @default(PENDING)
+  createdAt       DateTime             @default(now())
+  respondedAt     DateTime?
+  cancelledAt     DateTime?
+  requester       User                 @relation("ConnectionRequester", fields: [requesterUserId], references: [id], onDelete: Restrict)
+  recipient       User                 @relation("ConnectionRecipient", fields: [recipientUserId], references: [id], onDelete: Restrict)
+  connection      NetworkConnection?
+
+  @@index([recipientUserId, status, createdAt])
+  @@index([requesterUserId, createdAt])
+}
+
+model NetworkConnection {
+  id              String            @id @default(cuid())
+  userAId         String
+  userBId         String
+  sourceRequestId String            @unique
+  connectedAt     DateTime          @default(now())
+  endedAt         DateTime?
+  endedByUserId   String?
+  userA           User              @relation("ConnectionUserA", fields: [userAId], references: [id], onDelete: Restrict)
+  userB           User              @relation("ConnectionUserB", fields: [userBId], references: [id], onDelete: Restrict)
+  sourceRequest   ConnectionRequest @relation(fields: [sourceRequestId], references: [id], onDelete: Restrict)
+  endedBy         User?             @relation("ConnectionEndedBy", fields: [endedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([userAId, endedAt, connectedAt])
+  @@index([userBId, endedAt, connectedAt])
+}
+
+model ProjectCollaborationRequest {
+  id                String               @id @default(cuid())
+  projectId         String
+  requesterUserId   String
+  message           String?
+  status            NetworkRequestStatus @default(PENDING)
+  respondedByUserId String?
+  respondedAt       DateTime?
+  cancelledAt       DateTime?
+  createdAt         DateTime             @default(now())
+  project           Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requester         User                 @relation("ProjectRequestRequester", fields: [requesterUserId], references: [id], onDelete: Restrict)
+  respondedBy       User?                @relation("ProjectRequestReviewer", fields: [respondedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([projectId, status, createdAt])
+  @@index([requesterUserId, createdAt])
+}
+
+model ProjectInvite {
+  id              String      @id @default(cuid())
+  projectId       String
+  invitedUserId   String
+  invitedByUserId String
+  role            ProjectRole @default(MEMBER)
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  declinedAt      DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime    @default(now())
+  project         Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  invitedUser     User        @relation("ProjectInviteTarget", fields: [invitedUserId], references: [id], onDelete: Restrict)
+  invitedBy       User        @relation("ProjectInviter", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([invitedUserId, expiresAt])
+  @@index([projectId, expiresAt])
+  @@index([invitedByUserId, createdAt])
+}
+
+model UserBlock {
+  blockerUserId String
+  blockedUserId String
+  createdAt     DateTime @default(now())
+  blocker       User     @relation("BlockInitiator", fields: [blockerUserId], references: [id], onDelete: Restrict)
+  blocked       User     @relation("BlockTarget", fields: [blockedUserId], references: [id], onDelete: Restrict)
+
+  @@id([blockerUserId, blockedUserId])
+  @@index([blockedUserId])
+}
+
+model Notification {
+  id              String           @id @default(cuid())
+  recipientUserId String
+  actorUserId     String?
+  kind            NotificationKind
+  entityType      String?
+  entityId        String?
+  title           String
+  body            String?
+  href            String
+  dedupeKey       String
+  readAt          DateTime?
+  archivedAt      DateTime?
+  createdAt       DateTime         @default(now())
+  recipient       User             @relation("NotificationRecipient", fields: [recipientUserId], references: [id], onDelete: Restrict)
+  actor           User?            @relation("NotificationActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@unique([recipientUserId, dedupeKey])
+  @@index([recipientUserId, archivedAt, createdAt, id])
+  @@index([recipientUserId, readAt, archivedAt])
+}
+
+model Conversation {
+  id            String                    @id @default(cuid())
+  userAId       String
+  userBId       String
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  lastMessageAt DateTime?
+  userA         User                      @relation("ConversationUserA", fields: [userAId], references: [id], onDelete: Restrict)
+  userB         User                      @relation("ConversationUserB", fields: [userBId], references: [id], onDelete: Restrict)
+  participants  ConversationParticipant[]
+  messages      DirectMessage[]
+  safetyReports SafetyReport[]
+
+  @@unique([userAId, userBId])
+}
+
+model ConversationParticipant {
+  conversationId String
+  userId         String
+  joinedAt       DateTime     @default(now())
+  lastReadAt     DateTime?
+  archivedAt     DateTime?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@id([conversationId, userId])
+  @@index([userId, archivedAt, conversationId])
+}
+
+model DirectMessage {
+  id             String         @id @default(cuid())
+  conversationId String
+  senderUserId   String
+  body           String
+  createdAt      DateTime       @default(now())
+  deletedAt      DateTime?
+  conversation   Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User           @relation(fields: [senderUserId], references: [id], onDelete: Restrict)
+  safetyReports  SafetyReport[]
+
+  @@index([conversationId, createdAt, id])
+  @@index([senderUserId, createdAt])
+}
+
+model ProjectDiscussion {
+  id              String                          @id @default(cuid())
+  projectId       String
+  title           String
+  status          ProjectDiscussionStatus         @default(OPEN)
+  createdByUserId String
+  createdAt       DateTime                        @default(now())
+  updatedAt       DateTime                        @updatedAt
+  project         Project                         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy       User                            @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  messages        ProjectDiscussionMessage[]
+  subscriptions   ProjectDiscussionSubscription[]
+
+  @@index([projectId, updatedAt, id])
+  @@index([createdByUserId, createdAt])
+}
+
+model ProjectDiscussionMessage {
+  id           String            @id @default(cuid())
+  discussionId String
+  authorUserId String
+  body         String
+  createdAt    DateTime          @default(now())
+  deletedAt    DateTime?
+  discussion   ProjectDiscussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  author       User              @relation(fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  @@index([discussionId, createdAt, id])
+  @@index([authorUserId, createdAt])
+}
+
+model ProjectDiscussionSubscription {
+  discussionId String
+  userId       String
+  createdAt    DateTime          @default(now())
+  discussion   ProjectDiscussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  user         User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@id([discussionId, userId])
+}
+
+model SafetyReport {
+  id               String             @id @default(cuid())
+  reporterUserId   String
+  reportedUserId   String
+  conversationId   String?
+  messageId        String?
+  reason           SafetyReportReason
+  details          String?
+  status           SafetyReportStatus @default(OPEN)
+  createdAt        DateTime           @default(now())
+  reviewedAt       DateTime?
+  reviewedByUserId String?
+  reporter         User               @relation("SafetyReporter", fields: [reporterUserId], references: [id], onDelete: Restrict)
+  reported         User               @relation("SafetyReported", fields: [reportedUserId], references: [id], onDelete: Restrict)
+  conversation     Conversation?      @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  message          DirectMessage?     @relation(fields: [messageId], references: [id], onDelete: Restrict)
+  reviewedBy       User?              @relation("SafetyReviewer", fields: [reviewedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt, id])
+  @@index([reporterUserId, createdAt])
 }

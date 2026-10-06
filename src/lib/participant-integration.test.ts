@@ -122,6 +122,15 @@ test("participant services preserve private identities, secure invitations and d
       assert.equal(await db.projectMembership.count({ where: { projectId: project.id, role: "OWNER", leftAt: null } }), 1);
     });
 
+    await context.test("direct project membership is independent of a primary team", async () => {
+      const independent = await createProject(owner.id, { name: "Independent collaboration", summary: "External specialists collaborate without joining a team." });
+      projectIds.push(independent.id);
+      await addProjectMember(owner.id, independent.id, { userId: outsider.id });
+      assert.equal((await getProject(outsider.id, independent.id))?.callerRole, "MEMBER");
+      assert.equal(await db.teamMembership.count({ where: { userId: outsider.id, teamId: team.id } }), 0);
+      await assert.rejects(() => addProjectMember(outsider.id, independent.id, { userId: lead.id }), /PARTICIPANT_ROLE_FORBIDDEN/);
+    });
+
     await context.test("owner hierarchy and concurrent demotions retain one active team owner", async () => {
       const ownerMembership = await db.teamMembership.findFirstOrThrow({ where: { teamId: team.id, userId: owner.id, status: "ACTIVE", leftAt: null } });
       await assert.rejects(() => updateTeamMember(owner.id, team.id, ownerMembership.id, { action: "leave" }), /PARTICIPANT_LAST_OWNER_REQUIRED/);
@@ -149,6 +158,7 @@ test("participant services preserve private identities, secure invitations and d
       await assert.rejects(() => createProject(teamOwner.userId, { name: "Archived team project", summary: "This project must not be created.", primaryTeamId: team.id }), /TEAM_ARCHIVED/);
     });
   } finally {
+    if (userIds.length) await db.notification.deleteMany({ where: { OR: [{ recipientUserId: { in: userIds } }, { actorUserId: { in: userIds } }] } });
     if (projectIds.length) await db.project.deleteMany({ where: { id: { in: projectIds } } });
     if (teamIds.length) await db.team.deleteMany({ where: { id: { in: teamIds } } });
     if (userIds.length) await db.user.deleteMany({ where: { id: { in: userIds } } });

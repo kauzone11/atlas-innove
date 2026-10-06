@@ -4,6 +4,7 @@ import { requireOrganizationAccess } from "@/lib/auth/organization-access";
 import { projectAccessWhere, requireProjectAccess } from "@/lib/auth/participant-access";
 import type { OrganizationRole } from "@/lib/domain";
 import { db } from "@/lib/db";
+import { notifyAwardManagers } from "@/lib/notifications/events";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 import { calendarToday } from "@/lib/execution/state";
 import { awardDetailSelect, awardSummarySelect, institutionAwardDetailSelect, institutionAwardSummarySelect, dateOnly, serializeAwardDetail, serializeAwardSummary, serializeSubmission, submissionSelect, type AwardDetailDto, type CallExecutionDto, type OrganizationExecutionDto } from "@/lib/awards/read-model";
@@ -98,6 +99,7 @@ export async function transitionAward(access: OrganizationAccess, awardId: strin
     }
     const now = new Date();
     await client.award.update({ where: { organizationId_id: { organizationId, id: awardId } }, data: { status: input.status, revision: { increment: 1 }, activatedAt: input.status === "ACTIVE" ? award.activatedAt ?? now : award.activatedAt, completedAt: input.status === "COMPLETED" ? now : null, terminatedAt: input.status === "TERMINATED" ? now : null, statusHistory: { create: { fromStatus: award.status, toStatus: input.status, awardRevision: award.revision + 1, reason: input.reason, changedByUserId: userId } } } });
+    if (["ACTIVE", "SUSPENDED", "COMPLETED", "TERMINATED"].includes(input.status)) await notifyAwardManagers(client, { organizationId, awardId, actorUserId: userId, kind: "AWARD_STATUS_CHANGED", dedupeKey: `award-status:${awardId}:${award.revision + 1}`, title: ({ ACTIVE: "A execução do apoio foi ativada.", SUSPENDED: "A execução do apoio foi suspensa.", COMPLETED: "A execução do apoio foi concluída.", TERMINATED: "A execução do apoio foi encerrada." } as Record<string, string>)[input.status] });
   });
   return getInstitutionAward(access, awardId);
 }
@@ -225,6 +227,7 @@ export async function reviewSubmission(access: OrganizationAccess, awardId: stri
     if (submission.status !== "SUBMITTED") throw new DomainConflictError("AWARD_SUBMISSION_NOT_SUBMITTED");
     if (submission.reviewStatus !== "PENDING") throw new DomainConflictError("AWARD_REVIEW_FROZEN");
     await client.awardSubmission.update({ where: { organizationId_awardId_id: { organizationId, awardId, id: submissionId } }, data: { reviewStatus: input.decision, feedback: input.feedback, internalNote: input.internalNote, reviewedAt: new Date(), reviewedByUserId: userId } });
+    if (input.decision === "APPROVED" || input.decision === "CHANGES_REQUESTED") await notifyAwardManagers(client, { organizationId, awardId, actorUserId: userId, kind: input.decision === "APPROVED" ? "AWARD_REVIEW_APPROVED" : "AWARD_REVIEW_CHANGES_REQUESTED", dedupeKey: `award-review:${submissionId}:${input.decision}`, title: input.decision === "APPROVED" ? "Uma entrega do apoio foi aprovada." : "Uma entrega do apoio precisa de ajustes." });
   });
   return getInstitutionAward(access, awardId);
 }

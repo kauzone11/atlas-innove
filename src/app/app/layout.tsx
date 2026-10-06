@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 
 import { AppShell } from "@/components/app-shell";
 import { getAuthenticatedSession } from "@/lib/auth/session";
+import { unreadNotificationCount } from "@/lib/notifications/service";
 
 export default async function AppLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const auth = await getAuthenticatedSession();
@@ -14,5 +15,6 @@ export default async function AppLayout({ children }: Readonly<{ children: React
     (membership) => membership.organizationId === auth.session.activeOrganizationId,
   ) ?? (auth.memberships.length === 1 ? auth.memberships[0] : null);
 
-  return <AppShell organizationName={activeOrganization?.organization.name} userName={auth.user.profile?.fullName ?? auth.user.email} hasOrganization={Boolean(activeOrganization)}>{children}</AppShell>;
+  const unread = await unreadNotificationCount(auth.user.id);
+  return <AppShell organizationName={activeOrganization?.organization.name} userName={auth.user.profile?.fullName ?? auth.user.email} hasOrganization={Boolean(activeOrganization)} unreadNotifications={unread} isPlatformAdmin={auth.user.platformRole === "SUPER_ADMIN"}>{children}</AppShell>;
 }

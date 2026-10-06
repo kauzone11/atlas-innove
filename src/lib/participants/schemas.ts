@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { publicHandleSchema, tagListSchema } from "@/lib/identity/normalization";
+import { collaborationNoteSchema } from "@/lib/network/discovery-schemas";
 
 export const participantRoleSchema = z.enum(["OWNER", "LEAD", "MEMBER"]);
 export const projectStatusSchema = z.enum(["IDEA", "ACTIVE", "PAUSED", "COMPLETED", "ARCHIVED"]);
@@ -19,7 +20,10 @@ export const teamInviteSchema = z.object({
   role: z.enum(["LEAD", "MEMBER"]).default("MEMBER"),
 }).strict();
 
-export const acceptTeamInviteSchema = z.object({ token: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
+export const acceptTeamInviteSchema = z.union([
+  z.object({ token: z.string().regex(/^[a-f0-9]{64}$/) }).strict(),
+  z.object({ inviteId: z.string().min(1).max(128) }).strict(),
+]);
 
 export const updateParticipantMemberSchema = z.union([
   z.object({ role: participantRoleSchema }).strict(),
@@ -43,6 +47,9 @@ export const updateProjectSchema = createProjectSchema.partial().strict()
 
 export const projectPublicationSchema = z.object({
   visibility: z.enum(["PUBLIC", "PLATFORM", "TEAM", "PRIVATE"]),
+  directoryEnabled: z.boolean().optional(),
+  collaborationOpen: z.boolean().optional(),
+  collaborationNote: collaborationNoteSchema.optional(),
   publicSlug: publicHandleSchema.optional(),
   confirmed: z.boolean().optional(),
 }).strict().refine((input) => input.visibility !== "PUBLIC" || input.confirmed === true, { message: "Confirme a publicação das informações do projeto.", path: ["confirmed"] });

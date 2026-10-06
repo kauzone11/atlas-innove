@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { BriefcaseBusiness, Building2, ChevronDown, FolderKanban, Menu, Settings, Users, Workflow, Compass, X, Route, Layers3, UsersRound, UserRound, ClipboardCheck, ChartNoAxesCombined } from "lucide-react";
+import { Bell, Network, MessageSquare, BriefcaseBusiness, Building2, ChevronDown, FolderKanban, Menu, Settings, Users, Workflow, Compass, X, Route, Layers3, UsersRound, UserRound, ClipboardCheck, ChartNoAxesCombined } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { LogoutButton } from "@/components/logout-button";
 
-type AppShellProps = { children: React.ReactNode; organizationName?: string; userName: string; hasOrganization: boolean };
+type AppShellProps = { children: React.ReactNode; organizationName?: string; userName: string; hasOrganization: boolean; unreadNotifications: number; isPlatformAdmin?: boolean };
 
 const primaryNavigation = [
   { href: "/app", label: "Visão geral", icon: Building2, exact: true },
@@ -31,12 +31,16 @@ const personalNavigation = [
   { href: "/app/personal/projects", label: "Projetos", icon: Layers3 },
   { href: "/app/personal/teams", label: "Equipes", icon: UsersRound },
   { href: "/app/personal/opportunities", label: "Oportunidades", icon: Compass },
+  { href: "/app/personal/network", label: "Rede", icon: Network },
+  { href: "/app/messages", label: "Mensagens", icon: MessageSquare },
   { href: "/app/personal/profile", label: "Perfil", icon: UserRound },
 ];
 
-export function AppShell({ children, organizationName, userName, hasOrganization }: AppShellProps) {
+function isPersonalPath(pathname: string) { return pathname.startsWith("/app/personal") || pathname.startsWith("/app/messages"); }
+
+export function AppShell({ children, organizationName, userName, hasOrganization, unreadNotifications, isPlatformAdmin }: AppShellProps) {
   const pathname = usePathname();
-  const personal = pathname.startsWith("/app/personal");
+  const personal = isPersonalPath(pathname);
   const [mobileOpen, setMobileOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -69,7 +73,7 @@ export function AppShell({ children, organizationName, userName, hasOrganization
                 <Link href="/app" className="truncate text-[0.9375rem] font-semibold tracking-[-0.02em] text-ink lg:hidden">Atlas Innove</Link>
                 <span className="hidden truncate text-sm text-slate sm:block">{personal ? "Minha trajetória de inovação" : organizationName ?? "Selecione uma organização"}</span>
               </div>
-              <AccountControl userName={userName} organizationName={organizationName} placement="top" />
+              <div className="flex shrink-0 items-center gap-1"><Link href="/app/notifications" className="relative flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate hover:bg-surface-subtle" aria-label={`Notificações${unreadNotifications ? `, ${unreadNotifications} não lidas` : ""}`}><Bell size={19} aria-hidden="true" />{unreadNotifications > 0 ? <span className="absolute right-0 top-0 rounded-full bg-accent-soft px-1.5 text-[10px] font-semibold text-ink" aria-hidden="true">{unreadNotifications > 99 ? "99+" : unreadNotifications}</span> : null}</Link><AccountControl userName={userName} organizationName={organizationName} placement="top" isPlatformAdmin={isPlatformAdmin} /></div>
             </div>
           </header>
           <main id="main-content" className="app-content">{children}</main>
@@ -86,7 +90,7 @@ function ShellBrand({ organizationName }: { organizationName?: string }) {
 }
 
 function ShellNavigation({ pathname, hasOrganization }: { pathname: string; hasOrganization: boolean }) {
-  const personal = pathname.startsWith("/app/personal");
+  const personal = isPersonalPath(pathname);
   return <nav aria-label={personal ? "Navegação do participante" : "Navegação da organização"} className="space-y-7"><div><p className="px-3 pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-slate">Perspectiva</p><div className="grid grid-cols-2 gap-1 rounded-lg bg-surface-subtle p-1"><Link className={`flex min-h-11 items-center justify-center rounded-md text-xs font-medium ${!personal ? "bg-white text-ink shadow-sm" : "text-slate"}`} href={hasOrganization ? "/app" : "/app/organizations"} aria-current={!personal ? "page" : undefined}>Instituição</Link><Link className={`flex min-h-11 items-center justify-center rounded-md text-xs font-medium ${personal ? "bg-white text-ink shadow-sm" : "text-slate"}`} href="/app/personal" aria-current={personal ? "page" : undefined}>Participante</Link></div></div><NavGroup label={personal ? "Meu espaço" : "Espaço"} items={personal ? personalNavigation : hasOrganization ? primaryNavigation : [primaryNavigation[0]]} pathname={pathname} />{!personal ? <NavGroup label="Administração" items={administrationNavigation.filter((item) => item.href === "/app/organizations" || hasOrganization)} pathname={pathname} /> : null}</nav>;
 }
 
@@ -101,9 +105,9 @@ function NavItem({ item, pathname }: { item: (typeof primaryNavigation)[number];
   return <Link href={item.href} aria-current={active ? "page" : undefined} className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors duration-150 ${active ? "bg-accent-soft/70 text-ink" : "text-slate hover:bg-surface-subtle hover:text-ink"}`}><Icon size={17} strokeWidth={active ? 2 : 1.7} className={active ? "text-accent" : undefined} aria-hidden="true" /><span>{item.label}</span></Link>;
 }
 
-function AccountControl({ userName, organizationName, placement = "top" }: { userName: string; organizationName?: string; placement?: "top" | "bottom" }) {
+function AccountControl({ userName, organizationName, placement = "top", isPlatformAdmin }: { userName: string; organizationName?: string; placement?: "top" | "bottom"; isPlatformAdmin?: boolean }) {
   const pathname = usePathname();
-  const personal = pathname.startsWith("/app/personal");
+  const personal = isPersonalPath(pathname);
   const [open, setOpen] = useState(false);
   const controlRef = useRef<HTMLDivElement>(null);
 
@@ -130,6 +134,7 @@ function AccountControl({ userName, organizationName, placement = "top" }: { use
     {open ? <div className={`account-menu-popover ${placement === "top" ? "!bottom-auto !top-[calc(100%+0.6rem)]" : ""}`} role="menu">
       <div className="border-b border-line px-2 pb-3 pt-1"><p className="truncate text-sm font-semibold text-ink">{userName}</p><p className="mt-1 truncate text-xs text-slate">{personal ? "Espaço participante" : organizationName ?? "Nenhuma organização ativa"}</p></div>
       <Link href="/app/personal/profile" role="menuitem" className="mt-1 flex min-h-11 items-center gap-2 rounded-md px-2 text-sm text-slate hover:bg-surface-subtle hover:text-ink" onClick={() => setOpen(false)}><UserRound size={16} aria-hidden="true" /> Meu perfil</Link>
+      {isPlatformAdmin ? <Link href="/app/platform/safety" role="menuitem" className="mt-1 flex min-h-11 items-center gap-2 rounded-md px-2 text-sm text-slate hover:bg-surface-subtle hover:text-ink" onClick={() => setOpen(false)}>Revisar denúncias</Link> : null}
       <Link href="/app/organizations" role="menuitem" className="mt-1 flex min-h-11 items-center gap-2 rounded-md px-2 text-sm text-slate hover:bg-surface-subtle hover:text-ink" onClick={() => setOpen(false)}><Building2 size={16} aria-hidden="true" /> Trocar organização</Link>
       <LogoutButton />
     </div> : null}

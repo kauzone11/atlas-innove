@@ -43,8 +43,9 @@ test("membership periods survive leaving and rejoining while current access and 
     await updateProjectMember(member.id, projectId, firstProject.id, { action: "leave" });
     const endedProject = await db.projectMembership.findUniqueOrThrow({ where: { id: firstProject.id } });
     assert.ok(endedProject.leftAt); assert.equal(await getProject(member.id, projectId), null);
-    await join("MEMBER");
     await addProjectMember(owner.id, projectId, { userId: member.id, role: "MEMBER" });
+    assert.equal(await getTeam(member.id, teamId), null);
+    assert.ok(await getProject(member.id, projectId));
     const projectPeriods = await db.projectMembership.findMany({ where: { projectId, userId: member.id } });
     assert.equal(projectPeriods.length, 2);
     assert.deepEqual(await db.projectMembership.findUnique({ where: { id: firstProject.id } }), endedProject);
@@ -56,6 +57,7 @@ test("membership periods survive leaving and rejoining while current access and 
     const ownerProject = await db.projectMembership.findFirstOrThrow({ where: { projectId, userId: owner.id, leftAt: null } });
     await assert.rejects(() => updateProjectMember(owner.id, projectId!, ownerProject.id, { action: "leave" }), /PARTICIPANT_LAST_OWNER_REQUIRED/);
   } finally {
+    await db.notification.deleteMany({ where: { OR: [{ recipientUserId: { in: users.map((user) => user.id) } }, { actorUserId: { in: users.map((user) => user.id) } }] } });
     if (projectId) await db.project.delete({ where: { id: projectId } });
     if (teamId) await db.team.delete({ where: { id: teamId } });
     await db.user.deleteMany({ where: { id: { in: users.map((user) => user.id) } } });

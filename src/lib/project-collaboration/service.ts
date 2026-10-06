@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { AuthorizationError } from "@/lib/auth/authorization";
 import { requireProjectAccess } from "@/lib/auth/participant-access";
 import { db } from "@/lib/db";
+import { createNotification } from "@/lib/notifications/service";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 import { createResourceSchema, createTaskSchema, removeResourceSchema, updateResourceSchema, updateTaskSchema } from "@/lib/project-collaboration/schemas";
 import { canTransitionTask, isTaskOverdue, taskIsTerminal } from "@/lib/project-collaboration/state";
@@ -89,6 +90,7 @@ export async function createProjectTask(userId: string, projectId: string, value
     if (input.assigneeUserId && !collaborators.some((person) => person.userId === input.assigneeUserId)) throw new DomainConflictError("PROJECT_TASK_ASSIGNEE_ACCESS_REQUIRED");
     if (await client.projectTask.count({ where: { projectId, status: { in: ["TODO", "IN_PROGRESS"] } } }) >= 500) throw new DomainConflictError("PROJECT_TASK_LIMIT");
     const task = await client.projectTask.create({ data: { ...input, dueAt: input.dueAt ? new Date(`${input.dueAt}T00:00:00.000Z`) : null, projectId, createdByUserId: userId }, select: taskSelect });
+    if (task.assigneeUserId) await createNotification(client, { recipientUserId: task.assigneeUserId, actorUserId: userId, kind: "PROJECT_TASK_ASSIGNED", entityType: "ProjectTask", entityId: task.id, title: "Uma tarefa do projeto foi atribuída a você.", href: `/app/personal/projects/${projectId}?section=tasks`, dedupeKey: `task-assigned:${task.id}:0` });
     return taskDto(task, userId, access, collaborators);
   });
 }
@@ -112,6 +114,7 @@ export async function updateProjectTask(userId: string, projectId: string, taskI
       ...(input.status === "DONE" ? { completedAt: new Date() } : {}), ...(input.status === "CANCELLED" ? { cancelledAt: new Date() } : {}), revision: { increment: 1 },
     } });
     if (result.count !== 1) throw new DomainConflictError("PROJECT_TASK_REVISION_CONFLICT");
+    if (input.assigneeUserId && input.assigneeUserId !== task.assigneeUserId) await createNotification(client, { recipientUserId: input.assigneeUserId, actorUserId: userId, kind: "PROJECT_TASK_ASSIGNED", entityType: "ProjectTask", entityId: task.id, title: "Uma tarefa do projeto foi atribuída a você.", href: `/app/personal/projects/${projectId}?section=tasks`, dedupeKey: `task-assigned:${task.id}:${expectedRevision + 1}` });
     return taskDto(await client.projectTask.findFirstOrThrow({ where: { id: taskId, projectId }, select: taskSelect }), userId, access, collaborators);
   });
 }

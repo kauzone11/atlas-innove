@@ -9,6 +9,7 @@ import { resolveProfileVisibility, type ProfileViewer, type VisibilityScope } fr
 
 const profileSelect = {
   id: true, userId: true, handle: true, headline: true, bio: true, city: true, state: true, country: true,
+  directoryEnabled: true, collaborationStatus: true, collaborationNote: true,
   profileVisibility: true, skillsVisibility: true, experienceVisibility: true, educationVisibility: true,
   linksVisibility: true, verifiedParticipationVisibility: true, projectsVisibility: true, publishedAt: true,
   user: { select: { profile: { select: { fullName: true } } } },
@@ -19,7 +20,7 @@ const profileSelect = {
 } satisfies Prisma.InnovationProfileSelect;
 const profileScopeSelect = {
   id: true, userId: true, profileVisibility: true, skillsVisibility: true, experienceVisibility: true,
-  educationVisibility: true, linksVisibility: true, verifiedParticipationVisibility: true, projectsVisibility: true, publishedAt: true,
+  educationVisibility: true, linksVisibility: true, verifiedParticipationVisibility: true, projectsVisibility: true, publishedAt: true, directoryEnabled: true,
 } satisfies Prisma.InnovationProfileSelect;
 
 function dateOnly(value: Date | null): string | null { return value?.toISOString().slice(0, 10) ?? null; }
@@ -74,6 +75,7 @@ export async function getOwnProfile(userId: string) {
   return {
     id: profile.id, fullName: profile.user.profile?.fullName ?? "", handle: profile.handle, headline: profile.headline,
     bio: profile.bio, city: profile.city, state: profile.state, country: profile.country,
+    directoryEnabled: profile.directoryEnabled, collaborationStatus: profile.collaborationStatus, collaborationNote: profile.collaborationNote,
     profileVisibility: profile.profileVisibility, skillsVisibility: profile.skillsVisibility,
     experienceVisibility: profile.experienceVisibility, educationVisibility: profile.educationVisibility,
     linksVisibility: profile.linksVisibility, verifiedParticipationVisibility: profile.verifiedParticipationVisibility,
@@ -127,7 +129,7 @@ export async function getVisibleProfile(handle: string, viewerUserId?: string | 
   if (!parsed.success) return null;
   const profile = await db.innovationProfile.findUnique({ where: { handle: parsed.data }, select: profileScopeSelect });
   if (!profile) return null;
-  if (viewerUserId !== profile.userId && profile.profileVisibility === "PUBLIC" && !profile.publishedAt) return null;
+  if (viewerUserId !== profile.userId && profile.profileVisibility === "PUBLIC" && !profile.publishedAt && !(viewerUserId && profile.directoryEnabled)) return null;
   if (!await canViewProfileSection({ scope: profile.profileVisibility, profileUserId: profile.userId, viewerUserId })) return null;
   return buildVisibleProfile(profile, viewerUserId);
 }
@@ -151,14 +153,19 @@ export async function updateProfile(userId: string, input: unknown): Promise<voi
   try {
     await db.$transaction(async (transaction) => {
       await transaction.$queryRaw`SELECT "id" FROM "InnovationProfile" WHERE "id" = ${profile.id} AND "userId" = ${userId} FOR UPDATE`;
-      const existing = await transaction.innovationProfile.findUniqueOrThrow({ where: { userId }, select: { id: true, handle: true, headline: true, publishedAt: true, user: { select: { profile: { select: { fullName: true } } } } } });
+      const existing = await transaction.innovationProfile.findUniqueOrThrow({ where: { userId }, select: { id: true, handle: true, headline: true, publishedAt: true, directoryEnabled: true, profileVisibility: true, user: { select: { profile: { select: { fullName: true } } } } } });
       if (parsed.section === "identity") {
         if (existing.publishedAt && (!parsed.data.handle || !parsed.data.headline)) throw new DomainConflictError("PROFILE_PUBLISHED_IDENTITY_REQUIRED");
+        if (existing.directoryEnabled && (!parsed.data.handle || !parsed.data.headline)) throw new DomainConflictError("PROFILE_DIRECTORY_IDENTITY_REQUIRED");
         await transaction.innovationProfile.update({ where: { userId }, data: parsed.data });
       } else if (parsed.section === "about") {
         await transaction.innovationProfile.update({ where: { userId }, data: parsed.data });
       } else if (parsed.section === "privacy") {
-        await transaction.innovationProfile.update({ where: { userId }, data: { ...parsed.data, ...(parsed.data.profileVisibility !== "PUBLIC" ? { publishedAt: null } : {}) } });
+        await transaction.innovationProfile.update({ where: { userId }, data: { ...parsed.data, ...(parsed.data.profileVisibility !== "PUBLIC" ? { publishedAt: null } : {}), ...(["PRIVATE", "TEAM"].includes(parsed.data.profileVisibility) ? { directoryEnabled: false } : {}) } });
+      } else if (parsed.section === "discovery") {
+        if (parsed.data.directoryEnabled && (!existing.handle || !publicHandleSchema.safeParse(existing.handle).success || !existing.headline?.trim() || !existing.user.profile?.fullName.trim())) throw new DomainConflictError("PROFILE_DISCOVERY_INCOMPLETE");
+        if (parsed.data.directoryEnabled && !["PUBLIC", "PLATFORM"].includes(existing.profileVisibility)) throw new DomainConflictError("PROFILE_DISCOVERY_VISIBILITY_REQUIRED");
+        await transaction.innovationProfile.update({ where: { userId }, data: parsed.data });
       } else if (parsed.section === "topics") {
         await transaction.profileTopic.deleteMany({ where: { profileId: existing.id } });
         const topics = [

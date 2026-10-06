@@ -349,6 +349,7 @@ test("selection connects private participants to tenant-scoped frozen evaluation
       assert.equal(await db.venture.count({ where: { organizationId: organizationA.id, sourceProjectId: { in: mappingProjects.slice(2).map((project) => project.id) } } }), 2);
     });
   } finally {
+    await db.notification.deleteMany({ where: { OR: [{ recipientUserId: { in: userIds } }, { actorUserId: { in: userIds } }] } });
     if (organizationIds.length) {
       await db.cohort.deleteMany({ where: { organizationId: { in: organizationIds } } });
       await db.organization.deleteMany({ where: { id: { in: organizationIds } } });

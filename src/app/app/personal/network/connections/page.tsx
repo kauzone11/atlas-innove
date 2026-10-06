@@ -1,0 +1,11 @@
+import Link from "next/link";
+import { PageHeader, Panel } from "@/components/ui";
+import { PersonNetworkActions } from "@/components/network/person-actions";
+import { requireAuthenticatedSession } from "@/lib/auth/session";
+import { listConnections } from "@/lib/network/connections";
+
+export default async function ConnectionsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const { user } = await requireAuthenticatedSession(); const query = await searchParams;
+  const page = Math.max(1, Math.min(1000, Number(query.page) || 1)); const result = await listConnections(user.id, page);
+  return <div className="space-y-6"><PageHeader title="Conexões" description="Contatos estabelecidos para colaborar. A conexão respeita a privacidade de cada perfil." action={<Link className="button-secondary" href="/app/personal/network/people">Descobrir pessoas</Link>} /><Panel>{result.items.length ? <ul className="divide-y divide-line">{result.items.map(({ id, person, connectedAt }) => <li key={id} className="space-y-4 px-5 py-5"><div><h2 className="break-words font-semibold">{person.fullName}</h2>{person.headline ? <p className="mt-1 break-words text-sm text-slate">{person.headline}</p> : null}{person.skills.length || person.interests.length ? <p className="mt-2 break-words text-xs text-slate">{[...person.skills, ...person.interests].slice(0, 8).join(" · ")}</p> : null}<p className="mt-2 text-xs text-slate">Conexão desde {new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeZone: "America/Fortaleza" }).format(new Date(connectedAt))}</p></div>{person.handle ? <Link className="button-tertiary" href={`/app/personal/network/connections/${id}`}>Ver perfil</Link> : null}<PersonNetworkActions userId={person.userId} connection={{ state: "CONNECTED", connectionId: id }} /></li>)}</ul> : <div className="p-6"><h2 className="font-semibold">Nenhuma conexão nesta página</h2><p className="mt-2 text-sm text-slate">Explore pessoas que optaram por aparecer na rede e envie uma solicitação de colaboração.</p></div>}</Panel><div className="flex gap-3">{page > 1 ? <Link className="button-secondary" href={`?page=${page - 1}`}>Anterior</Link> : null}{result.hasMore ? <Link className="button-secondary" href={`?page=${page + 1}`}>Próxima</Link> : null}</div></div>;
+}

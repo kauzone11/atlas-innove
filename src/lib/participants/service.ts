@@ -13,6 +13,8 @@ import {
   updateParticipantMemberSchema, updateProjectSchema, updateTeamSchema, projectPublicationSchema,
 } from "@/lib/participants/schemas";
 import { createOpaqueToken, hashToken, normalizeEmail } from "@/lib/security";
+import { hasUserBlock, lockNetworkUsers, lockUserPair } from "@/lib/network/locking";
+import { createNotification } from "@/lib/notifications/service";
 
 const userSelect = { email: true, profile: { select: { fullName: true } } } as const;
 const teamSelect = {
@@ -24,6 +26,7 @@ const projectSelect = {
   id: true, name: true, summary: true, description: true, status: true, primaryTeamId: true,
   archivedAt: true, createdAt: true, updatedAt: true,
   publicSlug: true, visibility: true, publishedAt: true, thematicAreas: true, websiteUrl: true, repositoryUrl: true, demoUrl: true,
+  directoryEnabled: true, collaborationOpen: true, collaborationNote: true,
   memberships: { where: { leftAt: null }, select: { userId: true, role: true } },
   primaryTeam: { select: { name: true, archivedAt: true, memberships: { where: { status: "ACTIVE" as const, leftAt: null }, select: { userId: true, role: true } } } },
 } as const;
@@ -42,6 +45,7 @@ export type ProjectDto = {
   createdAt: string; updatedAt: string; callerRole: ParticipantRole; canManage: boolean; canChangeTeam: boolean; memberCount: number;
   visibility: "PUBLIC" | "PLATFORM" | "TEAM" | "PRIVATE"; publicSlug: string | null; publishedAt: string | null;
   thematicAreas: string[]; websiteUrl: string | null; repositoryUrl: string | null; demoUrl: string | null; canPublish: boolean;
+  directoryEnabled: boolean; collaborationOpen: boolean; collaborationNote: string | null;
 };
 export type ParticipantMemberDto = {
   id: string; userId: string; role: ParticipantRole; joinedAt: string; leftAt: string | null;
@@ -79,6 +83,7 @@ function serializeProject(record: ProjectRecord, userId: string): ProjectDto {
     id: record.id, name: record.name, summary: record.summary, description: record.description, status: record.status,
     primaryTeamId: record.primaryTeamId, teamName: record.primaryTeam?.name ?? null,
     visibility: record.visibility, publicSlug: record.publicSlug, publishedAt: record.publishedAt?.toISOString() ?? null,
+    directoryEnabled: record.directoryEnabled, collaborationOpen: record.collaborationOpen, collaborationNote: record.collaborationNote,
     thematicAreas: record.thematicAreas, websiteUrl: record.websiteUrl, repositoryUrl: record.repositoryUrl, demoUrl: record.demoUrl,
     canPublish: directRole === "OWNER",
     archivedAt: record.archivedAt?.toISOString() ?? null, createdAt: record.createdAt.toISOString(), updatedAt: record.updatedAt.toISOString(),
@@ -174,7 +179,7 @@ export async function updateTeam(userId: string, teamId: string, value: unknown)
       ...(input.description !== undefined ? { description: input.description } : {}),
       ...(input.archived ? { archivedAt: new Date() } : {}),
     } });
-    if (input.archived) await transaction.teamInvite.updateMany({ where: { teamId, acceptedAt: null, revokedAt: null }, data: { revokedAt: new Date() } });
+    if (input.archived) await transaction.teamInvite.updateMany({ where: { teamId, acceptedAt: null, declinedAt: null, revokedAt: null }, data: { revokedAt: new Date() } });
   });
   const team = await getTeam(userId, teamId);
   if (!team) throw new ResourceNotFoundError("TEAM_NOT_FOUND");
@@ -186,9 +191,11 @@ export async function inviteToTeam(userId: string, teamId: string, value: unknow
   const rawToken = createOpaqueToken();
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   await db.$transaction(async (transaction) => {
+    await lockNetworkUsers(transaction, [userId]);
     await lockTeam(transaction, teamId);
     const team = await requireTeamAccess(userId, teamId, true, transaction);
     if (team.callerRole === "LEAD" && input.role !== "MEMBER") throw new AuthorizationError("PARTICIPANT_ROLE_FORBIDDEN");
+    if (await transaction.teamInvite.count({ where: { invitedByUserId: userId, createdAt: { gte: new Date(Date.now() - 86400000) } } }) >= 30) throw new DomainConflictError("NETWORK_INVITE_LIMIT");
     await transaction.teamInvite.create({ data: { teamId, invitedByUserId: userId, email: input.email ?? null, role: input.role, tokenHash: hashToken(rawToken), expiresAt } });
   });
   return { inviteUrl: `/app/personal/invites?token=${rawToken}`, expiresAt: expiresAt.toISOString() };
@@ -208,14 +215,18 @@ export async function revokeTeamInvite(userId: string, teamId: string, inviteId:
 
 export async function acceptTeamInvite(userId: string, value: unknown): Promise<TeamDetailsDto> {
   const input = acceptTeamInviteSchema.parse(value);
-  const tokenHash = hashToken(input.token);
+  const where = "token" in input ? { tokenHash: hashToken(input.token) } : { id: input.inviteId };
   const teamId = await db.$transaction(async (transaction) => {
-    const initial = await transaction.teamInvite.findUnique({ where: { tokenHash }, select: { teamId: true } });
+    const initial = await transaction.teamInvite.findUnique({ where, select: { teamId: true, id: true, invitedByUserId: true, invitedUserId: true } });
     if (!initial) throw new DomainConflictError("TEAM_INVITE_INVALID");
+    if (initial.invitedByUserId === userId) throw new DomainConflictError("NETWORK_SELF_ACTION");
+    await lockUserPair(transaction, initial.invitedByUserId, userId);
     await lockTeam(transaction, initial.teamId);
-    await transaction.$queryRaw`SELECT "id" FROM "TeamInvite" WHERE "tokenHash" = ${tokenHash} FOR UPDATE`;
-    const invite = await transaction.teamInvite.findUnique({ where: { tokenHash } });
-    if (!invite || invite.revokedAt) throw new DomainConflictError("TEAM_INVITE_INVALID");
+    await transaction.$queryRaw`SELECT "id" FROM "TeamInvite" WHERE "id" = ${initial.id} FOR UPDATE`;
+    const invite = await transaction.teamInvite.findUnique({ where });
+    if (!invite || invite.revokedAt || invite.declinedAt || ("inviteId" in input && !invite.invitedUserId)) throw new DomainConflictError("TEAM_INVITE_INVALID");
+    if (invite.invitedUserId && invite.invitedUserId !== userId) throw new AuthorizationError("TEAM_INVITE_RECIPIENT_MISMATCH");
+    if (await hasUserBlock(transaction, userId, invite.invitedByUserId)) throw new DomainConflictError("NETWORK_CONTACT_UNAVAILABLE");
     if (invite.acceptedAt) throw new DomainConflictError("TEAM_INVITE_USED");
     if (invite.expiresAt <= new Date()) throw new DomainConflictError("TEAM_INVITE_EXPIRED");
     const team = await requireTeamAccess(invite.invitedByUserId, invite.teamId, true, transaction);
@@ -228,6 +239,7 @@ export async function acceptTeamInvite(userId: string, value: unknown): Promise<
     // A row is one participation period; the parent lock and partial unique index serialize current membership.
     await transaction.teamMembership.create({ data: { teamId: invite.teamId, userId, role: invite.role, status: "ACTIVE" } });
     await transaction.teamInvite.update({ where: { id: invite.id }, data: { acceptedAt: new Date(), acceptedByUserId: userId } });
+    await createNotification(transaction, { recipientUserId: invite.invitedByUserId, actorUserId: userId, kind: "TEAM_INVITE_ACCEPTED", entityType: "TEAM", entityId: invite.teamId, dedupeKey: `team-invite-accepted:${invite.id}`, title: "Convite para equipe aceito", href: `/app/personal/teams/${invite.teamId}` });
     return invite.teamId;
   });
   const team = await getTeam(userId, teamId);
@@ -258,7 +270,7 @@ export async function updateTeamMember(userId: string, teamId: string, membershi
       if (owners <= 1) throw new DomainConflictError("PARTICIPANT_LAST_OWNER_REQUIRED");
     }
     await transaction.teamMembership.update({ where: { id: current.id }, data: action ? { status: "DISABLED", leftAt: new Date() } : { role: nextRole } });
-    if (action || nextRole === "MEMBER") await transaction.teamInvite.updateMany({ where: { teamId, invitedByUserId: current.userId, acceptedAt: null, revokedAt: null }, data: { revokedAt: new Date() } });
+    if (action || nextRole === "MEMBER") await transaction.teamInvite.updateMany({ where: { teamId, invitedByUserId: current.userId, acceptedAt: null, declinedAt: null, revokedAt: null }, data: { revokedAt: new Date() } });
   });
 }
 
@@ -302,12 +314,20 @@ export async function updateProjectPublication(userId: string, projectId: string
     await lockProject(transaction, projectId);
     const current = await requireProjectAccess(userId, projectId, false, transaction);
     if (current.directRole !== "OWNER") throw new AuthorizationError("PARTICIPANT_ROLE_FORBIDDEN");
-    const publication = await transaction.project.findUniqueOrThrow({ where: { id: projectId }, select: { publicSlug: true, publishedAt: true, name: true, summary: true, archivedAt: true } });
+    const publication = await transaction.project.findUniqueOrThrow({ where: { id: projectId }, select: { publicSlug: true, publishedAt: true, name: true, summary: true, archivedAt: true, status: true, directoryEnabled: true, collaborationOpen: true } });
     if (publication.archivedAt && input.visibility === "PUBLIC") throw new DomainConflictError("PROJECT_ARCHIVED");
     const publicSlug = input.publicSlug ?? publication.publicSlug;
     if (input.visibility === "PUBLIC" && (!publicSlug || !publication.name.trim() || publication.summary.trim().length < 10)) throw new DomainConflictError("PROJECT_PUBLICATION_INCOMPLETE");
+    const networkVisible = input.visibility === "PLATFORM" || input.visibility === "PUBLIC";
+    if (input.directoryEnabled && !networkVisible) throw new DomainConflictError("PROJECT_DISCOVERY_VISIBILITY_REQUIRED");
+    const directoryEnabled = networkVisible && (input.directoryEnabled ?? publication.directoryEnabled);
+    const collaborationOpen = directoryEnabled && (input.collaborationOpen ?? publication.collaborationOpen);
+    if (input.collaborationOpen && !directoryEnabled) throw new DomainConflictError("PROJECT_COLLABORATION_REQUIRES_DIRECTORY");
+    if (directoryEnabled && (publication.archivedAt || publication.status === "ARCHIVED")) throw new DomainConflictError("PROJECT_ARCHIVED");
+    if (directoryEnabled && (!publication.name.trim() || publication.summary.trim().length < 10)) throw new DomainConflictError("PROJECT_DISCOVERY_INCOMPLETE");
     await transaction.project.update({ where: { id: projectId }, data: {
       visibility: input.visibility, publicSlug,
+      directoryEnabled, collaborationOpen, ...(input.collaborationNote !== undefined ? { collaborationNote: input.collaborationNote } : {}),
       publishedAt: input.visibility === "PUBLIC" ? publication.publishedAt ?? new Date() : null,
     } });
   });
@@ -321,15 +341,16 @@ const addProjectMemberSchema = z.object({ userId: z.string().min(1).max(128), ro
 export async function addProjectMember(userId: string, projectId: string, value: unknown): Promise<void> {
   const input = addProjectMemberSchema.parse(value);
   await db.$transaction(async (transaction) => {
+    if (userId === input.userId) throw new DomainConflictError("PROJECT_ALREADY_MEMBER");
+    await lockUserPair(transaction, userId, input.userId);
     const initial = await transaction.project.findUnique({ where: { id: projectId }, select: { primaryTeamId: true } });
     if (initial?.primaryTeamId) await lockTeam(transaction, initial.primaryTeamId);
     await lockProject(transaction, projectId);
     const project = await requireProjectAccess(userId, projectId, true, transaction);
     if (project.primaryTeamId !== initial?.primaryTeamId) throw new DomainConflictError("PROJECT_CONCURRENT_CHANGE");
     if (project.directRole !== "OWNER") throw new AuthorizationError("PARTICIPANT_ROLE_FORBIDDEN");
-    if (!project.primaryTeamId) throw new DomainConflictError("PROJECT_TEAM_REQUIRED");
-    const team = await requireTeamAccess(input.userId, project.primaryTeamId, false, transaction);
-    if (team.archivedAt) throw new DomainConflictError("TEAM_ARCHIVED");
+    if (!await transaction.user.findUnique({ where: { id: input.userId }, select: { id: true } })) throw new ResourceNotFoundError("PARTICIPANT_NOT_FOUND");
+    if (await hasUserBlock(transaction, userId, input.userId)) throw new DomainConflictError("NETWORK_CONTACT_UNAVAILABLE");
     const existing = await transaction.projectMembership.findFirst({ where: { projectId, userId: input.userId, leftAt: null }, select: { id: true } });
     if (existing) throw new DomainConflictError("PROJECT_ALREADY_MEMBER");
     // Ended periods remain immutable when the same person rejoins.

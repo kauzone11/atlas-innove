@@ -7,9 +7,10 @@ import { Dialog } from "@/components/dialog";
 import { personalRequest } from "@/components/personal/record-form";
 import type { OwnProfile } from "@/lib/profiles/service";
 import { privacyFields, visibilityDescriptions, visibilityLabels, type VisibilityScope } from "@/lib/profiles/visibility";
+import { collaborationStatusLabels } from "@/lib/network/presentation";
 
-export type ProfileSectionValues = Pick<OwnProfile, "handle" | "headline" | "bio" | "city" | "state" | "country" | "skills" | "interests" | "profileVisibility" | "skillsVisibility" | "experienceVisibility" | "educationVisibility" | "linksVisibility" | "verifiedParticipationVisibility" | "projectsVisibility">;
-const titles = { identity: "Identidade de inovação", about: "Sobre", topics: "Competências e interesses", privacy: "Privacidade" };
+export type ProfileSectionValues = Pick<OwnProfile, "handle" | "headline" | "bio" | "city" | "state" | "country" | "skills" | "interests" | "profileVisibility" | "skillsVisibility" | "experienceVisibility" | "educationVisibility" | "linksVisibility" | "verifiedParticipationVisibility" | "projectsVisibility" | "directoryEnabled" | "collaborationStatus" | "collaborationNote">;
+const titles = { identity: "Identidade de inovação", about: "Sobre", topics: "Competências e interesses", privacy: "Privacidade", discovery: "Descoberta e colaboração" };
 export function ProfileField({ label, children, help }: { label: string; children: ReactNode; help?: string }) {
   return <label className="block space-y-2 text-sm font-medium"><span>{label}</span>{children}{help ? <span className="block text-xs font-normal leading-5 text-slate">{help}</span> : null}</label>;
 }
@@ -26,6 +27,7 @@ export function ProfileSectionEditor({ section, values }: { section: keyof typeo
     const data = section === "identity" ? { handle: text("handle"), headline: text("headline"), city: text("city"), state: text("state"), country: text("country") }
       : section === "about" ? { bio: text("bio") }
         : section === "topics" ? { skills: tags("skills"), interests: tags("interests") }
+          : section === "discovery" ? { directoryEnabled: form.get("directoryEnabled") === "on", collaborationStatus: form.get("collaborationStatus"), collaborationNote: text("collaborationNote") }
           : Object.fromEntries(privacyFields.map(([name]) => [name, form.get(name)]));
     setPending(true); setError(null);
     try { await personalRequest("/api/personal/profile", "PATCH", { section, data }); setOpen(false); router.refresh(); }
@@ -45,6 +47,12 @@ export function ProfileSectionEditor({ section, values }: { section: keyof typeo
         {section === "topics" ? <>
           <ProfileField label="Competências" help="Uma competência por linha. Até 20, com até 80 caracteres cada."><textarea className="field-control" name="skills" defaultValue={values.skills.join("\n")} rows={5} placeholder={"Pesquisa aplicada\nInteligência artificial"} /></ProfileField>
           <ProfileField label="Áreas de interesse" help="Um interesse por linha. Essas informações ajudam a explicar a relevância das oportunidades."><textarea className="field-control" name="interests" defaultValue={values.interests.join("\n")} rows={5} /></ProfileField>
+        </> : null}
+        {section === "discovery" ? <>
+          <label className="flex min-h-11 items-start gap-3 text-sm"><input type="checkbox" name="directoryEnabled" defaultChecked={values.directoryEnabled} className="mt-1 h-5 w-5 shrink-0" /><span>Permita que outras pessoas na plataforma encontrem seu perfil para oportunidades de colaboração.</span></label>
+          <p className="text-xs leading-5 text-slate">A descoberta exige endereço, apresentação e visibilidade para pessoas na plataforma ou público. Seu perfil só será publicado na web com a confirmação própria da publicação. Competências e interesses seguem sua escolha de privacidade.</p>
+          <ProfileField label="Disponibilidade para colaborar"><select className="field-control" name="collaborationStatus" defaultValue={values.collaborationStatus}>{Object.entries(collaborationStatusLabels).map(([status, label]) => <option key={status} value={status}>{label}</option>)}</select></ProfileField>
+          <ProfileField label="Interesses de colaboração" help="Opcional. Até 500 caracteres para explicar os projetos aos quais você gostaria de contribuir."><textarea className="field-control" name="collaborationNote" defaultValue={values.collaborationNote ?? ""} maxLength={500} rows={4} placeholder="Ex.: Interesse em projetos de IA aplicada à saúde e dados públicos." /></ProfileField>
         </> : null}
         {section === "privacy" ? <><div className="rounded-lg bg-surface-subtle p-3 text-xs leading-5 text-slate"><p>A opção público só libera o perfil após confirmar sua publicação. Ao restringir o perfil, a publicação é retirada.</p><ul className="mt-2 space-y-1">{Object.entries(visibilityLabels).map(([scope, label]) => <li key={scope}><strong>{label}:</strong> {visibilityDescriptions[scope as VisibilityScope]}</li>)}</ul></div>{privacyFields.map(([name, label]) => <VisibilityControl key={name} name={name} value={values[name]} label={label} />)}</> : null}
       </fieldset>{error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}<button className="button-primary w-full" disabled={pending}>{pending ? "Salvando…" : "Salvar alterações"}</button></form>

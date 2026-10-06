@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { publicHandleSchema, tagListSchema } from "@/lib/identity/normalization";
+import { collaborationNoteSchema, collaborationStatusSchema } from "@/lib/network/discovery-schemas";
 
 export const visibilitySchema = z.enum(["PUBLIC", "PLATFORM", "TEAM", "PRIVATE"], { errorMap: () => ({ message: "Escolha uma opção de visibilidade válida." }) });
 const optionalText = (max: number) => z.string().trim().max(max, `Use até ${max} caracteres.`).nullable().transform((value) => value || null);
@@ -9,6 +10,9 @@ export const profileIdentitySchema = z.object({
 }).strict();
 export const profileAboutSchema = z.object({ bio: optionalText(4000) }).strict();
 export const profileTopicsSchema = z.object({ skills: tagListSchema, interests: tagListSchema }).strict();
+export const profileDiscoverySchema = z.object({
+  directoryEnabled: z.boolean(), collaborationStatus: collaborationStatusSchema, collaborationNote: collaborationNoteSchema,
+}).strict();
 export const profilePrivacySchema = z.object({
   profileVisibility: visibilitySchema, skillsVisibility: visibilitySchema, experienceVisibility: visibilitySchema,
   educationVisibility: visibilitySchema, linksVisibility: visibilitySchema, verifiedParticipationVisibility: visibilitySchema,
@@ -48,6 +52,7 @@ export const profileUpdateSchema = z.discriminatedUnion("section", [
   z.object({ section: z.literal("about"), data: profileAboutSchema }).strict(),
   z.object({ section: z.literal("topics"), data: profileTopicsSchema }).strict(),
   z.object({ section: z.literal("privacy"), data: profilePrivacySchema }).strict(),
+  z.object({ section: z.literal("discovery"), data: profileDiscoverySchema }).strict(),
   z.object({ section: z.literal("publish"), confirmed: z.literal(true, { errorMap: () => ({ message: "Confirme a publicação do seu perfil." }) }) }).strict(),
   z.object({ section: z.literal("unpublish") }).strict(),
 ]);

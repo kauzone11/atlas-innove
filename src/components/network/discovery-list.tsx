@@ -1,0 +1,28 @@
+import Link from "next/link";
+import { ArrowRight, MapPin } from "lucide-react";
+import { profileMonogram } from "@/components/profiles/profile-renderer";
+import { StatusBadge, statusTone } from "@/components/ui";
+import { collaborationStatusLabels } from "@/lib/network/presentation";
+import { projectStatusLabels } from "@/lib/participants/presentation";
+import type { DiscoverablePerson } from "@/lib/network/people";
+import type { DiscoverableProject } from "@/lib/network/projects";
+import type { NetworkRelevance } from "@/lib/network/relevance";
+
+export function RelevanceExplanation({ relevance }: { relevance: NetworkRelevance }) {
+  return <div className="text-xs leading-5 text-slate"><p className="font-medium">{relevance.label}</p>{relevance.reasons.length ? <ul className="mt-1 space-y-1">{relevance.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul> : null}</div>;
+}
+export function PeopleDiscoveryList({ people }: { people: DiscoverablePerson[] }) {
+  if (!people.length) return <div className="border-y border-line py-9"><h2 className="font-semibold">Nenhuma pessoa encontrada</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate">A Rede reúne perfis que escolheram participar da descoberta. Ajuste a busca ou explore projetos para iniciar uma colaboração.</p><Link className="button-tertiary mt-3" href="/app/personal/network/projects">Descobrir projetos<ArrowRight size={15} aria-hidden="true" /></Link></div>;
+  return <ul className="divide-y divide-line border-y border-line">{people.map((person) => <li key={person.userId} className="py-5"><div className="flex items-start gap-4"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-sm font-semibold text-accent-hover" aria-hidden="true">{profileMonogram(person.fullName)}</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-start justify-between gap-x-5 gap-y-2"><div className="min-w-0 flex-1 basis-60"><Link className="inline-flex min-h-11 items-center break-words text-lg font-semibold text-accent-hover hover:underline" href={`/app/personal/network/people/${person.handle}`}>{person.fullName}</Link><p className="break-words text-sm leading-6 text-slate">{person.headline}</p>{person.location.length ? <p className="mt-1 flex items-start gap-1.5 text-xs leading-5 text-slate"><MapPin size={13} className="mt-0.5 shrink-0" aria-hidden="true" />{person.location.join(" · ")}</p> : null}</div><StatusBadge label={collaborationStatusLabels[person.collaborationStatus]} tone={person.collaborationStatus === "OPEN" ? "success" : "neutral"} /></div>{person.skills.length || person.interests.length ? <p className="mt-2 break-words text-xs leading-5 text-slate">{[...new Set([...person.skills, ...person.interests])].slice(0, 4).join(" · ")}</p> : null}{person.relevance.reasons.length ? <div className="mt-3"><RelevanceExplanation relevance={person.relevance} /></div> : null}</div></div></li>)}</ul>;
+}
+export function ProjectDiscoveryList({ projects }: { projects: DiscoverableProject[] }) {
+  if (!projects.length) return <div className="border-y border-line py-9"><h2 className="font-semibold">Nenhum projeto encontrado</h2><p className="mt-2 text-sm leading-6 text-slate">Ajuste os filtros. Somente projetos com descoberta habilitada aparecem aqui.</p></div>;
+  return <ul className="divide-y divide-line border-y border-line">{projects.map((project) => <li key={project.id} className="py-5"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1 basis-60"><Link className="inline-flex min-h-11 items-center break-words text-lg font-semibold text-accent-hover hover:underline" href={`/app/personal/network/projects/${project.id}`}>{project.name}</Link><p className="mt-1 max-w-3xl break-words text-sm leading-6 text-slate">{project.summary}</p></div><StatusBadge label={projectStatusLabels[project.status]} tone={statusTone(project.status)} /></div>{project.thematicAreas.length ? <p className="mt-2 break-words text-xs leading-5 text-slate">{project.thematicAreas.slice(0, 4).join(" · ")}</p> : null}<p className="mt-2 text-sm">{project.collaborationOpen ? "Aberto a novas colaborações" : "Não está buscando colaboradores agora."}</p>{project.relevance.reasons.length ? <div className="mt-3"><RelevanceExplanation relevance={project.relevance} /></div> : null}</li>)}</ul>;
+}
+export function DiscoveryPagination({ path, filters, page, hasNext }: { path: string; filters: Record<string, unknown>; page: number; hasNext: boolean }) {
+  const href = (target: number) => {
+    const query = new URLSearchParams(Object.entries(filters).flatMap(([key, value]) => key !== "pageSize" && value !== undefined && value !== "" ? [[key, String(value)]] : []));
+    query.set("page", String(target)); return `${path}?${query.toString()}`;
+  };
+  return <nav className="flex flex-wrap items-center justify-between gap-3" aria-label="Páginas da descoberta"><span className="text-sm text-slate">Página {page}</span><div className="flex gap-2">{page > 1 ? <Link className="button-secondary" href={href(page - 1)} rel="prev">Anterior</Link> : null}{hasNext ? <Link className="button-secondary" href={href(page + 1)} rel="next">Próxima</Link> : null}</div></nav>;
+}

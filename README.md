@@ -113,6 +113,8 @@ Gestores podem publicar um relatório após conferir sua prévia protegida. A pu
 
 O perfil de inovação reúne apresentação, competências, interesses, formação e experiência declarada. A pessoa escolhe a visibilidade de cada seção e pode publicar ou retirar seu perfil sem apagar os dados. Projetos também mantêm uma identidade pública opcional, administrada por seus responsáveis.
 
+Authenticated discovery has separate opt-in settings for people and projects. Deterministic relevance uses visible topics and explains each match. Connection periods authorize direct conversations, while targeted invitations and collaboration requests create independent project memberships. Project discussions require current participant access. Transactional notifications record domain events; blocking and safety reports restrict contact without deleting history. These services do not alter institutional evaluation snapshots or ranking rules.
+
 A trajetória preserva os períodos de participação em equipes e projetos, inclusive quando uma pessoa sai e depois retorna. Participações verificadas derivam de candidaturas enviadas, resultados publicados e vínculos vigentes na data da submissão; não substituem as informações históricas usadas na avaliação.
 
 Editais e oportunidades externas entram na descoberta somente após publicação explícita. Participantes podem filtrar e salvar oportunidades, consultar suas fontes oficiais e entender a relação com os temas de seu perfil ou projeto. A compatibilidade utiliza regras transparentes e não constitui uma confirmação de elegibilidade.
