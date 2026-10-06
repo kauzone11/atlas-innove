@@ -1,10 +1,12 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { AuthorizationError } from "@/lib/auth/authorization";
 import { projectAccessWhere, requireProjectAccess } from "@/lib/auth/participant-access";
 import { db } from "@/lib/db";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 import { getNetworkIdentity } from "@/lib/network/connections";
-import { hasUserBlock, lockNetworkUsers } from "@/lib/network/locking";
+import { lockNetworkUsers } from "@/lib/network/locking";
+import { projectContactAllowedSql, projectManagerIds } from "@/lib/network/project-contact";
+export { projectManagerIds } from "@/lib/network/project-contact";
 import { projectRequestSchema, requestActionSchema } from "@/lib/network/schemas";
 import { createNotification } from "@/lib/notifications/service";
 
@@ -24,17 +26,11 @@ export async function lockProjectForContact(client: Prisma.TransactionClient, pr
   if (current.primaryTeamId !== initial.primaryTeamId) throw new DomainConflictError("PROJECT_CONCURRENT_CHANGE");
 }
 
-export async function projectManagerIds(client: Prisma.TransactionClient, projectId: string) {
-  const project = await client.project.findUnique({ where: { id: projectId }, select: { memberships: { where: { leftAt: null, role: { in: ["OWNER", "LEAD"] } }, select: { userId: true } }, primaryTeam: { select: { archivedAt: true, memberships: { where: { status: "ACTIVE", leftAt: null, role: { in: ["OWNER", "LEAD"] } }, select: { userId: true } } } } } });
-  return [...new Set([...(project?.memberships ?? []), ...(!project?.primaryTeam?.archivedAt ? project?.primaryTeam?.memberships ?? [] : [])].map((row) => row.userId))].sort();
-}
-
 export async function assertProjectContactAllowed(client: Prisma.TransactionClient, projectId: string, userId: string, lockedManagerIds?: string[]) {
   const managers = await projectManagerIds(client, projectId);
   if (lockedManagerIds && managers.some((manager) => !lockedManagerIds.includes(manager))) throw new DomainConflictError("PROJECT_CONCURRENT_CHANGE");
-  for (const manager of managers) {
-    if (manager !== userId && await hasUserBlock(client, manager, userId)) throw new DomainConflictError("NETWORK_CONTACT_UNAVAILABLE");
-  }
+  const [contact] = await client.$queryRaw<Array<{ allowed: boolean }>>(Prisma.sql`SELECT ${projectContactAllowedSql(Prisma.sql`${projectId}`, userId)} AS allowed`);
+  if (!contact.allowed) throw new DomainConflictError("NETWORK_CONTACT_UNAVAILABLE");
   return managers;
 }
 

@@ -1,10 +1,11 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { normalizeTag, publicHandleSchema } from "@/lib/identity/normalization";
 import { getVisibleProfile } from "@/lib/profiles/service";
 import { getDiscoveryContext } from "@/lib/network/discovery-context";
 import { peopleDiscoverySchema } from "@/lib/network/discovery-schemas";
-import { compareRelevance, explainPeopleRelevance } from "@/lib/network/relevance";
+import { explainPeopleRelevance } from "@/lib/network/relevance";
+import { matchesTopicsSql, normalizedTagSql } from "@/lib/network/discovery-sql";
 
 const discoverableScopes = ["PUBLIC", "PLATFORM"] as const;
 const personSelect = {
@@ -40,30 +41,42 @@ export type DiscoverablePerson = ReturnType<typeof personDto> & { relevance: Ret
 
 export async function listDiscoverablePeople(viewerUserId: string, value: unknown = {}) {
   const filters = peopleDiscoverySchema.parse(value);
-  const where: Prisma.InnovationProfileWhereInput = { ...eligiblePeopleWhere(viewerUserId), userId: { not: viewerUserId } };
-  const conditions: Prisma.InnovationProfileWhereInput[] = [];
-  if (filters.collaborationStatus) where.collaborationStatus = filters.collaborationStatus;
-  if (filters.state) where.state = { equals: filters.state, mode: "insensitive" };
-  if (filters.topic) conditions.push({ skillsVisibility: { in: [...discoverableScopes] }, topics: { some: { normalizedKey: { contains: normalizeTag(filters.topic) || "__invalid_topic__" } } } });
+  const context = await getDiscoveryContext(viewerUserId, filters.projectId);
+  const conditions: Prisma.Sql[] = [];
+  const visibleTopics = Prisma.sql`p."skillsVisibility" IN ('PUBLIC', 'PLATFORM')`;
+  if (filters.collaborationStatus) conditions.push(Prisma.sql`p."collaborationStatus"::text = ${filters.collaborationStatus}`);
+  if (filters.state) conditions.push(Prisma.sql`lower(p."state") = lower(${filters.state})`);
+  if (filters.topic) conditions.push(Prisma.sql`(${visibleTopics} AND EXISTS (SELECT 1 FROM "ProfileTopic" topic WHERE topic."profileId" = p."id" AND strpos(topic."normalizedKey", ${normalizeTag(filters.topic) || "__invalid_topic__"}) > 0))`);
   if (filters.q) {
-    const query = { contains: filters.q, mode: "insensitive" as const };
-    conditions.push({ OR: [
-      { headline: query }, { user: { profile: { is: { fullName: query } } } },
-      { city: query }, { state: query }, { country: query },
-      ...(normalizeTag(filters.q) ? [{ skillsVisibility: { in: [...discoverableScopes] }, topics: { some: { normalizedKey: { contains: normalizeTag(filters.q) } } } }] : []),
-    ] });
+    conditions.push(Prisma.sql`(strpos(lower(p."headline"), lower(${filters.q})) > 0 OR strpos(lower(identity."fullName"), lower(${filters.q})) > 0
+      OR strpos(lower(p."city"), lower(${filters.q})) > 0 OR strpos(lower(p."state"), lower(${filters.q})) > 0 OR strpos(lower(p."country"), lower(${filters.q})) > 0
+      OR (${visibleTopics} AND EXISTS (SELECT 1 FROM "ProfileTopic" topic WHERE topic."profileId" = p."id" AND strpos(topic."normalizedKey", ${normalizeTag(filters.q) || "__invalid_topic__"}) > 0)))`);
   }
-  if (conditions.length) where.AND = conditions;
-  const [profiles, context] = await Promise.all([
-    db.innovationProfile.findMany({ where, select: personSelect, orderBy: [{ handle: "asc" }, { userId: "asc" }], skip: (filters.page - 1) * filters.pageSize, take: filters.pageSize + 1 }),
-    getDiscoveryContext(viewerUserId, filters.projectId),
-  ]);
-  const people: DiscoverablePerson[] = profiles.slice(0, filters.pageSize).map((profile) => {
+  const topics = [...context.interests, ...(context.projectTopics ?? [])];
+  const topicSignal = (type: "SKILL" | "INTEREST") => Prisma.sql`(${visibleTopics} AND EXISTS (
+    SELECT 1 FROM (SELECT "type", "label" FROM "ProfileTopic" WHERE "profileId" = p."id" ORDER BY "position", "id" LIMIT 40) topic
+    WHERE topic."type"::text = ${type} AND ${matchesTopicsSql(normalizedTagSql(Prisma.sql`topic."label"`), topics)}
+  ))::int`;
+  const stateSignal = context.state ? Prisma.sql`COALESCE((${normalizedTagSql(Prisma.sql`p."state"`)} = ${normalizeTag(context.state)})::int, 0)` : Prisma.sql`0`;
+  // Rank all eligible candidates before pagination; the cap mirrors the public HIGH/RELATED/GENERAL tiers.
+  const ids = await db.$queryRaw<Array<{ userId: string }>>(Prisma.sql`
+    SELECT p."userId" FROM "InnovationProfile" p JOIN "UserProfile" identity ON identity."userId" = p."userId"
+    WHERE p."userId" <> ${viewerUserId} AND p."directoryEnabled" AND p."profileVisibility" IN ('PUBLIC', 'PLATFORM')
+      AND p."handle" IS NOT NULL AND p."handle" <> '' AND p."headline" IS NOT NULL AND p."headline" <> '' AND identity."fullName" <> ''
+      AND NOT EXISTS (SELECT 1 FROM "UserBlock" block WHERE (block."blockerUserId" = ${viewerUserId} AND block."blockedUserId" = p."userId") OR (block."blockedUserId" = ${viewerUserId} AND block."blockerUserId" = p."userId"))
+      ${conditions.length ? Prisma.sql`AND ${Prisma.join(conditions, " AND ")}` : Prisma.empty}
+    ORDER BY (p."collaborationStatus" = 'NOT_AVAILABLE'), LEAST(2, ${topicSignal("SKILL")} + ${topicSignal("INTEREST")} + ${stateSignal}) DESC,
+      p."handle" COLLATE "C", p."userId" COLLATE "C"
+    LIMIT ${filters.pageSize + 1} OFFSET ${(filters.page - 1) * filters.pageSize}
+  `);
+  const profiles = ids.length ? await db.innovationProfile.findMany({ where: { ...eligiblePeopleWhere(viewerUserId), userId: { in: ids.slice(0, filters.pageSize).map((row) => row.userId) } }, select: personSelect }) : [];
+  const positions = new Map(ids.map((row, index) => [row.userId, index]));
+  profiles.sort((left, right) => positions.get(left.userId)! - positions.get(right.userId)!);
+  const people: DiscoverablePerson[] = profiles.map((profile) => {
     const person = personDto(profile);
     return { ...person, relevance: explainPeopleRelevance(context, person) };
   });
-  people.sort((left, right) => Number(left.collaborationStatus === "NOT_AVAILABLE") - Number(right.collaborationStatus === "NOT_AVAILABLE") || compareRelevance(left.relevance, right.relevance) || left.handle.localeCompare(right.handle) || left.userId.localeCompare(right.userId));
-  return { people, page: filters.page, pageSize: filters.pageSize, hasNext: profiles.length > filters.pageSize };
+  return { people, page: filters.page, pageSize: filters.pageSize, hasNext: ids.length > filters.pageSize };
 }
 
 export async function getDiscoverablePerson(viewerUserId: string, handle: string) {

@@ -6,6 +6,7 @@ import { createProject, updateProjectPublication } from "@/lib/participants/serv
 import { getOwnProfile, getPublicProfile, getVisibleProfile, saveProfileRecord, updateProfile } from "@/lib/profiles/service";
 import { getDiscoverablePerson, listDiscoverablePeople } from "@/lib/network/people";
 import { getDiscoverableProject, listDiscoverableProjects } from "@/lib/network/projects";
+import { getProjectRequestState, sendProjectRequest } from "@/lib/network/requests";
 
 after(async () => { await db.$disconnect(); });
 
@@ -106,5 +107,76 @@ test("opt-in discovery enforces section privacy, owner consent, blocks and bound
     if (users.length) await db.userBlock.deleteMany({ where: { OR: [{ blockerUserId: { in: users.map((user) => user.id) } }, { blockedUserId: { in: users.map((user) => user.id) } }] } });
     if (projects.length) await db.project.deleteMany({ where: { id: { in: projects } } });
     if (users.length) await db.user.deleteMany({ where: { id: { in: users.map((user) => user.id) } } });
+  }
+});
+
+test("discovery ranks the complete eligible set and follows current project managers", async (context) => {
+  if (!process.env.DATABASE_URL) { assert.notEqual(process.env.CI, "true"); context.skip("DATABASE_URL is not configured"); return; }
+  const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
+  const userIds: string[] = []; const projectIds: string[] = []; const teamIds: string[] = [];
+  try {
+    for (const label of ["viewer", "creator", "manager", "a", "b", "c", "d", "e", "z"]) {
+      const user = await db.user.create({ data: { email: `${label}-${suffix}@example.test`, passwordHash: "test-only", profile: { create: { fullName: `${label} ${suffix}` } }, innovationProfile: { create: {
+        handle: `${label}-${suffix}`, headline: `Discovery ${suffix}`, profileVisibility: "PLATFORM", skillsVisibility: label === "e" ? "PRIVATE" : "PLATFORM",
+        directoryEnabled: !["viewer", "creator", "manager"].includes(label), collaborationStatus: "OPEN", state: label === "viewer" || label === "z" ? "Ceará" : "São Paulo",
+        topics: { create: [{ type: "INTEREST", label: label === "viewer" || label === "z" || label === "e" ? "Saúde digital" : "Agricultura", normalizedKey: label === "viewer" || label === "z" || label === "e" ? "saude-digital" : "agricultura", position: 0 }] },
+      } } }, select: { id: true } });
+      userIds.push(user.id);
+    }
+    const [viewer, creator, manager] = userIds;
+    for (const label of ["a", "b", "c", "d", "e", "z"]) {
+      const project = await db.project.create({ data: { name: `${label} ${suffix}`, summary: `Discovery fixture ${suffix}`, createdByUserId: creator, directoryEnabled: true, collaborationOpen: true, visibility: "PLATFORM", thematicAreas: [label === "z" ? "Saúde digital" : "Agricultura"], memberships: { create: { userId: creator, role: "OWNER" } } }, select: { id: true } });
+      projectIds.push(project.id);
+    }
+    await context.test("people place late alphabetical matches on the first page", async () => {
+      const people = await listDiscoverablePeople(viewer, { q: suffix, pageSize: 3 });
+      assert.equal(people.people[0].userId, userIds.at(-1));
+      assert.equal(people.people[0].relevance.tier, "HIGH");
+      assert.equal(people.hasNext, true);
+      const peopleNext = await listDiscoverablePeople(viewer, { q: suffix, pageSize: 3, page: 2 });
+      assert.equal(peopleNext.hasNext, false);
+      assert.equal(new Set([...people.people, ...peopleNext.people].map((person) => person.userId)).size, 6);
+      assert.equal(peopleNext.people.find((person) => person.userId === userIds[7])?.relevance.tier, "GENERAL");
+      assert.deepEqual((await listDiscoverablePeople(viewer, { q: suffix, pageSize: 3 })).people, people.people);
+    });
+    await context.test("projects place late alphabetical matches on the first page", async () => {
+      const projects = await listDiscoverableProjects(viewer, { q: suffix, pageSize: 3 });
+      assert.equal(projects.projects[0].id, projectIds.at(-1));
+      assert.equal(projects.projects[0].relevance.tier, "HIGH");
+      const next = await listDiscoverableProjects(viewer, { q: suffix, pageSize: 3, page: 2 });
+      assert.equal(next.hasNext, false);
+      assert.equal(new Set([...projects.projects, ...next.projects].map((project) => project.id)).size, 6);
+    });
+    await context.test("former creators and current direct or team managers have coherent block rules", async () => {
+      const projectId = projectIds[0];
+      await db.projectMembership.updateMany({ where: { projectId, userId: creator }, data: { leftAt: new Date() } });
+      await db.projectMembership.create({ data: { projectId, userId: manager, role: "OWNER" } });
+      await db.userBlock.create({ data: { blockerUserId: creator, blockedUserId: viewer } });
+      assert.ok(await getDiscoverableProject(viewer, projectId), "a former creator's block must not hide another manager's project");
+      assert.equal((await listDiscoverableProjects(viewer, { q: suffix })).projects.some((project) => project.id === projectId), true);
+      assert.equal((await getProjectRequestState(viewer, projectId)).state, "AVAILABLE");
+      for (const [blockerUserId, blockedUserId] of [[manager, viewer], [viewer, manager]]) {
+        await db.userBlock.create({ data: { blockerUserId, blockedUserId } });
+        assert.equal(await getDiscoverableProject(viewer, projectId), null);
+        assert.equal((await listDiscoverableProjects(viewer, { q: suffix })).projects.some((project) => project.id === projectId), false);
+        assert.equal((await getProjectRequestState(viewer, projectId)).state, "UNAVAILABLE");
+        await assert.rejects(() => sendProjectRequest(viewer, projectId, {}), /NETWORK_CONTACT_UNAVAILABLE/);
+        await db.userBlock.delete({ where: { blockerUserId_blockedUserId: { blockerUserId, blockedUserId } } });
+      }
+      await db.projectMembership.updateMany({ where: { projectId, userId: manager }, data: { leftAt: new Date() } });
+      const team = await db.team.create({ data: { name: `Managers ${suffix}`, createdByUserId: manager, memberships: { create: { userId: manager, role: "LEAD", status: "ACTIVE" } } }, select: { id: true } }); teamIds.push(team.id);
+      await db.project.update({ where: { id: projectId }, data: { primaryTeamId: team.id } });
+      await db.userBlock.create({ data: { blockerUserId: viewer, blockedUserId: manager } });
+      assert.equal(await getDiscoverableProject(viewer, projectId), null);
+      assert.equal((await getProjectRequestState(viewer, projectId)).state, "UNAVAILABLE");
+      await db.team.update({ where: { id: team.id }, data: { archivedAt: new Date() } });
+      assert.ok(await getDiscoverableProject(viewer, projectId));
+      assert.equal((await getProjectRequestState(viewer, projectId)).state, "AVAILABLE");
+    });
+  } finally {
+    await db.userBlock.deleteMany({ where: { OR: [{ blockerUserId: { in: userIds } }, { blockedUserId: { in: userIds } }] } });
+    await db.project.deleteMany({ where: { id: { in: projectIds } } });
+    await db.team.deleteMany({ where: { id: { in: teamIds } } });
+    await db.user.deleteMany({ where: { id: { in: userIds } } });
   }
 });
