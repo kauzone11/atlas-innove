@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BriefcaseBusiness, Building2, ChevronDown, FolderKanban, Menu, Settings, Users, Workflow, Compass, X, Route, Layers3, Send, UsersRound } from "lucide-react";
+import { BriefcaseBusiness, Building2, ChevronDown, FolderKanban, Menu, Settings, Users, Workflow, Compass, X, Route, Layers3, UsersRound, UserRound } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -25,10 +25,11 @@ const administrationNavigation = [
 
 const personalNavigation = [
   { href: "/app/personal", label: "Minha trajetória", icon: Route, exact: true },
-  { href: "/app/personal/teams", label: "Equipes", icon: UsersRound },
+  { href: "/app/personal/programs", label: "Meus programas", icon: FolderKanban },
   { href: "/app/personal/projects", label: "Projetos", icon: Layers3 },
-  { href: "/app/personal/applications", label: "Candidaturas", icon: Send },
+  { href: "/app/personal/teams", label: "Equipes", icon: UsersRound },
   { href: "/app/personal/opportunities", label: "Oportunidades", icon: Compass },
+  { href: "/app/personal/profile", label: "Perfil", icon: UserRound },
 ];
 
 export function AppShell({ children, organizationName, userName, hasOrganization }: AppShellProps) {
@@ -51,7 +52,7 @@ export function AppShell({ children, organizationName, userName, hasOrganization
       <a className="skip-link" href="#main-content">Ir para o conteúdo</a>
       <div className="grid min-h-screen lg:grid-cols-[15rem_1fr]">
         <aside className="hidden border-r border-line bg-white lg:flex lg:flex-col">
-          <ShellBrand organizationName={organizationName} />
+          <ShellBrand organizationName={personal ? "Espaço participante" : organizationName} />
           <div className="flex-1 px-3 py-6"><ShellNavigation pathname={pathname} hasOrganization={hasOrganization} /></div>
           <div className="border-t border-line p-4"><p className="truncate px-2 text-xs text-slate">{personal ? "Espaço participante" : organizationName ?? "Nenhuma organização ativa"}</p></div>
         </aside>
@@ -99,6 +100,8 @@ function NavItem({ item, pathname }: { item: (typeof primaryNavigation)[number];
 }
 
 function AccountControl({ userName, organizationName, placement = "top" }: { userName: string; organizationName?: string; placement?: "top" | "bottom" }) {
+  const pathname = usePathname();
+  const personal = pathname.startsWith("/app/personal");
   const [open, setOpen] = useState(false);
   const controlRef = useRef<HTMLDivElement>(null);
 
@@ -123,7 +126,8 @@ function AccountControl({ userName, organizationName, placement = "top" }: { use
       <ChevronDown size={16} className="shrink-0 text-slate" aria-hidden="true" />
     </button>
     {open ? <div className={`account-menu-popover ${placement === "top" ? "!bottom-auto !top-[calc(100%+0.6rem)]" : ""}`} role="menu">
-      <div className="border-b border-line px-2 pb-3 pt-1"><p className="truncate text-sm font-semibold text-ink">{userName}</p><p className="mt-1 truncate text-xs text-slate">{organizationName ?? "Nenhuma organização ativa"}</p></div>
+      <div className="border-b border-line px-2 pb-3 pt-1"><p className="truncate text-sm font-semibold text-ink">{userName}</p><p className="mt-1 truncate text-xs text-slate">{personal ? "Espaço participante" : organizationName ?? "Nenhuma organização ativa"}</p></div>
+      <Link href="/app/personal/profile" role="menuitem" className="mt-1 flex min-h-11 items-center gap-2 rounded-md px-2 text-sm text-slate hover:bg-surface-subtle hover:text-ink" onClick={() => setOpen(false)}><UserRound size={16} aria-hidden="true" /> Meu perfil</Link>
       <Link href="/app/organizations" role="menuitem" className="mt-1 flex min-h-11 items-center gap-2 rounded-md px-2 text-sm text-slate hover:bg-surface-subtle hover:text-ink" onClick={() => setOpen(false)}><Building2 size={16} aria-hidden="true" /> Trocar organização</Link>
       <LogoutButton />
     </div> : null}
@@ -151,5 +155,5 @@ function MobileNavigation({ pathname, organizationName, hasOrganization, userNam
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  return <div className="fixed inset-0 z-50 lg:hidden" role="presentation"><button type="button" className="absolute inset-0 bg-ink/30" onClick={onClose} aria-label="Fechar menu de navegação" /><div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Menu de navegação" className="relative flex h-full w-[min(19rem,calc(100%-2rem))] flex-col bg-white shadow-floating"><div className="flex items-center justify-between border-b border-line px-5 py-4"><div className="min-w-0"><Link href="/app" className="font-semibold tracking-[-0.02em] text-ink" onClick={onClose}>Atlas Innove</Link><p className="mt-1 max-w-48 truncate text-xs text-slate">{organizationName ?? "Nenhuma organização ativa"}</p></div><button type="button" className="button-secondary px-3" onClick={onClose} aria-label="Fechar menu de navegação"><X size={18} aria-hidden="true" /></button></div><div className="flex-1 overflow-y-auto px-3 py-6"><ShellNavigation pathname={pathname} hasOrganization={hasOrganization} /></div><div className="border-t border-line p-4"><AccountControl userName={userName} organizationName={organizationName} placement="bottom" /></div></div></div>;
+  return <div className="fixed inset-0 z-50 lg:hidden" role="presentation"><button type="button" className="absolute inset-0 bg-ink/30" onClick={onClose} aria-label="Fechar menu de navegação" /><div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Menu de navegação" className="relative flex h-full w-[min(19rem,calc(100%-2rem))] flex-col bg-white shadow-floating"><div className="flex items-center justify-between border-b border-line px-5 py-4"><div className="min-w-0"><Link href="/app" className="font-semibold tracking-[-0.02em] text-ink" onClick={onClose}>Atlas Innove</Link><p className="mt-1 max-w-48 truncate text-xs text-slate">{pathname.startsWith("/app/personal") ? "Espaço participante" : organizationName ?? "Nenhuma organização ativa"}</p></div><button type="button" className="button-secondary px-3" onClick={onClose} aria-label="Fechar menu de navegação"><X size={18} aria-hidden="true" /></button></div><div className="flex-1 overflow-y-auto px-3 py-6"><ShellNavigation pathname={pathname} hasOrganization={hasOrganization} /></div><div className="border-t border-line p-4"><AccountControl userName={userName} organizationName={organizationName} placement="bottom" /></div></div></div>;
 }

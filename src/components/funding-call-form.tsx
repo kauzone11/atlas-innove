@@ -14,7 +14,7 @@ const nextStatuses: Record<string, string[]> = {
   IN_REVIEW: ["RESULT_PUBLISHED", "CLOSED", "ARCHIVED"], RESULT_PUBLISHED: ["CLOSED", "ARCHIVED"], CLOSED: ["ARCHIVED"], ARCHIVED: [],
 };
 
-export function FundingCallForm({ organizationId, programId, call, onSuccess }: { organizationId: string; programId: string; call?: FundingCallDto; onSuccess?: () => void }) {
+export function FundingCallForm({ organizationId, programId, call, onSuccess, onPendingChange }: { organizationId: string; programId: string; call?: FundingCallDto; onSuccess?: () => void; onPendingChange?: (pending: boolean) => void }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +25,7 @@ export function FundingCallForm({ organizationId, programId, call, onSuccess }: 
     const values = new FormData(event.currentTarget);
     const text = (key: string) => String(values.get(key) ?? "").trim();
     const optional = (key: string) => text(key) || null;
-    setPending(true); setError(null);
+    setPending(true); onPendingChange?.(true); setError(null);
     try {
       const response = await fetch(`/api/organizations/${organizationId}/programs/${programId}/calls${call ? `/${call.id}` : ""}`, {
         method: call ? "PATCH" : "POST", headers: { "Content-Type": "application/json" },
@@ -42,7 +42,7 @@ export function FundingCallForm({ organizationId, programId, call, onSuccess }: 
       onSuccess?.();
       if (!call && payload.call) router.push(`/app/programs/${programId}/calls/${payload.call.id}`);
       router.refresh();
-    } catch { setError("Não foi possível conectar ao servidor."); } finally { setPending(false); }
+    } catch { setError("Não foi possível conectar ao servidor."); } finally { setPending(false); onPendingChange?.(false); }
   }
 
   return <form onSubmit={submit} className="space-y-5">

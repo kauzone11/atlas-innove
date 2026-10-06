@@ -12,7 +12,8 @@
   --line: #e5e5df;
   --line-strong: #c7c7c0;
   --accent: #f5662d;
-  --accent-hover: #d94d1b;
+  --accent-hover: #b84013;
+  --action: #bb4518;
   --accent-soft: #fff0e9;
   --focus: #f3a17e;
   --success: #167447;
@@ -40,7 +41,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .panel-header h2 { margin: 0; color: var(--ink); font-size: 1rem; font-weight: 650; letter-spacing: -0.01em; }
   .panel-header p { margin: 0.3rem 0 0; color: var(--slate); font-size: 0.875rem; }
   .button-primary, .button-secondary, .button-tertiary, .button-danger { display: inline-flex; min-height: 2.75rem; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.5rem; padding: 0.625rem 1rem; font-size: 0.875rem; font-weight: 650; line-height: 1.2; transition-property: background-color, border-color, color, opacity, transform; transition-duration: 150ms; transition-timing-function: ease-out; }
-  .button-primary { border: 1px solid var(--accent); background: var(--accent); color: white; }
+  .button-primary { border: 1px solid var(--action); background: var(--action); color: white; }
   .button-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
   .button-primary:active, .button-secondary:active, .button-tertiary:active, .button-danger:active { transform: scale(0.98); }
   .button-secondary { border: 1px solid var(--line); background: var(--surface); color: var(--ink); }

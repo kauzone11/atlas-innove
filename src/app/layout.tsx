@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://innove.ouseagency.com"),
   title: {
     default: "Atlas Innove",
     template: "%s · Atlas Innove",

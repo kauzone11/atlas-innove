@@ -13,7 +13,7 @@ const config: Config = {
         line: "#e5e5df",
         "line-strong": "#c7c7c0",
         accent: "#f5662d",
-        "accent-hover": "#d94d1b",
+        "accent-hover": "#b84013",
         "accent-soft": "#fff0e9",
         focus: "#f3a17e",
         success: "#167447",
