@@ -1,5 +1,6 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { hash } from "bcryptjs";
 import { db } from "@/lib/db";
 import { createOpaqueToken, hashToken, signValue } from "@/lib/security";
@@ -90,7 +91,7 @@ test("actual HTTP enforces tenants, revisions, all eight historical import types
 test("browser upload, invalid preview, keyboard confirmations, lost response recovery and responsive reflow", async ({ page }, testInfo) => {
   const f = await fixture(); const runtimeErrors: string[] = [];
   page.on("pageerror", (error) => runtimeErrors.push(error.message));
-  page.on("console", (message) => { if (message.type() === "error" && /hydration|uncaught|react|chunk/i.test(message.text())) runtimeErrors.push(message.text()); });
+  page.on("console", (message) => { if (message.type() === "error" && !message.text().includes("net::ERR_FAILED")) runtimeErrors.push(message.text()); });
   try {
     await login(page, f.user.email);
     const cookies = await page.context().cookies(); const session = cookies.find((cookie) => cookie.name === "atlas_innove_session"); expect(session?.httpOnly).toBe(true); expect(session?.secure).toBe(true); expect(session?.sameSite).toBe("Lax");
@@ -125,7 +126,7 @@ test("browser upload, invalid preview, keyboard confirmations, lost response rec
     await expect(dialog.getByRole("button", { name: "Fechar janela" })).toBeFocused();
     await page.route(`**/imports/${batchId}/apply`, async (route) => { const response = await route.fetch(); expect(response.status()).toBe(200); await route.abort("failed"); });
     await dialog.getByRole("button", { name: "Confirmar aplicação", exact: true }).click();
-    await expect(page.getByRole("alert")).toContainText("conexão foi interrompida");
+    await expect(page.getByRole("main").getByRole("alert")).toContainText("conexão foi interrompida");
     expect(await db.fundingProgram.count({ where: { organizationId: f.org.id } })).toBe(21);
     await page.unroute(`**/imports/${batchId}/apply`);
     await page.getByRole("button", { name: "Consultar estado atual" }).click();
@@ -141,5 +142,45 @@ test("browser upload, invalid preview, keyboard confirmations, lost response rec
     const routes = ["/app/settings", "/app/settings/onboarding", "/app/imports", "/app", "/app/analytics", "/app/analytics/quality", "/opportunities", "/results"];
     for (const path of routes) { const response = await page.goto(path); expect(response?.status(), path).toBe(200); await expect(page.locator("h1").first()).toBeVisible(); }
     expect(runtimeErrors).toEqual([]);
+  } finally { await f.cleanup(); }
+});
+
+test("browser error export, stale second tab and revoked membership preserve institutional boundaries", async ({ page }, testInfo) => {
+  const f = await fixture();
+  try {
+    await login(page, f.user.email);
+    await page.getByLabel("Tipo de registro", { exact: true }).selectOption("VENTURES");
+    const namespace = page.getByLabel("Identificador da origem", { exact: true });
+    await namespace.fill("INVALID ORIGIN");
+    expect(await namespace.evaluate((element: HTMLInputElement) => element.validity.patternMismatch)).toBe(true);
+    await namespace.fill("browser-history");
+    const input = csv([{ external_id: "invalid", name: "=1+1", kind: "INVALID" }]);
+    await page.getByLabel("Arquivo CSV", { exact: true }).setInputFiles({ name: "invalid.csv", mimeType: "text/csv", buffer: Buffer.from(input.content) });
+    await page.getByRole("button", { name: "Carregar e revisar" }).click();
+    await expect(page).toHaveURL(/\/app\/imports\/[^/?]+$/);
+    const batchId = page.url().split("/").at(-1)!;
+    await page.getByRole("button", { name: "Confirmar mapeamento", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Validar dados", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "Validar dados", exact: true }).click();
+    await expect(page.getByText("Requer revisão", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Revisar confirmação de aplicação" })).not.toBeVisible();
+    const downloadPromise = page.waitForEvent("download"); await page.getByRole("link", { name: "Baixar erros e avisos" }).click();
+    const download = await downloadPromise; const path = testInfo.outputPath("import-errors.csv"); await download.saveAs(path);
+    expect(await readFile(path, "utf8")).toContain("'=1+1");
+    await page.reload(); await expect(page.getByText("Requer revisão", { exact: true })).toBeVisible();
+    const second = await page.context().newPage(); await second.goto(page.url());
+    await page.getByRole("button", { name: "Confirmar mapeamento", exact: true }).click();
+    await expect(page.getByText("Aguardando conferência", { exact: true })).toBeVisible();
+    const current = await db.importBatch.findFirstOrThrow({ where: { organizationId: f.org.id, id: batchId } });
+    await second.getByRole("button", { name: "Validar dados", exact: true }).click();
+    await expect(second.getByRole("main").getByRole("alert")).toBeVisible();
+    await expect(second.getByRole("button", { name: "Validar dados", exact: true })).toBeDisabled();
+    expect((await db.importBatch.findFirstOrThrow({ where: { organizationId: f.org.id, id: batchId } })).revision).toBe(current.revision);
+    await second.getByRole("button", { name: "Consultar estado atual" }).click();
+    await expect(second.getByText("Aguardando conferência", { exact: true })).toBeVisible(); await second.close();
+    await db.organizationMembership.update({ where: { id: f.member.id }, data: { role: "ANALYST" } });
+    await page.reload(); await expect(page.getByText("Esta área está disponível para gestores, administradores e proprietários da instituição.", { exact: true })).toBeVisible();
+    expect((await page.request.get(`/api/organizations/${f.org.id}/imports/${batchId}`)).status()).toBe(403);
+    expect(await db.venture.count({ where: { organizationId: f.org.id } })).toBe(0);
   } finally { await f.cleanup(); }
 });
