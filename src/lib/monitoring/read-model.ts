@@ -25,7 +25,7 @@ function indicatorsFrom(records: { id: string; key: string; label: string; value
 }
 
 function valuesFrom(records: { indicatorDefinitionId: string; integerValue: number | null; decimalValue: Prisma.Decimal | null; textValue: string | null }[]) {
-  return records.map((value) => ({ ...value, decimalValue: value.decimalValue === null ? null : Number(value.decimalValue) }));
+  return records.map((value) => ({ ...value, decimalValue: value.decimalValue?.toString() ?? null }));
 }
 
 function waveDates(wave: { scheduledFor: Date | null; opensAt: Date | null; closesAt: Date | null }) {

@@ -67,6 +67,30 @@ enum IndicatorValueType {
   ENUM
 }
 
+enum MetricAggregationMode {
+  TOTAL
+  MEAN
+  MEDIAN
+  DISTRIBUTION
+}
+
+enum AnalyticsReportType {
+  PORTFOLIO_EXECUTIVE
+  PROGRAM_SUMMARY
+  COHORT_LONGITUDINAL
+  DATA_QUALITY
+  EXECUTION_SUMMARY
+}
+
+enum DataExportType {
+  COHORT_OBSERVATIONS
+  COHORT_AGGREGATES
+  PROGRAM_SUMMARY
+  EXECUTION_SUMMARY
+  APPLICATIONS_SUMMARY
+  PORTFOLIO_SUMMARY
+}
+
 enum MilestoneType {
   MVP_LAUNCHED
   FIRST_CUSTOMER
@@ -247,6 +271,10 @@ model User {
   projectTasksCreated        ProjectTask[]                   @relation("ProjectTaskCreatedBy")
   projectTasksAssigned       ProjectTask[]                   @relation("ProjectTaskAssignee")
   projectResourcesCreated    ProjectResource[]
+  analyticsReportsGenerated  AnalyticsReportSnapshot[]       @relation("AnalyticsReportGeneratedBy")
+  dataExports                DataExportAudit[]
+  resultPublicationsCreated  PublicResultPublication[]       @relation("ResultPublicationCreatedBy")
+  resultPublicationsApproved PublicResultPublication[]       @relation("ResultPublicationPublishedBy")
 }
 
 model UserProfile {
@@ -345,15 +373,15 @@ model ProfileLink {
 }
 
 model Organization {
-  id                   String                    @id @default(cuid())
+  id                   String                         @id @default(cuid())
   name                 String
-  slug                 String                    @unique
-  status               OrganizationStatus        @default(ACTIVE)
-  createdAt            DateTime                  @default(now())
-  updatedAt            DateTime                  @updatedAt
+  slug                 String                         @unique
+  status               OrganizationStatus             @default(ACTIVE)
+  createdAt            DateTime                       @default(now())
+  updatedAt            DateTime                       @updatedAt
   memberships          OrganizationMembership[]
   invites              OrganizationInvite[]
-  activeSessions       Session[]                 @relation("SessionActiveOrganization")
+  activeSessions       Session[]                      @relation("SessionActiveOrganization")
   fundingPrograms      FundingProgram[]
   fundingCalls         FundingCall[]
   fundingCallDocuments FundingCallDocument[]
@@ -372,6 +400,11 @@ model Organization {
   evaluationCriteria   EvaluationCriterion[]
   evaluations          ApplicationEvaluation[]
   awards               Award[]
+  metricDefinitions    MetricDefinition[]
+  analyticsReports     AnalyticsReportSnapshot[]
+  dataExports          DataExportAudit[]
+  analyticsSettings    OrganizationAnalyticsSettings?
+  resultPublications   PublicResultPublication[]
 }
 
 model OrganizationMembership {
@@ -438,20 +471,22 @@ model PasswordResetToken {
 }
 
 model FundingProgram {
-  id              String               @id @default(cuid())
-  organizationId  String
-  name            String
-  slug            String
-  description     String?
-  code            String?
-  status          FundingProgramStatus @default(DRAFT)
-  createdByUserId String
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  organization    Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdBy       User                 @relation("FundingProgramCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  cohorts         Cohort[]
-  fundingCalls    FundingCall[]
+  id               String                    @id @default(cuid())
+  organizationId   String
+  name             String
+  slug             String
+  description      String?
+  code             String?
+  status           FundingProgramStatus      @default(DRAFT)
+  createdByUserId  String
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  organization     Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy        User                      @relation("FundingProgramCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  cohorts          Cohort[]
+  fundingCalls     FundingCall[]
+  analyticsReports AnalyticsReportSnapshot[]
+  dataExports      DataExportAudit[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, slug])
@@ -523,7 +558,7 @@ model FundingCallDocument {
 }
 
 model Cohort {
-  id                        String                   @id @default(cuid())
+  id                        String                    @id @default(cuid())
   organizationId            String
   fundingProgramId          String
   fundingCallId             String?
@@ -533,16 +568,18 @@ model Cohort {
   referenceYear             Int?
   startsAt                  DateTime?
   endsAt                    DateTime?
-  status                    CohortStatus             @default(PLANNED)
-  createdAt                 DateTime                 @default(now())
-  updatedAt                 DateTime                 @updatedAt
-  organization              Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  fundingProgram            FundingProgram           @relation(fields: [organizationId, fundingProgramId], references: [organizationId, id], onDelete: Cascade)
-  fundingCall               FundingCall?             @relation(fields: [organizationId, fundingCallId, fundingProgramId], references: [organizationId, id, fundingProgramId], onDelete: Restrict)
-  trackingProtocolVersion   TrackingProtocolVersion? @relation(fields: [organizationId, trackingProtocolVersionId], references: [organizationId, id], onDelete: Restrict)
+  status                    CohortStatus              @default(PLANNED)
+  createdAt                 DateTime                  @default(now())
+  updatedAt                 DateTime                  @updatedAt
+  organization              Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fundingProgram            FundingProgram            @relation(fields: [organizationId, fundingProgramId], references: [organizationId, id], onDelete: Cascade)
+  fundingCall               FundingCall?              @relation(fields: [organizationId, fundingCallId, fundingProgramId], references: [organizationId, id, fundingProgramId], onDelete: Restrict)
+  trackingProtocolVersion   TrackingProtocolVersion?  @relation(fields: [organizationId, trackingProtocolVersionId], references: [organizationId, id], onDelete: Restrict)
   enrollments               VentureEnrollment[]
   followUpWaves             FollowUpWave[]
   observations              VentureObservation[]
+  analyticsReports          AnalyticsReportSnapshot[]
+  dataExports               DataExportAudit[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, fundingProgramId, code])
@@ -692,13 +729,128 @@ model IndicatorDefinition {
   unit                      String?
   position                  Int                     @default(0)
   allowedValues             Json?
+  metricDefinitionId        String?
+  metricDefinition          MetricDefinition?       @relation(fields: [organizationId, metricDefinitionId], references: [organizationId, id], onDelete: Restrict)
   organization              Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   trackingProtocolVersion   TrackingProtocolVersion @relation(fields: [organizationId, trackingProtocolVersionId], references: [organizationId, id], onDelete: Cascade)
   observationValues         ObservationValue[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, trackingProtocolVersionId, key])
+  @@unique([organizationId, trackingProtocolVersionId, metricDefinitionId], map: "IndicatorDefinition_org_version_metric_key")
   @@index([organizationId, trackingProtocolVersionId, position])
+  @@index([organizationId, metricDefinitionId])
+}
+
+model MetricDefinition {
+  id                 String                @id @default(cuid())
+  organizationId     String
+  key                String                @db.VarChar(160)
+  label              String
+  description        String?
+  valueType          IndicatorValueType
+  unit               String?
+  allowedValues      Json?
+  primaryAggregation MetricAggregationMode
+  archivedAt         DateTime?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  organization       Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  indicators         IndicatorDefinition[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, key])
+  @@index([organizationId, archivedAt, label])
+}
+
+model AnalyticsReportSnapshot {
+  id                     String                    @id @default(cuid())
+  organizationId         String
+  type                   AnalyticsReportType
+  title                  String
+  fundingProgramId       String?
+  cohortId               String?
+  parameters             Json
+  payload                Json
+  analyticsSchemaVersion Int                       @default(1)
+  sourceDigest           String                    @db.VarChar(64)
+  generatedByUserId      String
+  dataAsOf               DateTime
+  generatedAt            DateTime                  @default(now())
+  supersedesId           String?
+  archivedAt             DateTime?
+  organization           Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fundingProgram         FundingProgram?           @relation(fields: [organizationId, fundingProgramId], references: [organizationId, id], onDelete: Restrict)
+  cohort                 Cohort?                   @relation(fields: [organizationId, cohortId], references: [organizationId, id], onDelete: Restrict)
+  generatedBy            User                      @relation("AnalyticsReportGeneratedBy", fields: [generatedByUserId], references: [id], onDelete: Restrict)
+  supersedes             AnalyticsReportSnapshot?  @relation("AnalyticsReportSupersedes", fields: [organizationId, supersedesId], references: [organizationId, id], onDelete: Restrict)
+  supersededBy           AnalyticsReportSnapshot[] @relation("AnalyticsReportSupersedes")
+  publications           PublicResultPublication[]
+  dataExports            DataExportAudit[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, generatedAt])
+  @@index([organizationId, fundingProgramId, generatedAt])
+  @@index([organizationId, cohortId, generatedAt])
+}
+
+model DataExportAudit {
+  id               String                   @id @default(cuid())
+  organizationId   String
+  exportedByUserId String
+  type             DataExportType
+  format           String                   @default("CSV")
+  scopeType        String
+  scopeId          String?
+  fundingProgramId String?
+  cohortId         String?
+  reportSnapshotId String?
+  parameters       Json
+  rowCount         Int
+  dataAsOf         DateTime
+  sourceDigest     String                   @db.VarChar(64)
+  createdAt        DateTime                 @default(now())
+  organization     Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  exportedBy       User                     @relation(fields: [exportedByUserId], references: [id], onDelete: Restrict)
+  fundingProgram   FundingProgram?          @relation(fields: [organizationId, fundingProgramId], references: [organizationId, id], onDelete: Restrict)
+  cohort           Cohort?                  @relation(fields: [organizationId, cohortId], references: [organizationId, id], onDelete: Restrict)
+  reportSnapshot   AnalyticsReportSnapshot? @relation(fields: [organizationId, reportSnapshotId], references: [organizationId, id], onDelete: Restrict)
+
+  @@index([organizationId, createdAt])
+}
+
+model OrganizationAnalyticsSettings {
+  organizationId        String       @id
+  publicMinimumCellSize Int          @default(5)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model PublicResultPublication {
+  id                    String                  @id @default(cuid())
+  organizationId        String
+  reportSnapshotId      String
+  slug                  String                  @unique @db.VarChar(160)
+  title                 String
+  summary               String?
+  publicPayload         Json
+  publicPayloadDigest   String                  @db.VarChar(64)
+  publicMinimumCellSize Int                     @default(5)
+  publishedByUserId     String?
+  createdByUserId       String
+  publishedAt           DateTime?
+  unpublishedAt         DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  organization          Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reportSnapshot        AnalyticsReportSnapshot @relation(fields: [organizationId, reportSnapshotId], references: [organizationId, id], onDelete: Restrict)
+  publishedBy           User?                   @relation("ResultPublicationPublishedBy", fields: [publishedByUserId], references: [id], onDelete: Restrict)
+  createdBy             User                    @relation("ResultPublicationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([publishedAt, unpublishedAt])
+  @@index([organizationId, createdAt])
 }
 
 model ObservationValue {

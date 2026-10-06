@@ -1,3 +1,6 @@
+import { ExactDecimal, aggregateMetric } from "@/lib/analytics/aggregates";
+import type { Prisma } from "@prisma/client";
+
 export type IndicatorInput = {
   id: string;
   key: string;
@@ -10,7 +13,7 @@ export type IndicatorInput = {
 export type ValueInput = {
   indicatorDefinitionId: string;
   integerValue: number | null;
-  decimalValue: number | null;
+  decimalValue: Prisma.Decimal | string | number | null;
   textValue: string | null;
 };
 
@@ -19,8 +22,8 @@ export type ObservationInput = { status: string; values: ValueInput[] };
 export type IndicatorAggregate = IndicatorInput & {
   validCount: number;
   missingCount: number;
-  sum: number | null;
-  mean: number | null;
+  sum: number | string | null;
+  mean: number | string | null;
   distribution: { value: string; count: number }[];
 };
 
@@ -31,9 +34,11 @@ export function observedValue(indicator: IndicatorInput, value: ValueInput | und
       && Number.isSafeInteger(value.integerValue) && value.integerValue >= 0 && value.integerValue <= 2147483647 ? value.integerValue : null;
   }
   if (indicator.valueType === "CURRENCY") {
-    return value.integerValue === null && value.textValue === null && value.decimalValue !== null
-      && Number.isFinite(value.decimalValue) && value.decimalValue >= 0 && value.decimalValue <= 999999999999.99
-      && Number(value.decimalValue.toFixed(2)) === value.decimalValue ? value.decimalValue : null;
+    if (value.integerValue !== null || value.textValue !== null || value.decimalValue === null) return null;
+    try {
+      const decimal = new ExactDecimal(value.decimalValue);
+      return decimal.isFinite() && decimal.greaterThanOrEqualTo(0) && decimal.lessThanOrEqualTo("999999999999.99") && decimal.decimalPlaces() <= 2 ? decimal.toString() : null;
+    } catch { return null; }
   }
   return value.integerValue === null && value.decimalValue === null && value.textValue !== null
     && indicator.allowedValues.includes(value.textValue) ? value.textValue : null;
@@ -47,17 +52,14 @@ export function aggregateIndicators(indicators: IndicatorInput[], observations: 
       const value = matching.length === 1 ? observedValue(indicator, matching[0]) : null;
       return value === null ? [] : [value];
     });
-    const numeric = values.filter((value): value is number => typeof value === "number");
-    const sum = numeric.length ? numeric.reduce((total, value) => total + value, 0) : null;
+    const aggregate = aggregateMetric({ ...indicator, primaryAggregation: indicator.valueType === "ENUM" ? "DISTRIBUTION" : "TOTAL" }, values, submitted.length);
     return {
       ...indicator,
       validCount: values.length,
       missingCount: submitted.length - values.length,
-      sum,
-      mean: sum === null ? null : sum / numeric.length,
-      distribution: indicator.valueType === "ENUM" ? indicator.allowedValues.map((value) => ({
-        value, count: values.filter((current) => current === value).length,
-      })) : [],
+      sum: aggregate.sum,
+      mean: aggregate.mean,
+      distribution: aggregate.distribution,
     };
   });
 }

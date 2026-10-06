@@ -8,6 +8,7 @@ export const indicatorDefinitionSchema = z.object({
   valueType: indicatorValueTypeSchema,
   unit: z.string().trim().max(40).optional().nullable(),
   allowedValues: z.array(z.string().trim().min(1).max(120)).max(30).optional().nullable(),
+  metricDefinitionId: z.string().trim().min(1).max(160).optional().nullable(),
 }).superRefine((input, context) => {
   if (input.valueType === "ENUM" && !input.allowedValues?.length) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["allowedValues"], message: "Informe as opções do indicador." });

@@ -1,0 +1,1 @@
+ALTER INDEX "IndicatorDefinition_organizationId_trackingProtocolVersionId_met_key" RENAME TO "IndicatorDefinition_org_version_metric_key";
