@@ -6,8 +6,10 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { LogoutButton } from "@/components/logout-button";
+import { Avatar } from "@/components/media/avatar";
+import type { MediaDto } from "@/lib/media/types";
 
-type AppShellProps = { children: React.ReactNode; organizationName?: string; userName: string; hasOrganization: boolean; unreadNotifications: number; isPlatformAdmin?: boolean };
+type AppShellProps = { children: React.ReactNode; organizationName?: string; userName: string; avatarMedia?: MediaDto | null; hasOrganization: boolean; unreadNotifications: number; isPlatformAdmin?: boolean };
 
 const primaryNavigation = [
   { href: "/app", label: "Visão geral", icon: Building2, exact: true },
@@ -33,13 +35,12 @@ const personalNavigation = [
   { href: "/app/personal/teams", label: "Equipes", icon: UsersRound },
   { href: "/app/personal/opportunities", label: "Oportunidades", icon: Compass },
   { href: "/app/personal/network", label: "Rede", icon: Network },
-  { href: "/app/messages", label: "Mensagens", icon: MessageSquare },
   { href: "/app/personal/profile", label: "Perfil", icon: UserRound },
 ];
 
 function isPersonalPath(pathname: string) { return pathname.startsWith("/app/personal") || pathname.startsWith("/app/messages"); }
 
-export function AppShell({ children, organizationName, userName, hasOrganization, unreadNotifications, isPlatformAdmin }: AppShellProps) {
+export function AppShell({ children, organizationName, userName, avatarMedia, hasOrganization, unreadNotifications, isPlatformAdmin }: AppShellProps) {
   const pathname = usePathname();
   const personal = isPersonalPath(pathname);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -72,16 +73,16 @@ export function AppShell({ children, organizationName, userName, hasOrganization
                   <Menu size={18} aria-hidden="true" />
                 </button>
                 <Link href="/app" className="truncate text-[0.9375rem] font-semibold tracking-[-0.02em] text-ink lg:hidden">Atlas Innove</Link>
-                <span className="hidden truncate text-sm text-slate sm:block">{personal ? "Minha trajetória de inovação" : organizationName ?? "Selecione uma organização"}</span>
+                <span className="hidden truncate text-sm text-slate sm:block">{personal ? "Espaço participante" : organizationName ?? "Selecione uma organização"}</span>
               </div>
-              <div className="flex shrink-0 items-center gap-1"><Link href="/app/notifications" className="relative flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate hover:bg-surface-subtle" aria-label={`Notificações${unreadNotifications ? `, ${unreadNotifications} não lidas` : ""}`}><Bell size={19} aria-hidden="true" />{unreadNotifications > 0 ? <span className="absolute right-0 top-0 rounded-full bg-accent-soft px-1.5 text-[10px] font-semibold text-ink" aria-hidden="true">{unreadNotifications > 99 ? "99+" : unreadNotifications}</span> : null}</Link><AccountControl userName={userName} organizationName={organizationName} placement="top" isPlatformAdmin={isPlatformAdmin} /></div>
+              <div className="flex shrink-0 items-center gap-1"><Link href="/app/messages" className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate hover:bg-surface-subtle" aria-label="Mensagens"><MessageSquare size={19} aria-hidden="true" /></Link><Link href="/app/notifications" className="relative flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate hover:bg-surface-subtle" aria-label={`Notificações${unreadNotifications ? `, ${unreadNotifications} não lidas` : ""}`}><Bell size={19} aria-hidden="true" />{unreadNotifications > 0 ? <span className="absolute right-0 top-0 rounded-full bg-accent-soft px-1.5 text-[10px] font-semibold text-ink" aria-hidden="true">{unreadNotifications > 99 ? "99+" : unreadNotifications}</span> : null}</Link><AccountControl userName={userName} avatarMedia={avatarMedia} organizationName={organizationName} placement="top" isPlatformAdmin={isPlatformAdmin} /></div>
             </div>
           </header>
           <main id="main-content" className="app-content">{children}</main>
         </div>
       </div>
 
-      {mobileOpen ? <MobileNavigation pathname={pathname} organizationName={organizationName} hasOrganization={hasOrganization} userName={userName} onClose={() => { setMobileOpen(false); menuButtonRef.current?.focus(); }} /> : null}
+      {mobileOpen ? <MobileNavigation pathname={pathname} organizationName={organizationName} hasOrganization={hasOrganization} userName={userName} avatarMedia={avatarMedia} onClose={() => { setMobileOpen(false); menuButtonRef.current?.focus(); }} /> : null}
     </div>
   );
 }
@@ -106,7 +107,7 @@ function NavItem({ item, pathname }: { item: (typeof primaryNavigation)[number];
   return <Link href={item.href} aria-current={active ? "page" : undefined} className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors duration-150 ${active ? "bg-accent-soft/70 text-ink" : "text-slate hover:bg-surface-subtle hover:text-ink"}`}><Icon size={17} strokeWidth={active ? 2 : 1.7} className={active ? "text-accent" : undefined} aria-hidden="true" /><span>{item.label}</span></Link>;
 }
 
-function AccountControl({ userName, organizationName, placement = "top", isPlatformAdmin }: { userName: string; organizationName?: string; placement?: "top" | "bottom"; isPlatformAdmin?: boolean }) {
+function AccountControl({ userName, avatarMedia, organizationName, placement = "top", isPlatformAdmin }: { userName: string; avatarMedia?: MediaDto | null; organizationName?: string; placement?: "top" | "bottom"; isPlatformAdmin?: boolean }) {
   const pathname = usePathname();
   const personal = isPersonalPath(pathname);
   const [open, setOpen] = useState(false);
@@ -125,16 +126,17 @@ function AccountControl({ userName, organizationName, placement = "top", isPlatf
     return () => { document.removeEventListener("pointerdown", handlePointerDown); document.removeEventListener("keydown", handleKeyDown); };
   }, [open]);
 
-  const initials = userName.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "AI";
   return <div ref={controlRef} className={`account-menu ${placement === "top" ? "ml-2" : ""}`}>
     <button type="button" className="flex min-h-11 max-w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-surface-subtle" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-haspopup="menu" aria-label={`Abrir menu de ${userName}`}>
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink text-xs font-semibold text-white" aria-hidden="true">{initials}</span>
+      <Avatar name={userName} media={avatarMedia} size="small" />
       <span className="hidden max-w-36 truncate text-sm font-medium text-ink sm:block">{userName}</span>
       <ChevronDown size={16} className="shrink-0 text-slate" aria-hidden="true" />
     </button>
     {open ? <div className={`account-menu-popover ${placement === "top" ? "!bottom-auto !top-[calc(100%+0.6rem)]" : ""}`} role="menu">
       <div className="border-b border-line px-2 pb-3 pt-1"><p className="truncate text-sm font-semibold text-ink">{userName}</p><p className="mt-1 truncate text-xs text-slate">{personal ? "Espaço participante" : organizationName ?? "Nenhuma organização ativa"}</p></div>
       <Link href="/app/personal/profile" role="menuitem" className="mt-1 flex min-h-11 items-center gap-2 rounded-md px-2 text-sm text-slate hover:bg-surface-subtle hover:text-ink" onClick={() => setOpen(false)}><UserRound size={16} aria-hidden="true" /> Meu perfil</Link>
+      <Link href="/app/personal/saved-posts" role="menuitem" className="mt-1 flex min-h-11 items-center gap-2 rounded-md px-2 text-sm text-slate hover:bg-surface-subtle hover:text-ink" onClick={() => setOpen(false)}>Publicações salvas</Link>
+      <Link href="/app/personal/profile/edit" role="menuitem" className="mt-1 flex min-h-11 items-center gap-2 rounded-md px-2 text-sm text-slate hover:bg-surface-subtle hover:text-ink" onClick={() => setOpen(false)}><Settings size={16} aria-hidden="true" /> Editar perfil e privacidade</Link>
       {isPlatformAdmin ? <Link href="/app/platform/safety" role="menuitem" className="mt-1 flex min-h-11 items-center gap-2 rounded-md px-2 text-sm text-slate hover:bg-surface-subtle hover:text-ink" onClick={() => setOpen(false)}>Revisar denúncias</Link> : null}
       <Link href="/app/organizations" role="menuitem" className="mt-1 flex min-h-11 items-center gap-2 rounded-md px-2 text-sm text-slate hover:bg-surface-subtle hover:text-ink" onClick={() => setOpen(false)}><Building2 size={16} aria-hidden="true" /> Trocar organização</Link>
       <LogoutButton />
@@ -142,7 +144,7 @@ function AccountControl({ userName, organizationName, placement = "top", isPlatf
   </div>;
 }
 
-function MobileNavigation({ pathname, organizationName, hasOrganization, userName, onClose }: { pathname: string; organizationName?: string; hasOrganization: boolean; userName: string; onClose: () => void }) {
+function MobileNavigation({ pathname, organizationName, hasOrganization, userName, avatarMedia, onClose }: { pathname: string; organizationName?: string; hasOrganization: boolean; userName: string; avatarMedia?: MediaDto | null; onClose: () => void }) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -163,5 +165,5 @@ function MobileNavigation({ pathname, organizationName, hasOrganization, userNam
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  return <div className="fixed inset-0 z-50 lg:hidden" role="presentation"><button type="button" className="absolute inset-0 bg-ink/30" onClick={onClose} aria-label="Fechar menu de navegação" /><div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Menu de navegação" className="relative flex h-full w-[min(19rem,calc(100%-2rem))] flex-col bg-white shadow-floating"><div className="flex items-center justify-between border-b border-line px-5 py-4"><div className="min-w-0"><Link href="/app" className="font-semibold tracking-[-0.02em] text-ink" onClick={onClose}>Atlas Innove</Link><p className="mt-1 max-w-48 truncate text-xs text-slate">{pathname.startsWith("/app/personal") ? "Espaço participante" : organizationName ?? "Nenhuma organização ativa"}</p></div><button type="button" className="button-secondary px-3" onClick={onClose} aria-label="Fechar menu de navegação"><X size={18} aria-hidden="true" /></button></div><div className="flex-1 overflow-y-auto px-3 py-6"><ShellNavigation pathname={pathname} hasOrganization={hasOrganization} /></div><div className="border-t border-line p-4"><AccountControl userName={userName} organizationName={organizationName} placement="bottom" /></div></div></div>;
+  return <div className="fixed inset-0 z-50 lg:hidden" role="presentation"><button type="button" className="absolute inset-0 bg-ink/30" onClick={onClose} aria-label="Fechar menu de navegação" /><div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Menu de navegação" className="relative flex h-full w-[min(19rem,calc(100%-2rem))] flex-col bg-white shadow-floating"><div className="flex items-center justify-between border-b border-line px-5 py-4"><div className="min-w-0"><Link href="/app" className="font-semibold tracking-[-0.02em] text-ink" onClick={onClose}>Atlas Innove</Link><p className="mt-1 max-w-48 truncate text-xs text-slate">{pathname.startsWith("/app/personal") ? "Espaço participante" : organizationName ?? "Nenhuma organização ativa"}</p></div><button type="button" className="button-secondary px-3" onClick={onClose} aria-label="Fechar menu de navegação"><X size={18} aria-hidden="true" /></button></div><div className="flex-1 overflow-y-auto px-3 py-6"><ShellNavigation pathname={pathname} hasOrganization={hasOrganization} /></div><div className="border-t border-line p-4"><AccountControl userName={userName} avatarMedia={avatarMedia} organizationName={organizationName} placement="bottom" /></div></div></div>;
 }

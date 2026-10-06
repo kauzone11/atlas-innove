@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getAppBaseUrl } from "@/lib/app-base-url";
 
 import "./globals.css";
+import "@/components/media/media.css";
 
 export const metadata: Metadata = {
   metadataBase: getAppBaseUrl(),

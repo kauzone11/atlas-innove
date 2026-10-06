@@ -34,14 +34,18 @@ export function PersonNetworkActions({ userId, connection, inviteOptions = { tea
     if (dialog === "connect") await act("/api/personal/network/connections", "POST", { recipientUserId: userId, message: data.get("message") || null });
     else if ((dialog === "team" || dialog === "project") && selected) await act(`/api/personal/network/${dialog === "team" ? "teams" : "projects"}/${selected}/invites`, "POST", { invitedUserId: userId, role: data.get("role") });
   }
-  return <div className="space-y-3"><div className="flex flex-wrap gap-2">
+  return <div className="social-network-actions"><div className="flex flex-wrap items-center gap-2">
     {connection.state === "AVAILABLE" ? <button className={primaryConnect ? "button-primary" : "button-secondary"} onClick={() => open("connect")}>Conectar</button> : null}
-    {connection.state === "OUTGOING" ? <><span className="inline-flex items-center text-sm text-slate">Solicitação enviada</span><button disabled={pending} className="button-secondary" onClick={() => void act(`/api/personal/network/connections/${connection.requestId}`, "PATCH", { action: "cancel" })}>Cancelar solicitação</button></> : null}
+    {connection.state === "OUTGOING" ? <span className="social-relationship-status">Solicitação enviada</span> : null}
     {connection.state === "INCOMING" ? <><button disabled={pending} className="button-primary" onClick={() => void act(`/api/personal/network/connections/${connection.requestId}`, "PATCH", { action: "accept" })}>Aceitar solicitação</button><button disabled={pending} className="button-secondary" onClick={() => void act(`/api/personal/network/connections/${connection.requestId}`, "PATCH", { action: "decline" })}>Recusar</button></> : null}
-    {connection.state === "CONNECTED" ? <><StartConversation otherUserId={userId} /><button className="button-secondary" onClick={() => open("disconnect")}>Desconectar</button></> : null}
-    {inviteOptions.projects.length ? <button className="button-secondary" onClick={() => open("project")}>Convidar para projeto</button> : null}
-    {inviteOptions.teams.length ? <button className="button-secondary" onClick={() => open("team")}>Convidar para equipe</button> : null}
-    <details className="relative"><summary className="button-tertiary cursor-pointer">Outras ações</summary><div className="mt-2 flex flex-wrap gap-2"><button className="button-tertiary" onClick={() => open("block")}>Bloquear pessoa</button><ReportContact reportedUserId={userId} /></div></details>
+    {connection.state === "CONNECTED" ? <StartConversation otherUserId={userId} /> : null}
+    <details className="social-overflow"><summary className="button-secondary">Outras ações</summary><div className="social-overflow-panel">
+      {connection.state === "OUTGOING" ? <button disabled={pending} className="button-tertiary" onClick={() => void act(`/api/personal/network/connections/${connection.requestId}`, "PATCH", { action: "cancel" })}>Cancelar solicitação</button> : null}
+      {connection.state === "CONNECTED" ? <button className="button-tertiary" onClick={() => open("disconnect")}>Desconectar</button> : null}
+      {inviteOptions.projects.length ? <button className="button-tertiary" onClick={() => open("project")}>Convidar para projeto</button> : null}
+      {inviteOptions.teams.length ? <button className="button-tertiary" onClick={() => open("team")}>Convidar para equipe</button> : null}
+      <button className="button-tertiary" onClick={() => open("block")}>Bloquear pessoa</button><ReportContact reportedUserId={userId} />
+    </div></details>
   </div>{notice ? <p className="text-sm text-slate" role="status">{notice}</p> : null}{error && !dialog ? <p className="text-sm text-danger" role="alert">{error}</p> : null}
   <Dialog open={Boolean(dialog)} onClose={() => { if (!pending) setDialog(null); }} title={dialog === "connect" ? "Solicitar conexão" : dialog === "team" ? "Convidar para equipe" : dialog === "project" ? "Convidar para projeto" : dialog === "disconnect" ? "Encerrar conexão" : "Bloquear pessoa"} description={dialog === "block" ? "O bloqueio impede descoberta e contato dentro do Atlas Innove. Conteúdo já público pode continuar acessível na web. Os vínculos em equipes e projetos e as mensagens anteriores serão preservados." : dialog === "disconnect" ? "O período de conexão e as mensagens anteriores serão preservados. Uma nova conversa exige reconexão." : undefined}>
     {error ? <p className="mb-4 text-sm text-danger" role="alert">{error}</p> : null}

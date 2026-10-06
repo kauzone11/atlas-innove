@@ -60,3 +60,17 @@ Reuse the canonical owners in `UX-CONTRACT.md`. Primary buttons express the next
 ## Content and accessibility
 
 Following subscribes to content; connecting authorizes a professional relationship and messaging. Activity never replaces verified trajectory. Audience labels explain who can see content. Native buttons and links retain visible keyboard focus; controls use actual Portuguese labels. Dialogs trap focus, support Escape and restore focus. Copy-link feedback uses a live region and an accessible fallback. No interaction depends on hover.
+
+## Professional social surfaces
+
+The social profile, feed, post, activity and people surfaces use the existing system font and button primitives with a scoped warm palette. `src/app/globals.css` is canonical: `.social-surface` maps canvas to `#fdfcf9`, secondary surface to `#faf9f3`, cream to `#f3f0e2`, border to `#e8e3d6`, ink to `#1b1a18`, and muted text to `#787369`. Brand action, focus and semantic colors remain inherited. These overrides do not alter the global workspace palette or `/demo`.
+
+Professional identity leads the profile: a neutral cream cover with one restrained geometric detail, an overlapping avatar, name, headline, location, current visible experience and secondary social counts. Own-profile actions prioritize creating a post and editing the profile; public preview and social settings live in the overflow. Visitor actions follow the configured primary relationship action, with invitations and destructive relationship actions in the overflow. Counts link only to lists belonging to the viewer when those routes exist.
+
+Profile sections use quiet rules and chronological records. Featured and activity content use the canonical PostCard `profile` variant: bounded text, compact media and a permalink action. Each preview has at most three posts; skills and interests expose six topics before a native disclosure. Verified participation retains the existing careful source language.
+
+The feed uses a central measure of 43.5rem and a secondary rail of at most 18rem on wide desktops. Below 1280px the rail is hidden; discovery remains available through the existing navigation and feed empty-state action. The rail contains only profile context and three deterministic people suggestions. Feed ordering remains in the URL. Loading more is explicit.
+
+The post author, professional context and audience form one hierarchy. Body text uses 0.9375rem with 1.7 line height; metadata stays at 0.8125rem. Mobile engagement controls use a deliberate two-column grid. Repost commentary precedes a simpler original-post presentation. Comments load on opening, use avatar-led author rows, and indent replies only one level. Reaction choices are a click/tap disclosure with Escape, outside-click dismissal and keyboard focus return.
+
+Media is owned by `src/components/media`: Avatar, MediaImage, PostImages and PostImagePicker. Images reserve dimensions, show resilient fallbacks, and use server-authorized media URLs with generated responsive variants. Post media opens in the canonical Dialog. The composer treats text, link, audience, comment rules, image order and alt text as draft state; it preserves failed submissions, blocks publishing during upload and confirms discarding changes. Photo controls explicitly report unavailable storage.

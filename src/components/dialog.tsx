@@ -11,9 +11,10 @@ type SurfaceProps = {
   description?: string;
   children: ReactNode;
   mode?: "dialog" | "sheet";
+  size?: "default" | "image";
 };
 
-export function Dialog({ open, onClose, title, description, children, mode = "dialog" }: SurfaceProps) {
+export function Dialog({ open, onClose, title, description, children, mode = "dialog", size = "default" }: SurfaceProps) {
   const [mounted, setMounted] = useState(false);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -62,7 +63,7 @@ export function Dialog({ open, onClose, title, description, children, mode = "di
   const headingId = `${surfaceId}-title`;
   const descriptionId = description ? `${surfaceId}-description` : undefined;
   const backdropClassName = mode === "sheet" ? "sheet-backdrop" : "dialog-backdrop";
-  const surfaceClassName = mode === "sheet" ? "sheet-surface" : "dialog-surface";
+  const surfaceClassName = mode === "sheet" ? "sheet-surface" : `dialog-surface${size === "image" ? " media-dialog" : ""}`;
   return createPortal(
     <div className={backdropClassName} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div ref={surfaceRef} tabIndex={-1} className={surfaceClassName} role="dialog" aria-modal="true" aria-labelledby={headingId} aria-describedby={descriptionId}>
