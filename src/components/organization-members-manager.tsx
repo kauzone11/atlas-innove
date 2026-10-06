@@ -7,7 +7,7 @@ import { Dialog } from "@/components/dialog";
 
 type Member = { id: string; role: string; status: "ACTIVE" | "DISABLED"; user: { email: string; fullName: string } };
 
-export function TeamManager({ organizationId, canManage }: { organizationId: string; canManage: boolean }) {
+export function OrganizationMembersManager({ organizationId, canManage }: { organizationId: string; canManage: boolean }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("VIEWER");
@@ -18,7 +18,7 @@ export function TeamManager({ organizationId, canManage }: { organizationId: str
 
   const loadMembers = useCallback(async () => {
     const response = await fetch(`/api/organizations/${organizationId}/members`);
-    if (!response.ok) throw new Error("Não foi possível carregar a equipe.");
+    if (!response.ok) throw new Error("Não foi possível carregar os membros.");
     const payload = (await response.json()) as { members: Member[] };
     setMembers(payload.members);
   }, [organizationId]);
@@ -54,7 +54,7 @@ export function TeamManager({ organizationId, canManage }: { organizationId: str
       {canManage ? <div className="flex justify-end"><button type="button" className="button-primary" onClick={() => setOpen(true)}><Plus size={17} aria-hidden="true" /> Convidar pessoa</button><Dialog open={open} onClose={() => setOpen(false)} title="Convidar pessoa" description="Defina o papel antes de criar o convite."><form onSubmit={invite} className="space-y-5"><label className="block space-y-2 text-sm font-medium text-ink" htmlFor="invite-email"><span>E-mail</span><input id="invite-email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nome@instituicao.org" autoComplete="email" className="field-control" /></label><label className="block space-y-2 text-sm font-medium text-ink" htmlFor="invite-role"><span>Papel</span><select id="invite-role" value={role} onChange={(event) => setRole(event.target.value)} className="field-control"><option value="VIEWER">Visualizador</option><option value="ANALYST">Analista</option><option value="MANAGER">Gestor</option><option value="ADMIN">Administrador</option></select></label><button disabled={pending} className="button-primary w-full">{pending ? "Convidando…" : "Criar convite"}</button></form></Dialog></div> : null}
       {notice ? <p className="break-all rounded-lg border border-success/20 bg-success-soft px-4 py-3 text-sm text-success" role="status">{notice}</p> : null}
       {error ? <p className="rounded-lg border border-danger/20 bg-danger-soft px-4 py-3 text-sm text-danger" role="alert">{error}</p> : null}
-      <section className="panel"><div className="panel-header"><h2>Pessoas com acesso</h2><p>{members.length} {members.length === 1 ? "pessoa" : "pessoas"}</p></div><div className="divide-y divide-line">{members.map((member) => <div key={member.id} className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium text-ink">{member.user.fullName}</p><p className="text-sm text-slate">{member.user.email}</p></div><div className="flex items-center gap-3"><span className="status-badge status-neutral">{roleLabel(member.role)} · {member.status === "ACTIVE" ? "Ativo" : "Desativado"}</span>{canManage && member.role !== "OWNER" ? <button type="button" disabled={pending} onClick={() => toggle(member)} className="button-secondary min-h-9 px-3 text-xs">{member.status === "ACTIVE" ? "Desativar" : "Reativar"}</button> : null}</div></div>)}{members.length === 0 ? <p className="px-6 py-8 text-sm text-slate">Nenhuma pessoa encontrada.</p> : null}</div></section>
+      <section className="panel"><div className="panel-header"><h2>Pessoas com acesso</h2><p>{members.length} {members.length === 1 ? "pessoa" : "pessoas"}</p></div><div className="divide-y divide-line">{members.map((member) => <div key={member.id} className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium text-ink">{member.user.fullName}</p><p className="text-sm text-slate">{member.user.email}</p></div><div className="flex items-center gap-3"><span className="status-badge status-neutral">{roleLabel(member.role)} · {member.status === "ACTIVE" ? "Ativo" : "Desativado"}</span>{canManage && member.role !== "OWNER" ? <button type="button" disabled={pending} onClick={() => toggle(member)} className="button-secondary min-h-11 px-3 text-xs">{member.status === "ACTIVE" ? "Desativar" : "Reativar"}</button> : null}</div></div>)}{members.length === 0 ? <p className="px-6 py-8 text-sm text-slate">Nenhuma pessoa encontrada.</p> : null}</div></section>
     </div>
   );
 }

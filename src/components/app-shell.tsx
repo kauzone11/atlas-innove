@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BriefcaseBusiness, Building2, ChevronDown, FolderKanban, Menu, Settings, Users, Workflow, Compass, X } from "lucide-react";
+import { BriefcaseBusiness, Building2, ChevronDown, FolderKanban, Menu, Settings, Users, Workflow, Compass, X, Route, Layers3, Send, UsersRound } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -19,12 +19,21 @@ const primaryNavigation = [
 
 const administrationNavigation = [
   { href: "/app/organizations", label: "Organizações", icon: Building2 },
-  { href: "/app/team", label: "Equipe", icon: Users },
+  { href: "/app/members", label: "Membros", icon: Users },
   { href: "/app/settings", label: "Configurações", icon: Settings },
+];
+
+const personalNavigation = [
+  { href: "/app/personal", label: "Minha trajetória", icon: Route, exact: true },
+  { href: "/app/personal/teams", label: "Equipes", icon: UsersRound },
+  { href: "/app/personal/projects", label: "Projetos", icon: Layers3 },
+  { href: "/app/personal/applications", label: "Candidaturas", icon: Send },
+  { href: "/app/personal/opportunities", label: "Oportunidades", icon: Compass },
 ];
 
 export function AppShell({ children, organizationName, userName, hasOrganization }: AppShellProps) {
   const pathname = usePathname();
+  const personal = pathname.startsWith("/app/personal");
   const [mobileOpen, setMobileOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -44,7 +53,7 @@ export function AppShell({ children, organizationName, userName, hasOrganization
         <aside className="hidden border-r border-line bg-white lg:flex lg:flex-col">
           <ShellBrand organizationName={organizationName} />
           <div className="flex-1 px-3 py-6"><ShellNavigation pathname={pathname} hasOrganization={hasOrganization} /></div>
-          <div className="border-t border-line p-4"><p className="truncate px-2 text-xs text-slate">{organizationName ?? "Nenhuma organização ativa"}</p></div>
+          <div className="border-t border-line p-4"><p className="truncate px-2 text-xs text-slate">{personal ? "Espaço participante" : organizationName ?? "Nenhuma organização ativa"}</p></div>
         </aside>
 
         <div className="app-main">
@@ -55,7 +64,7 @@ export function AppShell({ children, organizationName, userName, hasOrganization
                   <Menu size={18} aria-hidden="true" />
                 </button>
                 <Link href="/app" className="truncate text-[0.9375rem] font-semibold tracking-[-0.02em] text-ink lg:hidden">Atlas Innove</Link>
-                <span className="hidden truncate text-sm text-slate sm:block">{organizationName ?? "Selecione uma organização"}</span>
+                <span className="hidden truncate text-sm text-slate sm:block">{personal ? "Minha trajetória de inovação" : organizationName ?? "Selecione uma organização"}</span>
               </div>
               <AccountControl userName={userName} organizationName={organizationName} placement="top" />
             </div>
@@ -74,7 +83,8 @@ function ShellBrand({ organizationName }: { organizationName?: string }) {
 }
 
 function ShellNavigation({ pathname, hasOrganization }: { pathname: string; hasOrganization: boolean }) {
-  return <nav aria-label="Navegação da organização" className="space-y-7"><NavGroup label="Espaço" items={hasOrganization ? primaryNavigation : [primaryNavigation[0]]} pathname={pathname} /><NavGroup label="Administração" items={administrationNavigation.filter((item) => item.href === "/app/organizations" || hasOrganization)} pathname={pathname} /></nav>;
+  const personal = pathname.startsWith("/app/personal");
+  return <nav aria-label={personal ? "Navegação do participante" : "Navegação da organização"} className="space-y-7"><div><p className="px-3 pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-slate">Perspectiva</p><div className="grid grid-cols-2 gap-1 rounded-lg bg-surface-subtle p-1"><Link className={`flex min-h-11 items-center justify-center rounded-md text-xs font-medium ${!personal ? "bg-white text-ink shadow-sm" : "text-slate"}`} href={hasOrganization ? "/app" : "/app/organizations"} aria-current={!personal ? "page" : undefined}>Instituição</Link><Link className={`flex min-h-11 items-center justify-center rounded-md text-xs font-medium ${personal ? "bg-white text-ink shadow-sm" : "text-slate"}`} href="/app/personal" aria-current={personal ? "page" : undefined}>Participante</Link></div></div><NavGroup label={personal ? "Meu espaço" : "Espaço"} items={personal ? personalNavigation : hasOrganization ? primaryNavigation : [primaryNavigation[0]]} pathname={pathname} />{!personal ? <NavGroup label="Administração" items={administrationNavigation.filter((item) => item.href === "/app/organizations" || hasOrganization)} pathname={pathname} /> : null}</nav>;
 }
 
 function NavGroup({ label, items, pathname }: { label: string; items: typeof primaryNavigation; pathname: string }) {

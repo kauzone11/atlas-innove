@@ -1,0 +1,36 @@
+import Link from "next/link";
+import type { ReactNode } from "react";
+import { notFound, redirect } from "next/navigation";
+import { CallWorkspaceHeader } from "@/components/selection/call-workspace-header";
+import { DecisionAction } from "@/components/selection/decision-action";
+import { EvaluationEditor } from "@/components/selection/evaluation-editor";
+import { applicationStatusLabels, auditDateLabel, decisionLabels, scoreLabel } from "@/components/selection/types";
+import { Panel, PanelHeader, StatusBadge } from "@/components/ui";
+import { hasAtLeastRole } from "@/lib/auth/authorization";
+import { getActiveOrganizationContext } from "@/lib/auth/session";
+import { getFundingCall } from "@/lib/funding-calls/service";
+import { getCallApplication } from "@/lib/selection/service";
+
+export default async function InstitutionalApplicationPage({ params }: { params: Promise<{ programId: string; callId: string; applicationId: string }> }) {
+  const context = await getActiveOrganizationContext();
+  if (!context) redirect("/app/organizations");
+  const { programId, callId, applicationId } = await params;
+  const call = await getFundingCall(context.organization.id, programId, callId);
+  if (!call) notFound();
+  const canManage = hasAtLeastRole(context.membership.role, "MANAGER");
+  const application = await getCallApplication(context.organization.id, programId, callId, applicationId, context.auth.user.id);
+  if (!application) notFound();
+  const apiBase = `/api/organizations/${context.organization.id}/programs/${programId}/calls/${callId}`;
+  const pageHref = `/app/programs/${programId}/calls/${callId}/applications/${application.id}`;
+
+  return <div className="space-y-6">
+    <CallWorkspaceHeader call={call} section="Candidatura" />
+    <Link href={`/app/programs/${programId}/calls/${callId}/applications`} className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover">← Todas as candidaturas</Link>
+    <Panel><PanelHeader title={application.projectNameSnapshot} description="Conteúdo enviado pelo participante e preservado nesta candidatura." action={<StatusBadge label={applicationStatusLabels[application.status] ?? application.status} tone={application.status === "WITHDRAWN" ? "neutral" : "accent"} />} /><div className="space-y-6 px-4 py-5 sm:px-6"><dl className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4"><Metadata label="Equipe">{application.teamNameSnapshot ?? "Participação individual"}</Metadata><Metadata label="Participante">{application.submittedBy.name}</Metadata><Metadata label="Enviada em · horário de Brasília">{auditDateLabel(application.submittedAt)}</Metadata><Metadata label="Retirada em · horário de Brasília">{application.withdrawnAt ? auditDateLabel(application.withdrawnAt) : "Não retirada"}</Metadata></dl><div className="border-t border-line pt-5"><h3 className="text-sm font-semibold text-ink">Resumo enviado</h3><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-7 text-slate">{application.projectSummarySnapshot}</p></div>{application.projectDescriptionSnapshot ? <div><h3 className="text-sm font-semibold text-ink">Descrição enviada</h3><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-7 text-slate">{application.projectDescriptionSnapshot}</p></div> : null}</div></Panel>
+    <Panel><PanelHeader title="Síntese da seleção" description="A nota agregada considera apenas avaliações enviadas. A decisão é registrada separadamente." /><div className="space-y-5 px-4 py-5 sm:px-6"><dl className="grid gap-5 sm:grid-cols-3"><Metadata label="Nota agregada">{scoreLabel(application.score)}{application.score !== null ? " / 100" : ""}</Metadata><Metadata label="Avaliações enviadas">{application.evaluationCount}</Metadata><Metadata label="Decisão"><StatusBadge label={decisionLabels[application.decision] ?? application.decision} tone={application.decision === "SELECTED" ? "success" : "neutral"} /></Metadata></dl>{canManage && application.decidedAt ? <p className="text-xs text-slate">Decisão registrada em {auditDateLabel(application.decidedAt)} (horário de Brasília).</p> : null}{canManage && application.decisionNote ? <div className="border-t border-line pt-5"><h3 className="text-sm font-medium">Nota interna da decisão</h3><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate">{application.decisionNote}</p></div> : null}{canManage && call.status === "IN_REVIEW" && application.status !== "WITHDRAWN" ? <DecisionAction apiBase={apiBase} applicationIds={[application.id]} currentDecision={application.decision} currentNote={application.decisionNote ?? ""} /> : null}{application.enrollmentId ? <p className="text-sm text-slate">Esta candidatura já originou uma participação no acompanhamento. <Link className="font-medium text-accent-hover" href={`/app/programs/${programId}/calls/${callId}/tracking`}>Consultar acompanhamento</Link>.</p> : null}</div></Panel>
+    <EvaluationEditor key={application.ownEvaluation?.id ?? application.id} criteria={application.criteria} evaluation={application.ownEvaluation} apiUrl={`${apiBase}/applications/${application.id}/evaluation`} pageHref={pageHref} canEvaluate={hasAtLeastRole(context.membership.role, "ANALYST")} phaseEligible={call.status === "IN_REVIEW" && ["SUBMITTED", "IN_REVIEW"].includes(application.status)} />
+    {canManage ? <Panel><PanelHeader title="Avaliações da candidatura" description="Estado completo para a gestão institucional. Rascunhos permanecem fora da nota agregada." />{application.evaluations.length ? <div className="divide-y divide-line">{application.evaluations.map((evaluation) => <details key={evaluation.id} className="group px-4 py-4 sm:px-6"><summary className="min-h-11 cursor-pointer space-y-2 text-sm sm:space-y-0"><span className="font-medium">{evaluation.evaluator.name}</span><span className="ml-3"><StatusBadge label={evaluation.status === "SUBMITTED" ? "Enviada" : "Rascunho"} tone={evaluation.status === "SUBMITTED" ? "success" : "neutral"} /></span><span className="ml-3 text-xs text-slate">{evaluation.status === "SUBMITTED" ? auditDateLabel(evaluation.submittedAt) : `${evaluation.scores.length} de ${application.criteria.length} critérios preenchidos`}</span></summary><dl className="mt-4 space-y-4 border-t border-line pt-4">{application.criteria.map((criterion) => { const score = evaluation.scores.find((item) => item.criterionId === criterion.id); return <div key={criterion.id}><dt className="break-words text-sm font-medium">{criterion.name}</dt><dd className="mt-1 text-sm tabular-nums text-slate">{score ? `${score.score} / ${criterion.maxScore}` : "Nota não informada"}{score?.comment ? <p className="mt-2 whitespace-pre-wrap break-words leading-6">{score.comment}</p> : null}</dd></div>; })}</dl></details>)}</div> : <p className="px-4 py-8 text-sm leading-6 text-slate sm:px-6">Esta candidatura ainda não possui avaliações. Analistas e gestores podem começar durante a fase de avaliação do edital.</p>}</Panel> : null}
+  </div>;
+}
+
+function Metadata({ label, children }: { label: string; children: ReactNode }) { return <div className="min-w-0"><dt className="text-xs text-slate">{label}</dt><dd className="mt-2 break-words text-sm text-ink">{children}</dd></div>; }

@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { FundingCallActions, FundingCallDocumentAction } from "@/components/funding-call-actions";
+import { FundingCallNavigation } from "@/components/funding-call-navigation";
 import { Breadcrumbs, PageHeader, Panel, PanelHeader, StatusBadge, statusTone } from "@/components/ui";
 import { hasAtLeastRole } from "@/lib/auth/authorization";
 import { getActiveOrganizationContext } from "@/lib/auth/session";
@@ -27,6 +28,7 @@ export default async function FundingCallPage({ params }: PageProps) {
 
   return <div className="space-y-7">
     <PageHeader breadcrumbs={<Breadcrumbs items={[{ label: "Programas", href: "/app/programs" }, { label: call.fundingProgram.name, href: `/app/programs/${programId}` }, { label: `Edital ${call.callNumber}` }]} />} title={call.shortTitle || call.title} description={`Edital ${call.callNumber} · ${call.fundingProgram.name}`} action={<FundingCallActions organizationId={context.organization.id} call={call} protocols={protocols} canManage={canManage} canCreateCohort={Boolean(program && ["DRAFT", "ACTIVE"].includes(program.status))} />} />
+    <FundingCallNavigation programId={programId} callId={callId} />
     {call.objective ? <p className="max-w-3xl text-sm leading-7 text-slate">{call.objective}</p> : null}
     <dl className="grid gap-x-8 gap-y-5 border-y border-line py-5 sm:grid-cols-2 lg:grid-cols-4">
       <Metadata label="Publicação">{dateLabel(call.publishedAt)}</Metadata>
@@ -37,6 +39,7 @@ export default async function FundingCallPage({ params }: PageProps) {
       <Metadata label="Projetos previstos">{call.targetProjects ?? "Não informado"}</Metadata>
       <Metadata label="Prazo de execução">{call.executionMonths ? `${call.executionMonths} meses` : "Não informado"}</Metadata>
       <Metadata label="Fonte">{call.sourceUrl ? <a href={call.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-accent-hover underline underline-offset-4">Abrir publicação <ExternalLink size={13} aria-hidden="true" /></a> : "Não informada"}</Metadata>
+      <Metadata label="Candidaturas pela plataforma">{call.applicationsEnabled ? "Habilitadas neste edital" : "Não habilitadas"}</Metadata>
     </dl>
     <Panel><PanelHeader title="Acompanhamento" description="Coortes originadas neste edital e preservadas após o fim da chamada." />
       {cohorts.length ? <div className="divide-y divide-line">{cohorts.map((cohort) => <Link key={cohort.id} href={`/app/programs/${programId}/cohorts/${cohort.id}`} className="block px-5 py-5 transition-colors hover:bg-surface-subtle sm:px-6"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><h3 className="break-words font-medium text-ink">{cohort.name}</h3><p className="mt-1 text-sm text-slate">{cohort.ventureCount} {cohort.ventureCount === 1 ? "empreendimento" : "empreendimentos"} · {cohort.waveCount} {cohort.waveCount === 1 ? "onda" : "ondas"}</p><p className="mt-1 text-sm text-slate">{cohort.trackingProtocolVersion ? `${cohort.trackingProtocolVersion.trackingProtocol.name} · v${cohort.trackingProtocolVersion.version}` : "Protocolo a configurar"}</p></div><span className="inline-flex shrink-0 items-center gap-2"><StatusBadge label={({ PLANNED: "Planejada", ACTIVE: "Ativa", CLOSED: "Encerrada", ARCHIVED: "Arquivada" } as Record<string, string>)[cohort.status] ?? cohort.status} tone={statusTone(cohort.status)} /><ArrowRight size={15} aria-hidden="true" className="text-accent-hover" /></span></div></Link>)}</div> : <div className="px-6 py-9"><h3 className="font-medium text-ink">O acompanhamento começa com uma coorte</h3><p className="mt-2 max-w-xl text-sm leading-6 text-slate">Crie um grupo para acompanhar os empreendimentos apoiados, aplicar um protocolo e registrar sua trajetória ao longo das ondas.</p></div>}

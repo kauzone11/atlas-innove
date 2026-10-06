@@ -66,7 +66,7 @@ As migrations em `prisma/migrations` formam o histórico versionado do schema do
 Use `.env.example` como referência para a configuração do ambiente e defina, no mínimo, `DATABASE_URL` e `SESSION_SECRET`.
 
 ```bash
-npm install
+npm ci
 npm run db:generate
 npm run db:validate
 npm run db:migrate
@@ -77,18 +77,16 @@ npm run dev
 
 As flags `ALLOW_DEV_RESET_TOKEN` e `ALLOW_DEV_INVITE_TOKEN` são exclusivas para desenvolvimento e devem permanecer desativadas em produção.
 
-## Operational core
+Os testes de domínio devem usar um PostgreSQL descartável. A integração contínua aplica as migrations e executa as verificações de tipos, segurança, domínio, demonstração e build, sem dispensar o banco de testes.
 
-The authenticated workspace follows funding program → funding call → cohort → enrollment → follow-up wave → observation. Venture identity stays separate from enrollment and observed outcomes. A funding call can start as an unpublished draft; publication links and linked external documents are optional context.
+## Participação e seleção
 
-Managers can register programs, calls, cohorts, ventures, enrollments, waves, observations and milestones. Administrators publish tracking protocols. Members can read organization data. Every API validates the signed session and active organization membership before using explicit organization-scoped filters.
+A mesma conta pode atuar como participante e acessar os espaços institucionais para os quais possui autorização. Pessoas, equipes e projetos mantêm sua identidade ao participar de diferentes programas.
 
-Publish a protocol at `/app/protocols`, then apply its version when creating or editing a cohort. Published versions are immutable; the applied version freezes at the first wave. Later protocol publications leave existing cohorts unchanged. Legacy cohorts with waves but no applied protocol remain readable and cannot acquire a retroactive methodology through ordinary editing.
+**Pessoa → Equipe → Projeto → Candidatura → Edital → Avaliação → Decisão → Acompanhamento**
 
-Each wave provisions observations for enrollments eligible at its reference date. Withdrawal preserves previous observations and does not erase an earlier eligible pending response. Draft saves replace the observation's complete value snapshot and require the current revision. Conflicting saves preserve the editor's unsaved values for comparison. Submitted observations are immutable. Closing and archiving waves preserve their history.
+Equipes e projetos são privados por padrão. Convites permitem ingressar em uma equipe; a candidatura entrega à instituição uma cópia das informações apresentadas na data do envio, preservada mesmo quando o projeto evolui.
 
-INTEGER, CURRENCY and ENUM values are validated against the exact applied version. Zero is observed data; blank values remain missing. Only submitted, valid values contribute to sums, means and category distributions. Counts and missing values accompany aggregates. Coverage is submitted observations divided by historically provisioned observations; a zero denominator is shown as unavailable. These descriptive results do not establish causal attribution.
+A avaliação humana utiliza critérios e pesos definidos por edital. A classificação reúne apenas avaliações enviadas e informa a decisão institucional. O resultado é publicado de forma intencional; participantes consultam seu próprio resultado. Projetos selecionados podem ingressar em uma coorte com vínculo à candidatura de origem.
 
-The main routes are `/app`, `/app/programs`, `/app/programs/[programId]/calls/[callId]`, `/app/programs/[programId]/cohorts/[cohortId]`, `/app/follow-ups`, `/app/observations/[observationId]`, `/app/ventures/[ventureId]` and `/app/opportunities`. Opportunities are read-only organization records; an empty organization does not receive fictitious opportunities. Public `/demo` remains independent of authentication.
-
-Use Node.js 22 and `npm ci`. Apply reviewed migrations with `npm run db:migrate:deploy`; never reset a shared database. Run `db:format`, `db:validate`, `db:generate`, `typecheck`, `test:security`, `test:domain`, `test:demo` and `build`. Domain integration tests require an explicit disposable PostgreSQL `DATABASE_URL`; without it they report a skip rather than database proof.
+Os protocolos de acompanhamento preservam versões imutáveis de seus indicadores. Cada coorte utiliza uma versão definida, e as observações de cada onda mantêm o histórico, distinguindo valores observados de informações ausentes.

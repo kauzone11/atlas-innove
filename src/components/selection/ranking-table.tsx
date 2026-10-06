@@ -1,0 +1,45 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Dialog } from "@/components/dialog";
+import { Panel, PanelHeader, StatusBadge } from "@/components/ui";
+import { DecisionAction } from "@/components/selection/decision-action";
+import { selectionRequest } from "@/components/selection/request";
+import { decisionLabels, scoreLabel, type SelectionRank } from "@/components/selection/types";
+
+export function RankingTable({ rows, baseHref, apiBase, canManage, callStatus }: { rows: SelectionRank[]; baseHref: string; apiBase: string; canManage: boolean; callStatus: string }) {
+  const router = useRouter();
+  const [selected, setSelected] = useState<string[]>([]);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const selectable = rows.filter((row) => row.status !== "WITHDRAWN");
+  const batchCandidates = selectable.slice(0, 200);
+  const selectedIds = selected.filter((id) => selectable.some((row) => row.id === id));
+  const canDecide = canManage && callStatus === "IN_REVIEW";
+  const canPublish = canDecide && selectable.length > 0 && selectable.every((row) => row.decision !== "PENDING");
+  const allSelected = batchCandidates.length > 0 && batchCandidates.every((row) => selectedIds.includes(row.id));
+
+  function toggle(id: string) { setSelected((ids) => { const current = ids.filter((item) => selectable.some((row) => row.id === item)); return current.includes(id) ? current.filter((item) => item !== id) : current.length < 200 ? [...current, id] : current; }); }
+  async function publish() {
+    setPublishing(true); setError(null); setNotice(null);
+    try { await selectionRequest(`${apiBase}/publish`, "POST", {}); setPublishOpen(false); setNotice("Resultado publicado. Cada participante pode consultar a decisão de sua própria candidatura."); router.refresh(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Não foi possível publicar o resultado."); }
+    finally { setPublishing(false); }
+  }
+
+  return <Panel>
+    <PanelHeader title="Classificação do edital" description="Nota média das avaliações enviadas, de 0 a 100. A classificação informa a deliberação; ela não seleciona projetos automaticamente." />
+    <div className="space-y-2 border-b border-line px-4 py-4 text-sm leading-6 text-slate sm:px-6"><p>Empates compartilham a mesma posição. Candidaturas sem avaliação enviada aparecem sem nota e sem posição.</p>{!rows.some((row) => row.score !== null) ? <p>A classificação será calculada quando houver avaliações enviadas.</p> : null}</div>
+    {canDecide && rows.length ? <div className="flex flex-col gap-4 border-b border-line px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6"><div className="space-y-3"><label className="inline-flex min-h-11 items-center gap-3 text-sm"><input className="h-5 w-5 accent-accent" type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? [] : batchCandidates.map((row) => row.id))} /><span>{selectable.length > 200 ? "Marcar as primeiras 200 candidaturas desta lista" : "Marcar todas as candidaturas para decisão"}</span></label><p className="text-xs text-slate" role="status">{selectedIds.length} marcada(s) · limite de 200 por decisão. Você pode desmarcar registros e escolher outros projetos.</p><DecisionAction apiBase={apiBase} applicationIds={selectedIds} onSuccess={() => setSelected([])} /></div><div className="space-y-2"><button type="button" className="button-primary w-full sm:w-auto" disabled={!canPublish} onClick={() => { setError(null); setPublishOpen(true); }}>Publicar resultado</button>{!canPublish ? <p className="max-w-xs text-xs leading-5 text-slate">Registre a decisão de todas as candidaturas vigentes antes de publicar.</p> : null}</div></div> : null}
+    {rows.length ? <>
+      <div className="hidden overflow-x-auto md:block"><table className="w-full min-w-[45rem] text-left text-sm"><caption className="sr-only">Classificação das candidaturas deste edital</caption><thead className="bg-surface-subtle text-xs text-slate"><tr>{canDecide ? <th scope="col" className="px-4 py-3"><span className="sr-only">Selecionar</span></th> : null}{["Posição", "Projeto / equipe", "Nota", "Avaliações", "Decisão"].map((label) => <th scope="col" key={label} className="px-4 py-3 font-medium">{label}</th>)}</tr></thead><tbody className="divide-y divide-line">{rows.map((row) => <tr key={row.id}>{canDecide ? <td className="px-4 py-4"><label className="inline-flex min-h-11 min-w-11 items-center justify-center"><span className="sr-only">Selecionar {row.projectNameSnapshot}</span><input type="checkbox" className="h-5 w-5 accent-accent" disabled={row.status === "WITHDRAWN" || (!selectedIds.includes(row.id) && selectedIds.length >= 200)} checked={selectedIds.includes(row.id)} onChange={() => toggle(row.id)} /></label></td> : null}<td className="px-4 py-4 tabular-nums"><span className="font-medium">{row.position === null ? "—" : `${row.position}º`}</span>{row.tied ? <p className="mt-1 text-xs text-slate">Empate</p> : null}</td><td className="max-w-[22rem] px-4 py-4"><Link href={`${baseHref}/${row.id}`} className="break-words font-medium text-ink hover:text-accent-hover">{row.projectNameSnapshot}</Link><p className="mt-1 break-words text-xs text-slate">{row.teamNameSnapshot ?? "Participação individual"}{row.status === "WITHDRAWN" ? " · candidatura retirada" : ""}</p></td><td className="px-4 py-4 tabular-nums">{scoreLabel(row.score)}</td><td className="px-4 py-4 tabular-nums">{row.evaluationCount}</td><td className="px-4 py-4"><StatusBadge label={decisionLabels[row.decision] ?? row.decision} tone={row.decision === "SELECTED" ? "success" : row.decision === "DISQUALIFIED" ? "danger" : "neutral"} /></td></tr>)}</tbody></table></div>
+      <ul className="divide-y divide-line md:hidden">{rows.map((row) => <li key={row.id} className="space-y-4 p-4"><div className="flex items-start gap-3">{canDecide ? <label className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center"><span className="sr-only">Selecionar {row.projectNameSnapshot}</span><input className="h-5 w-5 accent-accent" type="checkbox" disabled={row.status === "WITHDRAWN" || (!selectedIds.includes(row.id) && selectedIds.length >= 200)} checked={selectedIds.includes(row.id)} onChange={() => toggle(row.id)} /></label> : null}<div className="min-w-0"><p className="mb-2 text-xs font-medium text-slate">{row.position === null ? "Sem posição" : `${row.position}º${row.tied ? " · empate" : ""}`}</p><Link href={`${baseHref}/${row.id}`} className="break-words font-medium text-ink hover:text-accent-hover">{row.projectNameSnapshot}</Link><p className="mt-1 break-words text-sm text-slate">{row.teamNameSnapshot ?? "Participação individual"}</p></div></div><dl className="grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-slate">Nota agregada</dt><dd className="mt-1 tabular-nums">{scoreLabel(row.score)}</dd></div><div><dt className="text-xs text-slate">Avaliações enviadas</dt><dd className="mt-1 tabular-nums">{row.evaluationCount}</dd></div></dl><StatusBadge label={decisionLabels[row.decision] ?? row.decision} tone={row.decision === "SELECTED" ? "success" : "neutral"} />{row.status === "WITHDRAWN" ? <p className="text-xs text-slate">Candidatura retirada</p> : null}</li>)}</ul>
+    </> : <div className="px-4 py-9 sm:px-6"><h3 className="font-medium">A classificação ainda não possui candidaturas</h3><p className="mt-2 text-sm leading-6 text-slate">O envio de candidaturas inicia este histórico. Depois, as avaliações enviadas permitirão comparar as notas neste edital.</p></div>}
+    {notice ? <p role="status" className="border-t border-line px-4 py-4 text-sm text-success sm:px-6">{notice}</p> : null}
+    <Dialog open={publishOpen} onClose={() => { if (!publishing) setPublishOpen(false); }} title="Publicar resultado do edital" description="Esta ação torna a decisão de cada candidatura disponível ao respectivo participante."><div className="space-y-5"><p className="text-sm leading-6 text-slate">{selectable.length} candidatura(s) com decisão registrada. As avaliações, os comentários internos e a classificação institucional permanecem restritos à instituição. Após a publicação, as decisões são preservadas.</p>{error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}<div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button type="button" className="button-secondary" disabled={publishing} onClick={() => setPublishOpen(false)}>Revisar decisões</button><button type="button" className="button-primary" disabled={publishing || !canPublish} onClick={() => void publish()}>{publishing ? "Publicando…" : "Confirmar publicação"}</button></div></div></Dialog>
+  </Panel>;
+}

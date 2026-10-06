@@ -8,7 +8,7 @@ import { PasswordField } from "@/components/auth/password-field";
 
 type AuthMode = "login" | "register";
 
-export function AuthForm({ mode, redirectTo = "/app" }: { mode: AuthMode; redirectTo?: string }) {
+export function AuthForm({ mode, redirectTo }: { mode: AuthMode; redirectTo?: string }) {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [organizationName, setOrganizationName] = useState("");
@@ -27,12 +27,12 @@ export function AuthForm({ mode, redirectTo = "/app" }: { mode: AuthMode; redire
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fullName, organizationName, email, password }),
       });
-      const payload = (await response.json()) as { error?: string };
+      const payload = (await response.json()) as { error?: string; redirectTo?: string };
       if (!response.ok) {
         setError(payload.error ?? "Não foi possível concluir.");
         return;
       }
-      router.push(redirectTo);
+      router.push(redirectTo ?? payload.redirectTo ?? "/app");
       router.refresh();
     } catch {
       setError("Não foi possível conectar ao servidor.");
@@ -47,7 +47,7 @@ export function AuthForm({ mode, redirectTo = "/app" }: { mode: AuthMode; redire
       {isRegister ? (
         <>
           <Field label="Seu nome" value={fullName} onChange={setFullName} autoComplete="name" required />
-          <Field label="Nome da organização" value={organizationName} onChange={setOrganizationName} required />
+          <details><summary className="min-h-11 cursor-pointer text-sm font-medium text-ink">Criar também um espaço institucional (opcional)</summary><div className="mt-3"><Field label="Nome da organização" value={organizationName} onChange={setOrganizationName} /><p className="mt-2 text-xs leading-5 text-slate">Deixe em branco para começar como participante. A mesma conta poderá acessar instituições depois.</p></div></details>
         </>
       ) : null}
       <Field label="E-mail" type="email" value={email} onChange={setEmail} autoComplete="email" required />

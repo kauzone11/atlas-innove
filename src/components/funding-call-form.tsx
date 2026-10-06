@@ -9,11 +9,16 @@ const statuses = [
   ["DRAFT", "Rascunho"], ["OPEN", "Aberto"], ["IN_REVIEW", "Em avaliação"],
   ["CLOSED", "Encerrado"], ["RESULT_PUBLISHED", "Resultado publicado"], ["ARCHIVED", "Arquivado"],
 ];
+const nextStatuses: Record<string, string[]> = {
+  DRAFT: ["OPEN", "CLOSED", "ARCHIVED"], OPEN: ["IN_REVIEW", "CLOSED", "ARCHIVED"],
+  IN_REVIEW: ["RESULT_PUBLISHED", "CLOSED", "ARCHIVED"], RESULT_PUBLISHED: ["CLOSED", "ARCHIVED"], CLOSED: ["ARCHIVED"], ARCHIVED: [],
+};
 
 export function FundingCallForm({ organizationId, programId, call, onSuccess }: { organizationId: string; programId: string; call?: FundingCallDto; onSuccess?: () => void }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const availableStatuses = statuses.filter(([value]) => !call || value === call.status || (nextStatuses[call.status]?.includes(value) && !(value === "RESULT_PUBLISHED" && call.applicationsEnabled && !call.resultsPublishedAt)));
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -27,6 +32,7 @@ export function FundingCallForm({ organizationId, programId, call, onSuccess }: 
         body: JSON.stringify({
           title: text("title"), callNumber: text("callNumber"), shortTitle: optional("shortTitle"),
           status: text("status"), sourceUrl: optional("sourceUrl"), objective: optional("objective"),
+          applicationsEnabled: call && ["IN_REVIEW", "RESULT_PUBLISHED", "CLOSED", "ARCHIVED"].includes(call.status) ? call.applicationsEnabled : values.get("applicationsEnabled") === "on",
           publishedAt: optional("publishedAt"), applicationStartsAt: optional("applicationStartsAt"), applicationEndsAt: optional("applicationEndsAt"),
           totalBudget: optional("totalBudget"), maximumSupport: optional("maximumSupport"), targetProjects: optional("targetProjects"), executionMonths: optional("executionMonths"),
         }),
@@ -43,9 +49,10 @@ export function FundingCallForm({ organizationId, programId, call, onSuccess }: 
     <Field name="title" label="Título do edital" value={call?.title} required maxLength={200} />
     <div className="grid gap-4 sm:grid-cols-2">
       <Field name="callNumber" label="Número do edital" value={call?.callNumber} required maxLength={80} />
-      <label className="block space-y-2 text-sm font-medium text-ink"><span>Status</span><select name="status" defaultValue={call?.status ?? "DRAFT"} className="field-control">{statuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+      <label className="block space-y-2 text-sm font-medium text-ink"><span>Status</span><select name="status" defaultValue={call?.status ?? "DRAFT"} className="field-control">{availableStatuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>{call?.applicationsEnabled && !call.resultsPublishedAt ? <span className="block text-xs font-normal text-slate">Publique as decisões na classificação para liberar o resultado aos participantes.</span> : null}</label>
     </div>
     <Field name="sourceUrl" label="Link da publicação ou fonte oficial (opcional)" value={call?.sourceUrl} type="url" maxLength={2048} />
+    <label className="flex min-h-11 items-start gap-3 text-sm text-ink"><input type="checkbox" name="applicationsEnabled" defaultChecked={call?.applicationsEnabled ?? false} disabled={Boolean(call && ["IN_REVIEW", "RESULT_PUBLISHED", "CLOSED", "ARCHIVED"].includes(call.status))} className="mt-1 h-5 w-5" /><span className="min-w-0"><span className="font-medium">Receber candidaturas pelo Innove</span><span className="mt-1 block text-slate">Projetos poderão se candidatar quando o edital estiver aberto e dentro do período de inscrições.</span></span></label>
     <label className="block space-y-2 text-sm font-medium text-ink"><span>Objetivo <span className="font-normal text-slate">(opcional)</span></span><textarea name="objective" defaultValue={call?.objective ?? ""} rows={3} maxLength={4000} className="field-control" /></label>
     <fieldset className="space-y-4 border-t border-line pt-4"><legend className="pr-2 text-sm font-semibold text-ink">Calendário</legend><div className="grid gap-4 sm:grid-cols-2">
       <Field name="publishedAt" label="Publicação" value={dateInput(call?.publishedAt)} type="date" />
