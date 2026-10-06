@@ -12,6 +12,7 @@ import { importOptionsSchema } from "@/lib/imports/schemas";
 import { IMPORT_TEMPLATES } from "@/lib/imports/templates";
 import { lockImportBatch, withImportTransaction } from "@/lib/imports/transaction";
 import { isEnrollmentEligibleAt } from "@/lib/observations/validation";
+import { prepareObservationGroups } from "@/lib/imports/observations";
 
 export type ImportIssue = { code: string; field?: string };
 export type EvaluatedImportRow = { row: ImportRow; resolved?: ResolvedImportInput; errors: ImportIssue[]; warnings: ImportIssue[]; operation: "CREATE" | "UPDATE" };
@@ -52,11 +53,13 @@ export async function evaluateImportBatch(client: Prisma.TransactionClient, batc
     if (duplicates.length > 1 && batch.type !== "OBSERVATIONS") for (const item of duplicates) item.errors.push({ code: "IMPORT_DUPLICATE_ROW", field: key.startsWith("external:") ? "external_id" : undefined });
   }
   if (generatedCount + rows.length > MAX_IMPORT_ENTITIES) throw new ImportInputError("IMPORT_ENTITY_LIMIT");
-  return { rows, context };
+  const observationGroups = prepareObservationGroups(rows, context);
+  return { rows, context, observationGroups };
 }
 
 function validateResolvedRow(batch: ImportBatch, item: EvaluatedImportRow, context: ImportReferenceContext) {
   const { input, refs, existingId } = item.resolved!; const { state, versions } = context;
+  item.errors.push(...(item.resolved!.referenceIssues ?? []));
   const mode = importOptionsSchema.parse(batch.options).mode;
   for (const name of IMPORT_TEMPLATES[input.type].requiredReferences as ReferenceName[]) {
     if (!input.refs[name] || !refs[name]) throw new ImportInputError("IMPORT_REFERENCE_REQUIRED", undefined, name);
@@ -111,7 +114,10 @@ function validateResolvedRow(batch: ImportBatch, item: EvaluatedImportRow, conte
       else if ([...state.FOLLOW_UP_WAVES.values()].some((record) => record.cohortId === refs.cohort && record.offsetMonths === input.data.offsetMonths)) throw new ImportInputError("IMPORT_OFFSET_AMBIGUOUS", undefined, "offset_months");
       break;
     }
-    case "OBSERVATIONS": throw new ImportInputError("IMPORT_OBSERVATION_VALIDATION_REQUIRED");
+    case "OBSERVATIONS":
+      if (!refs.venture_enrollment || !state.VENTURE_ENROLLMENTS.has(refs.venture_enrollment)) throw new ImportInputError("IMPORT_REFERENCE_NOT_FOUND", undefined, "venture_enrollment");
+      if (!refs.follow_up_wave || !state.FOLLOW_UP_WAVES.has(refs.follow_up_wave)) throw new ImportInputError("IMPORT_REFERENCE_NOT_FOUND", undefined, "follow_up_wave");
+      break;
     case "MILESTONES": conflict([...state.MILESTONES.values()].find((record) => record.ventureId === refs.venture && record.title === input.data.title && record.occurredAt.getTime() === input.data.occurredAt.getTime())?.id); break;
   }
 }

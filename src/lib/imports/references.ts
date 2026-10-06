@@ -5,7 +5,7 @@ import { REFERENCE_TYPES, type NormalizedImportRow, type ReferenceName } from "@
 import { importDigest } from "@/lib/imports/digest";
 import type { ImportEntityType } from "@/lib/imports/templates";
 
-export type ResolvedImportInput = { rowId: string; rowNumber: number; input: NormalizedImportRow; refs: Partial<Record<ReferenceName, string>>; existingId?: string };
+export type ResolvedImportInput = { rowId: string; rowNumber: number; input: NormalizedImportRow; refs: Partial<Record<ReferenceName, string>>; existingId?: string; referenceIssues?: Array<{ code: string; field: string }> };
 const unique = (values: Array<string | null | undefined>) => [...new Set(values.filter((value): value is string => Boolean(value)))];
 
 export async function resolveImportReferences(client: Prisma.TransactionClient, batch: ImportBatch, inputs: Array<Omit<ResolvedImportInput, "refs" | "existingId">>, lock: boolean) {
@@ -29,6 +29,8 @@ export async function resolveImportReferences(client: Prisma.TransactionClient, 
   }
   const state = emptyEntityState();
   for (const [type, ids] of wanted) addImportEntities(state, type, await readImportEntities(client, organizationId, type, [...ids]));
+  await resolveObservationAlternatives(client, organizationId, state, resolved);
+  for (const row of resolved) for (const [name, id] of Object.entries(row.refs)) want(REFERENCE_TYPES[name as ReferenceName], id);
   await loadNaturalConflicts(client, organizationId, state, resolved);
   for (let depth = 0; depth < 4; depth++) {
     for (const call of state.FUNDING_CALLS.values()) want("FUNDING_PROGRAMS", call.fundingProgramId);
@@ -47,6 +49,7 @@ export async function resolveImportReferences(client: Prisma.TransactionClient, 
   if (lock) {
     await lockImportEntities(client, organizationId, state);
     // A native child may have committed before its parent lock was acquired. Include it in the locked snapshot.
+    await resolveObservationAlternatives(client, organizationId, state, resolved);
     await loadNaturalConflicts(client, organizationId, state, resolved);
     await lockImportEntities(client, organizationId, state);
   }
@@ -60,6 +63,32 @@ export async function resolveImportReferences(client: Prisma.TransactionClient, 
   return { resolved, state, versions: new Map(versions.map((version) => [version.id, version])), contextDigest };
 }
 export type ImportReferenceContext = Awaited<ReturnType<typeof resolveImportReferences>>;
+
+async function resolveObservationAlternatives(client: Prisma.TransactionClient, organizationId: string, state: ImportEntityState, rows: ResolvedImportInput[]) {
+  const alternatives = rows.filter((row) => row.input.type === "OBSERVATIONS");
+  const pairs = alternatives.filter((row) => !row.input.refs.venture_enrollment && row.refs.cohort && row.refs.venture).map((row) => ({ cohortId: row.refs.cohort!, ventureId: row.refs.venture! }));
+  if (pairs.length) addImportEntities(state, "VENTURE_ENROLLMENTS", await client.ventureEnrollment.findMany({ where: { organizationId, OR: pairs }, take: MAX_IMPORT_ENTITIES + 1 }));
+  for (const row of alternatives) {
+    row.referenceIssues = [];
+    if (!row.input.refs.venture_enrollment) {
+      const found = [...state.VENTURE_ENROLLMENTS.values()].filter((record) => record.cohortId === row.refs.cohort && record.ventureId === row.refs.venture);
+      row.refs.venture_enrollment = found.length === 1 ? found[0].id : undefined;
+    }
+  }
+  const offsets = alternatives.flatMap((row) => {
+    const cohortId = row.refs.venture_enrollment ? state.VENTURE_ENROLLMENTS.get(row.refs.venture_enrollment)?.cohortId : row.refs.cohort;
+    return row.input.type === "OBSERVATIONS" && row.input.data.waveOffsetMonths !== null && cohortId ? [{ cohortId, offsetMonths: row.input.data.waveOffsetMonths }] : [];
+  });
+  if (offsets.length) addImportEntities(state, "FOLLOW_UP_WAVES", await client.followUpWave.findMany({ where: { organizationId, OR: offsets }, take: MAX_IMPORT_ENTITIES + 1 }));
+  for (const row of alternatives) {
+    if (row.input.type !== "OBSERVATIONS" || row.input.data.waveOffsetMonths === null) continue;
+    const offsetMonths = row.input.data.waveOffsetMonths;
+    const cohortId = row.refs.venture_enrollment ? state.VENTURE_ENROLLMENTS.get(row.refs.venture_enrollment)?.cohortId : row.refs.cohort;
+    const found = [...state.FOLLOW_UP_WAVES.values()].filter((record) => record.cohortId === cohortId && record.offsetMonths === offsetMonths);
+    row.refs.follow_up_wave = found.length === 1 ? found[0].id : undefined;
+    if (found.length > 1) row.referenceIssues!.push({ code: "IMPORT_OFFSET_AMBIGUOUS", field: "wave_offset_months" });
+  }
+}
 
 async function loadNaturalConflicts(client: Prisma.TransactionClient, organizationId: string, state: ImportEntityState, rows: ResolvedImportInput[]) {
   const take = MAX_IMPORT_ENTITIES + 1;

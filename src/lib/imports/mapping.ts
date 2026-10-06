@@ -27,6 +27,13 @@ export function validateImportMapping(type: ImportEntityType, headers: string[],
   for (const name of template.requiredReferences) {
     if (!mapping[`${name}_external_id`] && !mapping[`${name}_id`]) throw new ImportInputError("IMPORT_MAPPING_REFERENCE", undefined, name);
   }
+  if (type === "OBSERVATIONS") {
+    const has = (name: string) => Boolean(mapping[`${name}_external_id`] || mapping[`${name}_id`]);
+    if (!has("venture_enrollment") && !(has("cohort") && has("venture"))) throw new ImportInputError("IMPORT_MAPPING_REFERENCE", undefined, "venture_enrollment");
+    if (has("venture_enrollment") && has("venture")) throw new ImportInputError("IMPORT_MAPPING_AMBIGUOUS_REFERENCE", undefined, "venture_enrollment");
+    if (!has("follow_up_wave") && !mapping.wave_offset_months) throw new ImportInputError("IMPORT_MAPPING_REFERENCE", undefined, "follow_up_wave");
+    if (has("follow_up_wave") && mapping.wave_offset_months) throw new ImportInputError("IMPORT_MAPPING_AMBIGUOUS_REFERENCE", undefined, "follow_up_wave");
+  }
   return { mapping: { ...mapping }, ignoredHeaders: headers.filter((header) => !used.has(header)) };
 }
 

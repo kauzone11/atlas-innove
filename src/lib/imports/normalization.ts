@@ -37,7 +37,7 @@ export function parseImportTimestamp(value: string | undefined, field: string, r
   if (!text) { if (required) throw new ImportInputError("IMPORT_FIELD_REQUIRED", undefined, field); return null; }
   const match = text.match(/^(\d{4}-\d{2}-\d{2})T([01]\d|2[0-3]):([0-5]\d):([0-5]\d)(?:\.\d{1,3})?(Z|[+-](?:0\d|1[0-4]):[0-5]\d)$/);
   let validDate = false;
-  if (match) { try { validDate = Boolean(parseImportDate(match[1], field)); } catch { /* Timestamp validation reports its own field error. */ } }
+  if (match) { try { validDate = Boolean(parseImportDate(match[1], field)); } catch { validDate = false; } }
   const result = new Date(text);
   if (!match || !validDate || !Number.isFinite(result.getTime()) || /[+-]14:(?!00)/.test(text)) throw new ImportInputError("IMPORT_TIMESTAMP_INVALID", undefined, field);
   return result;
@@ -100,7 +100,9 @@ export function normalizeImportRow(type: ImportEntityType, raw: Record<string, s
       if (status !== "SUBMITTED" && submittedAt) throw new ImportInputError("IMPORT_SUBMISSION_CONFLICT", undefined, "submitted_at");
       if (startedAt && submittedAt && startedAt > submittedAt) throw new ImportInputError("IMPORT_DATE_ORDER", undefined, "submitted_at");
       if (["PENDING", "MISSED"].includes(status) && value) throw new ImportInputError("IMPORT_STATUS_VALUE_CONFLICT", undefined, "value");
-      return { type, externalId, refs, data: { indicatorKey: z.string().trim().min(1).max(80).parse(raw.indicator_key), value: missing ? "" : value, missing, status, startedAt, submittedAt } };
+      const waveOffsetMonths = integerText(raw.wave_offset_months, "wave_offset_months");
+      if (refs.follow_up_wave && waveOffsetMonths !== null) throw new ImportInputError("IMPORT_REFERENCE_AMBIGUOUS", undefined, "follow_up_wave");
+      return { type, externalId, refs, data: { indicatorKey: z.string().trim().min(1).max(80).parse(raw.indicator_key), value: missing ? "" : value, missing, status, startedAt, submittedAt, waveOffsetMonths } };
     }
     case "MILESTONES": return { type, externalId, refs, data: {
       type: z.enum(["MVP_LAUNCHED", "FIRST_CUSTOMER", "COMPANY_FORMALIZED", "RECURRING_CONTRACT", "ADDITIONAL_INVESTMENT", "TEAM_EXPANSION", "PIVOT", "CLOSED"]).parse(raw.type),

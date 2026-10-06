@@ -9,8 +9,9 @@ import { lockImportBatch, withImportTransaction } from "@/lib/imports/transactio
 import { evaluateImportBatch, type EvaluatedImportRow } from "@/lib/imports/validation";
 import type { ImportReferenceContext } from "@/lib/imports/references";
 import { isEnrollmentEligibleAt } from "@/lib/observations/validation";
+import { writeObservationGroup } from "@/lib/imports/observations";
 
-type AppliedEntity = { rowId: string; entityType: ImportEntityType; entityId: string; operation: "CREATE" | "UPDATE"; beforeData?: Prisma.InputJsonValue; externalId?: string };
+type AppliedEntity = { rowId: string; entityType: ImportEntityType; entityId: string; operation: "CREATE" | "UPDATE"; beforeData?: Prisma.InputJsonValue; externalId?: string; createExternalReference?: boolean };
 
 async function writeStructuralRow(client: Prisma.TransactionClient, batch: ImportBatch, item: EvaluatedImportRow, context: ImportReferenceContext): Promise<AppliedEntity> {
   const { input, refs, existingId } = item.resolved!; const organizationId = batch.organizationId;
@@ -40,7 +41,7 @@ async function writeStructuralRow(client: Prisma.TransactionClient, batch: Impor
     case "VENTURE_ENROLLMENTS": record = await client.ventureEnrollment.create({ data: { ...input.data, organizationId, cohortId: refs.cohort!, ventureId: refs.venture! } }); break;
     case "FOLLOW_UP_WAVES": record = await client.followUpWave.create({ data: { ...input.data, organizationId, cohortId: refs.cohort! } }); break;
     case "MILESTONES": record = await client.milestone.create({ data: { ...input.data, organizationId, ventureId: refs.venture! } }); break;
-    case "OBSERVATIONS": throw new ImportInputError("IMPORT_OBSERVATION_VALIDATION_REQUIRED");
+    case "OBSERVATIONS": throw new ImportInputError("IMPORT_OBSERVATION_GROUP_REQUIRED");
   }
   return { rowId: item.row.id, entityType: input.type, entityId: record.id, operation: item.operation, beforeData, externalId: input.externalId };
 }
@@ -80,7 +81,7 @@ async function recordImportChanges(client: Prisma.TransactionClient, batch: Impo
     }
   }
   for (let offset = 0; offset < changes.length; offset += IMPORT_LIMITS.writeChunkSize) await client.importChange.createMany({ data: changes.slice(offset, offset + IMPORT_LIMITS.writeChunkSize) });
-  const mappings = applied.filter((item) => item.externalId && item.operation === "CREATE").map((item) => ({ organizationId: batch.organizationId, namespace: batch.namespace, entityType: item.entityType, externalId: item.externalId!, entityId: item.entityId, createdByImportBatchId: batch.id }));
+  const mappings = applied.filter((item) => item.externalId && (item.operation === "CREATE" || item.createExternalReference)).map((item) => ({ organizationId: batch.organizationId, namespace: batch.namespace, entityType: item.entityType, externalId: item.externalId!, entityId: item.entityId, createdByImportBatchId: batch.id }));
   for (let offset = 0; offset < mappings.length; offset += IMPORT_LIMITS.writeChunkSize) await client.externalReference.createMany({ data: mappings.slice(offset, offset + IMPORT_LIMITS.writeChunkSize) });
 }
 
@@ -96,7 +97,12 @@ export async function applyImportBatch(userId: string, organizationId: string, b
       if (evaluation.rows.some((item) => (item.row.resolvedReferences as { contextDigest?: string } | null)?.contextDigest !== evaluation.context.contextDigest)) throw new ImportInputError("IMPORT_REFERENCE_CHANGED");
       await client.importBatch.update({ where: { id: batchId, organizationId }, data: { status: "APPLYING" } });
       const applied: AppliedEntity[] = [];
-      for (const item of evaluation.rows) applied.push(await writeStructuralRow(client, batch, item, evaluation.context));
+      if (batch.type === "OBSERVATIONS") {
+        for (const group of evaluation.observationGroups) {
+          const entityId = await writeObservationGroup(client, organizationId, group);
+          applied.push({ rowId: group.rows[0].row.id, entityType: "OBSERVATIONS", entityId, operation: group.existing ? "UPDATE" : "CREATE", beforeData: group.existing ? importJson(group.existing) : undefined, externalId: group.externalId, createExternalReference: true });
+        }
+      } else for (const item of evaluation.rows) applied.push(await writeStructuralRow(client, batch, item, evaluation.context));
       await createHistoricalPlaceholders(client, batch, evaluation.rows, applied, evaluation.context);
       await recordImportChanges(client, batch, applied);
       await client.importRow.updateMany({ where: { organizationId, batchId }, data: { status: "APPLIED" } });
