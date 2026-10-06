@@ -13,6 +13,7 @@ import { IMPORT_TEMPLATES } from "@/lib/imports/templates";
 import { lockImportBatch, withImportTransaction } from "@/lib/imports/transaction";
 import { isEnrollmentEligibleAt } from "@/lib/observations/validation";
 import { prepareObservationGroups } from "@/lib/imports/observations";
+import { getImportMetadataPatch, type ImportPreviewChange } from "@/lib/imports/metadata";
 
 export type ImportIssue = { code: string; field?: string };
 export type EvaluatedImportRow = { row: ImportRow; resolved?: ResolvedImportInput; errors: ImportIssue[]; warnings: ImportIssue[]; operation: "CREATE" | "UPDATE" };
@@ -141,11 +142,17 @@ function placeholderCount({ input, refs }: ResolvedImportInput, context: ImportR
   return 0;
 }
 
+function previewChanges(item: EvaluatedImportRow, batch: ImportBatch, context: ImportReferenceContext): ImportPreviewChange[] | undefined {
+  if (item.operation !== "UPDATE" || !item.resolved || !["FUNDING_PROGRAMS", "VENTURES"].includes(item.resolved.input.type)) return undefined;
+  const previous = context.state[item.resolved.input.type].get(item.resolved.existingId!) as unknown as Record<string, string | null>;
+  return Object.entries(getImportMetadataPatch(item.resolved.input, batch.mapping as ImportMapping)).map(([key, value]) => ({ field: key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`), before: previous[key], after: value ?? null }));
+}
+
 export async function persistImportEvaluation(client: Prisma.TransactionClient, batch: ImportBatch, evaluation: Awaited<ReturnType<typeof evaluateImportBatch>>) {
   for (let offset = 0; offset < evaluation.rows.length; offset += IMPORT_LIMITS.writeChunkSize) {
     const values = evaluation.rows.slice(offset, offset + IMPORT_LIMITS.writeChunkSize).map((item) => Prisma.sql`(
       ${item.row.id}, ${item.errors.length ? "INVALID" : "VALID"}::"ImportRowStatus", ${JSON.stringify(item.errors)}::jsonb, ${JSON.stringify(item.warnings)}::jsonb,
-      ${item.resolved ? JSON.stringify(importJson({ ...item.resolved.input, operation: item.operation })) : null}::jsonb,
+      ${item.resolved ? JSON.stringify(importJson({ ...item.resolved.input, operation: item.operation, changes: previewChanges(item, batch, evaluation.context) })) : null}::jsonb,
       ${item.resolved ? JSON.stringify({ refs: item.resolved.refs, existingId: item.resolved.existingId ?? null, contextDigest: evaluation.context.contextDigest }) : null}::jsonb
     )`);
     await client.$executeRaw(Prisma.sql`UPDATE "ImportRow" r SET "status" = v.status, "errors" = v.errors, "warnings" = v.warnings, "normalizedData" = v.normalized, "resolvedReferences" = v.refs

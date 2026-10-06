@@ -74,6 +74,11 @@ test("historical structural imports apply atomically with tenant references, pri
 
     const metadata = await stage("FUNDING_PROGRAMS", [{ external_id: "p1", name: "Renamed historical program", slug: "historical", description: "Reviewed metadata" }], { mode: "UPSERT" });
     const metadataReady = await validateImportBatch(user.id, org.id, metadata.id, metadata.revision);
+    const metadataPreview = (await getImportBatch(user.id, org.id, metadata.id)).rows[0].normalizedData as { changes?: unknown };
+    assert.deepEqual(metadataPreview.changes, [
+      { field: "name", before: "Historical program", after: "Renamed historical program" },
+      { field: "description", before: null, after: "Reviewed metadata" },
+    ]);
     await applyImportBatch(user.id, org.id, metadataReady.id, metadataReady.revision);
     const updated = await db.fundingProgram.findFirstOrThrow({ where: { organizationId: org.id, id: program.id } });
     assert.equal(updated.status, "CLOSED"); assert.equal(updated.description, "Reviewed metadata");

@@ -15,6 +15,7 @@ import type { getImportAudit } from "@/lib/imports/audit";
 import type { ImportMapping } from "@/lib/imports/mapping";
 import type { ImportIssue } from "@/lib/imports/validation";
 import type { NormalizedImportRow } from "@/lib/imports/normalization";
+import type { ImportPreviewChange } from "@/lib/imports/metadata";
 
 type Detail = Serialized<Awaited<ReturnType<typeof getImportBatch>>>;
 type Rollback = Awaited<ReturnType<typeof previewImportRollback>>;
@@ -111,11 +112,11 @@ export function ImportBatchWorkspace({ initial, audit, qualityHref }: { initial:
       <ul className="mb-4 divide-y divide-line border-y border-line">{detail.rows.map((row) => {
         const errors = row.errors as ImportIssue[]; const warnings = row.warnings as ImportIssue[];
         const raw = row.rawData as Record<string, string>; const mapped = Object.entries(batch.mapping as ImportMapping);
-        const normalized = row.normalizedData as (Serialized<NormalizedImportRow> & { operation: "CREATE" | "UPDATE" }) | null;
+        const normalized = row.normalizedData as (Serialized<NormalizedImportRow> & { operation: "CREATE" | "UPDATE"; changes?: ImportPreviewChange[] }) | null;
         return <li key={row.id} className="py-4"><div className="flex flex-wrap items-center gap-3"><h3 className="text-sm font-semibold">Linha {row.rowNumber}</h3><StatusBadge label={({ PENDING: "A validar", VALID: "Válida", INVALID: "Com impedimentos", APPLIED: "Aplicada", SKIPPED: "Ignorada", ROLLED_BACK: "Revertida" })[row.status]} tone={row.status === "INVALID" ? "danger" : "neutral"} /></div>
           {errors.length ? <ul className="mt-3 space-y-2 text-sm text-danger">{errors.map((issue, index) => <li key={index}>{issue.field ? `${importFieldLabel(batch.type, issue.field)}: ` : ""}{importMessage(issue.code)}</li>)}</ul> : null}
           {warnings.length ? <ul className="mt-3 space-y-2 text-sm text-slate">{warnings.map((issue, index) => <li key={index}><span className="font-semibold">Aviso: </span>{issue.field ? `${importFieldLabel(batch.type, issue.field)}: ` : ""}{importMessage(issue.code)}</li>)}</ul> : null}
-          {normalized ? <><p className="mt-3 text-sm font-medium">{normalized.operation === "UPDATE" ? "Atualizar registro identificado" : "Criar registro"} · Identificador na origem: <span className="break-all">{normalized.externalId}</span></p><dl className="mt-3 grid min-w-0 gap-x-6 gap-y-3 text-sm sm:grid-cols-2 xl:grid-cols-3">{Object.entries(normalized.data).map(([key, value]) => {
+          {normalized?.changes ? <><p className="mt-3 text-sm font-medium">Atualizar campos descritivos · Identificador na origem: <span className="break-all">{normalized.externalId}</span></p><dl className="mt-3 grid gap-4 text-sm sm:grid-cols-2">{normalized.changes.map((change) => <div key={change.field} className="min-w-0"><dt className="text-xs text-slate">{importFieldLabel(batch.type, change.field)}</dt><dd className="mt-1 space-y-1 break-words [overflow-wrap:anywhere]"><p><span className="text-slate">Antes: </span>{change.before || "Não informado"}</p><p><span className="text-slate">Após aplicar: </span>{change.after || "Não informado"}</p></dd></div>)}</dl><p className="mt-3 text-xs text-slate">Os demais campos, a identidade, a situação e os vínculos serão preservados.</p></> : normalized ? <><p className="mt-3 text-sm font-medium">{normalized.operation === "UPDATE" ? "Atualizar registro identificado" : "Criar registro"} · Identificador na origem: <span className="break-all">{normalized.externalId}</span></p><dl className="mt-3 grid min-w-0 gap-x-6 gap-y-3 text-sm sm:grid-cols-2 xl:grid-cols-3">{Object.entries(normalized.data).map(([key, value]) => {
             const field = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
             const label = ({ public_listing_enabled: "Divulgação pública", applications_enabled: "Inscrições habilitadas" } as Record<string, string>)[field] ?? importFieldLabel(batch.type, field);
             return <div key={key} className="min-w-0"><dt className="text-xs text-slate">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{value === null || value === "" ? <span className="text-slate">Não informado</span> : typeof value === "boolean" ? value ? "Sim" : "Não" : String(value)}</dd></div>;

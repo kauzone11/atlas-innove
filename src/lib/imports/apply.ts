@@ -10,6 +10,7 @@ import { evaluateImportBatch, type EvaluatedImportRow } from "@/lib/imports/vali
 import type { ImportReferenceContext } from "@/lib/imports/references";
 import { isEnrollmentEligibleAt } from "@/lib/observations/validation";
 import { writeObservationGroup } from "@/lib/imports/observations";
+import { getImportMetadataPatch } from "@/lib/imports/metadata";
 
 type AppliedEntity = { rowId: string; entityType: ImportEntityType; entityId: string; operation: "CREATE" | "UPDATE"; beforeData?: Prisma.InputJsonValue; externalId?: string; createExternalReference?: boolean };
 
@@ -21,9 +22,7 @@ async function writeStructuralRow(client: Prisma.TransactionClient, batch: Impor
     case "FUNDING_PROGRAMS": {
       if (existingId) {
         beforeData = importJson(context.state.FUNDING_PROGRAMS.get(existingId));
-        record = await client.fundingProgram.update({ where: { organizationId, id: existingId }, data: {
-          name: input.data.name, ...(mapping.code ? { code: input.data.code } : {}), ...(mapping.description ? { description: input.data.description } : {}),
-        } });
+        record = await client.fundingProgram.update({ where: { organizationId, id: existingId }, data: getImportMetadataPatch(input, mapping) });
       } else record = await client.fundingProgram.create({ data: { ...input.data, organizationId, createdByUserId: batch.createdByUserId } });
       break;
     }
@@ -32,9 +31,7 @@ async function writeStructuralRow(client: Prisma.TransactionClient, batch: Impor
     case "VENTURES": {
       if (existingId) {
         beforeData = importJson(context.state.VENTURES.get(existingId));
-        record = await client.venture.update({ where: { organizationId, id: existingId }, data: {
-          name: input.data.name, ...(mapping.legal_name ? { legalName: input.data.legalName } : {}), ...(mapping.external_reference ? { externalReference: input.data.externalReference } : {}),
-        } });
+        record = await client.venture.update({ where: { organizationId, id: existingId }, data: getImportMetadataPatch(input, mapping) });
       } else record = await client.venture.create({ data: { ...input.data, organizationId } });
       break;
     }
