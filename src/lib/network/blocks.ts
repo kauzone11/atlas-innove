@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 import { canonicalUserPair, lockUserPair } from "@/lib/network/locking";
 import { blockSchema } from "@/lib/network/schemas";
-import { getNetworkIdentity } from "@/lib/network/connections";
+import { boundedPage } from "@/lib/communication/schemas";
 
 export async function blockUser(userId: string, value: unknown) {
   const { blockedUserId } = blockSchema.parse(value);
@@ -26,7 +26,8 @@ export async function unblockUser(userId: string, value: unknown) {
   });
 }
 
-export async function listBlockedUsers(userId: string) {
-  const rows = await db.userBlock.findMany({ where: { blockerUserId: userId }, select: { blockedUserId: true, createdAt: true }, orderBy: [{ createdAt: "desc" }, { blockedUserId: "asc" }], take: 100 });
-  return Promise.all(rows.map(async (row) => ({ userId: row.blockedUserId, fullName: (await getNetworkIdentity(userId, row.blockedUserId)).fullName, blockedAt: row.createdAt.toISOString() })));
+export async function listBlockedUsers(userId: string, rawPage: unknown = 1) {
+  const page = boundedPage(rawPage);
+  const rows = await db.userBlock.findMany({ where: { blockerUserId: userId }, select: { blockedUserId: true, createdAt: true, blocked: { select: { profile: { select: { fullName: true } } } } }, orderBy: [{ createdAt: "desc" }, { blockedUserId: "asc" }], take: 21, skip: (page - 1) * 20 });
+  return { page, hasNext: rows.length > 20, items: rows.slice(0, 20).map((row) => ({ userId: row.blockedUserId, fullName: row.blocked.profile?.fullName || "Pessoa da plataforma", blockedAt: row.createdAt.toISOString() })) };
 }

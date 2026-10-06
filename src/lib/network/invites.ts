@@ -2,7 +2,8 @@ import { AuthorizationError } from "@/lib/auth/authorization";
 import { projectAccessWhere, requireProjectAccess, requireTeamAccess, teamAccessWhere } from "@/lib/auth/participant-access";
 import { db } from "@/lib/db";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
-import { getNetworkIdentity } from "@/lib/network/connections";
+import { loadInteractionIdentities } from "@/lib/network/interaction-identity";
+import { boundedPage } from "@/lib/communication/schemas";
 import { hasUserBlock, lockUserPair } from "@/lib/network/locking";
 import { assertProjectContactAllowed, lockProjectContactUsers, lockProjectForContact, projectManagerIds } from "@/lib/network/requests";
 import { inviteActionSchema, targetedInviteSchema } from "@/lib/network/schemas";
@@ -113,11 +114,17 @@ export async function respondTargetedTeamInvite(userId: string, inviteId: string
   });
 }
 
-export async function listTargetedInvites(userId: string) {
+export async function listTargetedInvites(userId: string, pages: { teamPage?: unknown; projectPage?: unknown } = {}) {
+  const teamPage = boundedPage(pages.teamPage); const projectPage = boundedPage(pages.projectPage);
   const where = { acceptedAt: null, declinedAt: null, revokedAt: null, expiresAt: { gt: new Date() }, OR: [{ invitedUserId: userId }, { invitedByUserId: userId }] };
   const [teams, projects] = await Promise.all([
-    db.teamInvite.findMany({ where: { ...where, invitedUserId: { not: null } }, select: { id: true, teamId: true, invitedUserId: true, invitedByUserId: true, role: true, expiresAt: true, team: { select: { name: true, description: true, archivedAt: true } } }, orderBy: [{ createdAt: "desc" }, { id: "asc" }], take: 100 }),
-    db.projectInvite.findMany({ where, select: { id: true, projectId: true, invitedUserId: true, invitedByUserId: true, role: true, expiresAt: true, project: { select: { name: true, summary: true, archivedAt: true, status: true } } }, orderBy: [{ createdAt: "desc" }, { id: "asc" }], take: 100 }),
+    db.teamInvite.findMany({ where: { ...where, invitedUserId: { not: null } }, select: { id: true, teamId: true, invitedUserId: true, invitedByUserId: true, role: true, expiresAt: true, team: { select: { name: true, description: true, archivedAt: true } } }, orderBy: [{ createdAt: "desc" }, { id: "asc" }], take: 21, skip: (teamPage - 1) * 20 }),
+    db.projectInvite.findMany({ where, select: { id: true, projectId: true, invitedUserId: true, invitedByUserId: true, role: true, expiresAt: true, project: { select: { name: true, summary: true, archivedAt: true, status: true } } }, orderBy: [{ createdAt: "desc" }, { id: "asc" }], take: 21, skip: (projectPage - 1) * 20 }),
   ]);
-  return { teams: await Promise.all(teams.map(async (invite) => ({ id: invite.id, teamId: invite.teamId, name: invite.team.name, summary: invite.team.description, role: invite.role, incoming: invite.invitedUserId === userId, expiresAt: invite.expiresAt.toISOString(), actionable: !invite.team.archivedAt, person: await getNetworkIdentity(userId, invite.invitedUserId === userId ? invite.invitedByUserId : invite.invitedUserId!) }))), projects: await Promise.all(projects.map(async (invite) => ({ id: invite.id, projectId: invite.projectId, name: invite.project.name, summary: invite.project.summary, role: invite.role, incoming: invite.invitedUserId === userId, expiresAt: invite.expiresAt.toISOString(), actionable: !invite.project.archivedAt && invite.project.status !== "ARCHIVED", person: await getNetworkIdentity(userId, invite.invitedUserId === userId ? invite.invitedByUserId : invite.invitedUserId) }))) };
+  const teamRows = teams.slice(0, 20); const projectRows = projects.slice(0, 20);
+  const identities = await loadInteractionIdentities(userId, [...teamRows, ...projectRows].map((invite) => invite.invitedUserId === userId ? invite.invitedByUserId : invite.invitedUserId!));
+  return { teamPage, projectPage, teamsHasNext: teams.length > 20, projectsHasNext: projects.length > 20,
+    teams: teamRows.map((invite) => ({ id: invite.id, teamId: invite.teamId, name: invite.team.name, summary: invite.team.description, role: invite.role, incoming: invite.invitedUserId === userId, expiresAt: invite.expiresAt.toISOString(), actionable: !invite.team.archivedAt, person: identities.get(invite.invitedUserId === userId ? invite.invitedByUserId : invite.invitedUserId!)! })),
+    projects: projectRows.map((invite) => ({ id: invite.id, projectId: invite.projectId, name: invite.project.name, summary: invite.project.summary, role: invite.role, incoming: invite.invitedUserId === userId, expiresAt: invite.expiresAt.toISOString(), actionable: !invite.project.archivedAt && invite.project.status !== "ARCHIVED", person: identities.get(invite.invitedUserId === userId ? invite.invitedByUserId : invite.invitedUserId)! })),
+  };
 }

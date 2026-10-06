@@ -63,7 +63,7 @@ test("direct communication, project discussions and platform safety preserve acc
       assert.ok(own.id);
     });
 
-    await context.test("private and collaborator-scoped profile identity remains hidden in preserved message history", async () => {
+    await context.test("private profile sections remain hidden while basic identity identifies the conversation", async () => {
       const hiddenName = `Private name ${suffix}`; const hiddenHeadline = `Private headline ${suffix}`;
       await db.userProfile.update({ where: { userId: member.id }, data: { fullName: hiddenName } });
       await db.innovationProfile.create({ data: { userId: member.id, handle: `communication-${suffix}`, headline: hiddenHeadline, profileVisibility: "PRIVATE" } });
@@ -71,9 +71,9 @@ test("direct communication, project discussions and platform safety preserve acc
         await db.innovationProfile.update({ where: { userId: member.id }, data: { profileVisibility: scope } });
         const history = await getConversation(owner.id, conversationId);
         const inbox = await listConversations(owner.id);
-        assert.equal(history.person.fullName, "Perfil indisponível"); assert.equal(history.person.handle, null); assert.equal(history.person.headline, null);
+        assert.equal(history.person.fullName, hiddenName); assert.equal(history.person.handle, null); assert.equal(history.person.headline, null);
         assert.equal(history.messages[0].body, "Podemos contribuir com a pesquisa.");
-        for (const serialized of [JSON.stringify(history), JSON.stringify(inbox)]) { assert.equal(serialized.includes(hiddenName), false); assert.equal(serialized.includes(hiddenHeadline), false); }
+        for (const serialized of [JSON.stringify(history), JSON.stringify(inbox)]) { assert.equal(serialized.includes(hiddenName), true); assert.equal(serialized.includes(hiddenHeadline), false); }
       }
       await db.innovationProfile.update({ where: { userId: member.id }, data: { profileVisibility: "PLATFORM" } });
       assert.equal((await getConversation(owner.id, conversationId)).person.fullName, hiddenName);

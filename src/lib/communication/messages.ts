@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { AuthorizationError } from "@/lib/auth/authorization";
 import { db } from "@/lib/db";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
@@ -18,7 +18,7 @@ type MessageRecord = Prisma.DirectMessageGetPayload<{ select: typeof messageSele
 function personDto(person: Prisma.UserGetPayload<{ select: typeof personSelect }>) {
   const profile = person.innovationProfile;
   const visible = profile?.profileVisibility === "PLATFORM" || (profile?.profileVisibility === "PUBLIC" && Boolean(profile.publishedAt || profile.directoryEnabled));
-  return { userId: person.id, fullName: visible ? person.profile?.fullName ?? "Pessoa da plataforma" : "Perfil indisponível", handle: visible && profile?.directoryEnabled ? profile.handle : null, headline: visible ? profile?.headline ?? null : null };
+  return { userId: person.id, fullName: person.profile?.fullName || "Pessoa da plataforma", handle: visible && profile?.directoryEnabled ? profile.handle : null, headline: visible ? profile?.headline ?? null : null };
 }
 function messageDto(message: MessageRecord) {
   return { id: message.id, senderUserId: message.senderUserId, body: message.deletedAt ? null : message.body, createdAt: message.createdAt.toISOString(), deleted: Boolean(message.deletedAt) };
@@ -52,14 +52,22 @@ export async function listConversations(userId: string, rawPage: unknown = 1) {
     db.conversation.findMany({ where, select: conversationSelect, orderBy: [{ lastMessageAt: "desc" }, { id: "desc" }], skip: (page - 1) * pageSize, take: pageSize }),
     db.conversation.count({ where }),
   ]);
-  const conversations = await Promise.all(records.map(async (conversation) => {
+  const unread = records.length ? await db.$queryRaw<Array<{ conversationId: string; count: number }>>(Prisma.sql`
+    SELECT message."conversationId", count(*)::int AS count FROM "DirectMessage" message
+    JOIN "ConversationParticipant" participant ON participant."conversationId" = message."conversationId" AND participant."userId" = ${userId}
+    WHERE message."conversationId" IN (${Prisma.join(records.map((record) => record.id))}) AND message."senderUserId" <> ${userId}
+      AND (participant."lastReadAt" IS NULL OR message."createdAt" > participant."lastReadAt")
+    GROUP BY message."conversationId"
+  `) : [];
+  const unreadCounts = new Map(unread.map((row) => [row.conversationId, row.count]));
+  const conversations = records.map((conversation) => {
     const mine = conversation.participants.find((entry) => entry.userId === userId);
     const other = conversation.participants.find((entry) => entry.userId !== userId);
     const expected = new Set([conversation.userAId, conversation.userBId]);
     if (!mine || !other || expected.size !== 2 || conversation.participants.length !== 2 || conversation.participants.some((entry) => !expected.has(entry.userId))) throw new DomainConflictError("CONVERSATION_PARTICIPANTS_INVALID");
-    const unreadCount = await db.directMessage.count({ where: { conversationId: conversation.id, senderUserId: { not: userId }, ...(mine.lastReadAt ? { createdAt: { gt: mine.lastReadAt } } : {}) } });
+    const unreadCount = unreadCounts.get(conversation.id) ?? 0;
     return { id: conversation.id, person: personDto(other.user), lastMessageAt: conversation.lastMessageAt?.toISOString() ?? null, unreadCount };
-  }));
+  });
   return { conversations, total, page, pageSize };
 }
 

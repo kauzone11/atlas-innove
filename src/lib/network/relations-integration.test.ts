@@ -130,9 +130,9 @@ test("network relationships enforce consent, roles, blocking, race safety and hi
       await blockUser(collaborator.id, { blockedUserId: lead.id }); assert.equal((await db.connectionRequest.findUniqueOrThrow({ where: { id: pending.id } })).status, "CANCELLED");
       await blockUser(owner.id, { blockedUserId: collaborator.id });
       await db.innovationProfile.update({ where: { userId: collaborator.id }, data: { profileVisibility: "PRIVATE" } });
-      const blocked = await listBlockedUsers(owner.id);
-      assert.equal(blocked.find((person) => person.userId === collaborator.id)?.fullName, "Perfil indisponível");
-      assert.equal(JSON.stringify(blocked).includes("Network collaborator"), false);
+      const { items: blocked } = await listBlockedUsers(owner.id);
+      assert.equal(blocked.find((person) => person.userId === collaborator.id)?.fullName, "Network collaborator");
+      assert.equal(JSON.stringify(blocked).includes("Secret skill"), false);
       await db.innovationProfile.update({ where: { userId: collaborator.id }, data: { profileVisibility: "PLATFORM" } });
       assert.equal((await getPersonNetworkState(owner.id, collaborator.id)).state, "UNAVAILABLE");
       await assert.rejects(() => sendConnectionRequest(collaborator.id, { recipientUserId: owner.id }), /NETWORK_CONTACT_UNAVAILABLE/);

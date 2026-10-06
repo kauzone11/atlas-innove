@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { requireAuthenticatedSession } from "@/lib/auth/session";
 import { errorResponse } from "@/lib/http";
 import { blockUser, listBlockedUsers, unblockUser } from "@/lib/network/blocks";
-export async function GET() {
-  try { const { user } = await requireAuthenticatedSession(); return NextResponse.json({ blocked: await listBlockedUsers(user.id) }); }
+export async function GET(request: Request) {
+  try { const { user } = await requireAuthenticatedSession(); const result = await listBlockedUsers(user.id, new URL(request.url).searchParams.get("page")); return NextResponse.json({ blocked: result.items, page: result.page, hasNext: result.hasNext }); }
   catch (error) { return errorResponse(error); }
 }
 export async function POST(request: Request) {

@@ -3,7 +3,8 @@ import { AuthorizationError } from "@/lib/auth/authorization";
 import { projectAccessWhere, requireProjectAccess } from "@/lib/auth/participant-access";
 import { db } from "@/lib/db";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
-import { getNetworkIdentity } from "@/lib/network/connections";
+import { loadInteractionIdentities } from "@/lib/network/interaction-identity";
+import { boundedPage } from "@/lib/communication/schemas";
 import { lockNetworkUsers } from "@/lib/network/locking";
 import { projectContactAllowedSql, projectManagerIds } from "@/lib/network/project-contact";
 export { projectManagerIds } from "@/lib/network/project-contact";
@@ -86,8 +87,12 @@ export async function respondProjectRequest(userId: string, projectId: string, r
   });
 }
 
-export async function listProjectRequests(userId: string, projectId?: string) {
+export async function listProjectRequests(userId: string, projectId?: string, rawPage: unknown = 1) {
+  const page = boundedPage(rawPage);
   if (projectId) await requireProjectAccess(userId, projectId, true);
-  const rows = await db.projectCollaborationRequest.findMany({ where: { status: "PENDING", ...(projectId ? { projectId } : { OR: [{ requesterUserId: userId }, { project: { OR: [{ memberships: { some: { userId, leftAt: null, role: { in: ["OWNER", "LEAD"] } } } }, { primaryTeam: { archivedAt: null, memberships: { some: { userId, leftAt: null, status: "ACTIVE", role: { in: ["OWNER", "LEAD"] } } } } }] } }] }) }, select: { id: true, projectId: true, requesterUserId: true, message: true, createdAt: true, project: { select: { name: true, archivedAt: true, status: true } } }, orderBy: [{ createdAt: "desc" }, { id: "asc" }], take: 100 });
-  return Promise.all(rows.map(async (row) => ({ id: row.id, projectId: row.projectId, projectName: row.project.name, message: row.message, incoming: row.requesterUserId !== userId, actionable: !row.project.archivedAt && row.project.status !== "ARCHIVED", createdAt: row.createdAt.toISOString(), person: await getNetworkIdentity(userId, row.requesterUserId) })));
+  const records = await db.projectCollaborationRequest.findMany({ where: { status: "PENDING", ...(projectId ? { projectId } : { OR: [{ requesterUserId: userId }, { project: { OR: [{ memberships: { some: { userId, leftAt: null, role: { in: ["OWNER", "LEAD"] } } } }, { primaryTeam: { archivedAt: null, memberships: { some: { userId, leftAt: null, status: "ACTIVE", role: { in: ["OWNER", "LEAD"] } } } } }] } }] }) }, select: { id: true, projectId: true, requesterUserId: true, message: true, createdAt: true, project: { select: { name: true, archivedAt: true, status: true } } }, orderBy: [{ createdAt: "desc" }, { id: "asc" }], take: 21, skip: (page - 1) * 20 });
+  const rows = records.slice(0, 20);
+  const identities = await loadInteractionIdentities(userId, rows.map((row) => row.requesterUserId));
+  const items = rows.map((row) => ({ id: row.id, projectId: row.projectId, projectName: row.project.name, message: row.message, incoming: row.requesterUserId !== userId, actionable: !row.project.archivedAt && row.project.status !== "ARCHIVED", createdAt: row.createdAt.toISOString(), person: identities.get(row.requesterUserId)! }));
+  return { items, page, hasNext: records.length > 20 };
 }

@@ -5,15 +5,10 @@ import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 import { canonicalUserPair, hasUserBlock, lockUserPair } from "@/lib/network/locking";
 import { connectionRequestSchema, requestActionSchema } from "@/lib/network/schemas";
 import { createNotification } from "@/lib/notifications/service";
-import { getVisibleProfile } from "@/lib/profiles/service";
+import { loadInteractionIdentities } from "@/lib/network/interaction-identity";
+import { boundedPage } from "@/lib/communication/schemas";
 
 export type PersonNetworkState = { state: "AVAILABLE" | "UNAVAILABLE" | "CONNECTED" | "OUTGOING" | "INCOMING"; requestId?: string; connectionId?: string };
-
-export async function getNetworkIdentity(viewerUserId: string, targetUserId: string) {
-  const profile = await db.innovationProfile.findUnique({ where: { userId: targetUserId }, select: { handle: true } });
-  const visible = profile?.handle ? await getVisibleProfile(profile.handle, viewerUserId) : null;
-  return { userId: targetUserId, fullName: visible?.fullName ?? "Perfil indisponível", headline: visible?.headline ?? null, handle: visible?.handle ?? null, skills: visible?.skills ?? [], interests: visible?.interests ?? [] };
-}
 
 async function eligibleRecipient(client: Prisma.TransactionClient, userId: string) {
   return client.innovationProfile.findFirst({ where: { userId, directoryEnabled: true, profileVisibility: { in: ["PUBLIC", "PLATFORM"] }, handle: { not: null }, headline: { not: null }, collaborationStatus: { not: "NOT_AVAILABLE" } }, select: { id: true, handle: true, headline: true } });
@@ -82,13 +77,20 @@ export async function disconnectConnection(userId: string, connectionId: string)
   });
 }
 
-export async function listConnections(userId: string, page = 1) {
-  const records = await db.networkConnection.findMany({ where: { endedAt: null, OR: [{ userAId: userId }, { userBId: userId }] }, orderBy: [{ connectedAt: "desc" }, { id: "asc" }], take: 21, skip: (Math.max(1, Math.min(1000, page)) - 1) * 20 });
-  const items = await Promise.all(records.slice(0, 20).map(async (record) => ({ id: record.id, connectedAt: record.connectedAt.toISOString(), person: await getNetworkIdentity(userId, record.userAId === userId ? record.userBId : record.userAId) })));
-  return { items, hasMore: records.length > 20 };
+export async function listConnections(userId: string, rawPage: unknown = 1) {
+  const page = boundedPage(rawPage);
+  const records = await db.networkConnection.findMany({ where: { endedAt: null, OR: [{ userAId: userId }, { userBId: userId }] }, orderBy: [{ connectedAt: "desc" }, { id: "asc" }], take: 21, skip: (page - 1) * 20 });
+  const rows = records.slice(0, 20);
+  const identities = await loadInteractionIdentities(userId, rows.map((row) => row.userAId === userId ? row.userBId : row.userAId));
+  const items = rows.map((record) => ({ id: record.id, connectedAt: record.connectedAt.toISOString(), person: identities.get(record.userAId === userId ? record.userBId : record.userAId)! }));
+  return { items, page, hasMore: records.length > 20 };
 }
 
-export async function listConnectionRequests(userId: string) {
-  const records = await db.connectionRequest.findMany({ where: { status: "PENDING", OR: [{ requesterUserId: userId }, { recipientUserId: userId }] }, orderBy: [{ createdAt: "desc" }, { id: "asc" }], take: 100 });
-  return Promise.all(records.map(async (record) => ({ id: record.id, message: record.message, incoming: record.recipientUserId === userId, createdAt: record.createdAt.toISOString(), person: await getNetworkIdentity(userId, record.requesterUserId === userId ? record.recipientUserId : record.requesterUserId) })));
+export async function listConnectionRequests(userId: string, rawPage: unknown = 1) {
+  const page = boundedPage(rawPage);
+  const records = await db.connectionRequest.findMany({ where: { status: "PENDING", OR: [{ requesterUserId: userId }, { recipientUserId: userId }] }, orderBy: [{ createdAt: "desc" }, { id: "asc" }], take: 21, skip: (page - 1) * 20 });
+  const rows = records.slice(0, 20);
+  const identities = await loadInteractionIdentities(userId, rows.map((row) => row.requesterUserId === userId ? row.recipientUserId : row.requesterUserId));
+  const items = rows.map((record) => ({ id: record.id, message: record.message, incoming: record.recipientUserId === userId, createdAt: record.createdAt.toISOString(), person: identities.get(record.requesterUserId === userId ? record.recipientUserId : record.requesterUserId)! }));
+  return { items, page, hasNext: records.length > 20 };
 }
