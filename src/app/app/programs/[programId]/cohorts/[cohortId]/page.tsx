@@ -39,6 +39,7 @@ export default async function CohortDetailPage({ params }: PageProps) {
   return (
     <div className="space-y-7">
       <PageHeader breadcrumbs={<Breadcrumbs items={[{ label: "Programas", href: "/app/programs" }, { label: workspace.cohort.fundingProgram.name, href: `/app/programs/${programId}` }, { label: workspace.cohort.name }]} />} title={workspace.cohort.name} description={`${workspace.cohort.fundingProgram.name}${workspace.cohort.code ? ` · ${workspace.cohort.code}` : ""}`} action={<CohortDetailActions organizationId={context.organization.id} cohort={cohort} fundingCalls={fundingCalls} protocols={protocols} canManage={canManage} />} />
+      <section className="flex flex-wrap items-center justify-between gap-4 border-y border-line py-4"><div><h2 className="text-sm font-semibold">Resultados observados da coorte</h2><p className="mt-1 text-sm text-slate">Consulte métricas canônicas, comparação pareada e origem dos valores.</p></div><Link href={`/app/analytics/cohorts/${cohortId}`} className="button-secondary">Analisar coorte</Link></section>
       <Panel>
         <PanelHeader title="Contexto do acompanhamento" />
         <dl className="grid gap-5 p-6 sm:grid-cols-2">

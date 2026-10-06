@@ -34,6 +34,7 @@ export default async function AppHomePage() {
   return (
     <div className="min-w-0 space-y-6">
       <PageHeader title="Visão geral" description={context.organization.name} />
+      <section className="flex flex-wrap items-center justify-between gap-4 border-y border-line py-4" aria-labelledby="portfolio-destination"><div><h2 id="portfolio-destination" className="text-sm font-semibold">Leitura institucional do portfólio</h2><p className="mt-1 text-sm text-slate">Compare coortes, confira a qualidade das evidências e preserve resultados em relatórios.</p></div><Link href="/app/analytics" className="button-secondary">Abrir análises <ArrowRight size={16} aria-hidden="true" /></Link></section>
 
       <dl className="grid overflow-hidden rounded-[0.875rem] border border-line bg-white sm:grid-cols-2 lg:grid-cols-4">
         <SummaryItem label="Programas" value={programs.length} href="/app/programs" />

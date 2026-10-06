@@ -16,6 +16,7 @@ export async function PublicShell({ children }: { children: ReactNode }) {
           </Link>
           <nav aria-label="Navegação pública" className="flex flex-wrap items-center gap-2 text-sm">
             <Link href="/opportunities" className="inline-flex min-h-11 items-center rounded-md px-3 text-slate hover:text-ink">Oportunidades</Link>
+            <Link href="/results" className="inline-flex min-h-11 items-center rounded-md px-3 text-slate hover:text-ink">Resultados</Link>
             {auth ? <Link href="/app/personal" className="button-primary">Meu espaço</Link> : <>
               <Link href="/login" className="button-secondary">Entrar</Link>
               <Link href="/signup" className="button-primary">Criar conta</Link>

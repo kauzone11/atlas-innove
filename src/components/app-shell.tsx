@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BriefcaseBusiness, Building2, ChevronDown, FolderKanban, Menu, Settings, Users, Workflow, Compass, X, Route, Layers3, UsersRound, UserRound, ClipboardCheck } from "lucide-react";
+import { BriefcaseBusiness, Building2, ChevronDown, FolderKanban, Menu, Settings, Users, Workflow, Compass, X, Route, Layers3, UsersRound, UserRound, ClipboardCheck, ChartNoAxesCombined } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -14,6 +14,7 @@ const primaryNavigation = [
   { href: "/app/programs", label: "Programas", icon: FolderKanban },
   { href: "/app/execution", label: "Execução", icon: ClipboardCheck },
   { href: "/app/follow-ups", label: "Acompanhamentos", icon: Workflow },
+  { href: "/app/analytics", label: "Análises", icon: ChartNoAxesCombined },
   { href: "/app/ventures", label: "Empreendimentos", icon: BriefcaseBusiness },
   { href: "/app/opportunities", label: "Oportunidades", icon: Compass },
 ];
@@ -49,7 +50,7 @@ export function AppShell({ children, organizationName, userName, hasOrganization
   }, [mobileOpen]);
 
   return (
-    <div className="min-h-screen bg-canvas text-ink">
+    <div className="app-shell min-h-screen bg-canvas text-ink">
       <a className="skip-link" href="#main-content">Ir para o conteúdo</a>
       <div className="grid min-h-screen lg:grid-cols-[15rem_1fr]">
         <aside className="hidden border-r border-line bg-white lg:flex lg:flex-col">

@@ -99,6 +99,16 @@ Tarefas, recursos e atividade operacional pertencem ao espaço privado dos colab
 
 Os protocolos de acompanhamento preservam versões imutáveis de seus indicadores. Cada coorte utiliza uma versão definida, e as observações de cada onda mantêm o histórico, distinguindo valores observados de informações ausentes.
 
+## Análises e resultados públicos
+
+A área **Análises** reúne o portfólio institucional, programas, evolução das coortes, comparação entre coortes e qualidade dos dados. Métricas canônicas preservam o conceito observado entre versões compatíveis dos protocolos; a comparação entre coortes exige vínculo explícito com a mesma métrica e o mesmo mês de referência. Nomes de ondas não determinam comparabilidade.
+
+Os resultados identificam o universo esperado, os envios, os valores válidos e as ausências. A leitura pareada inclui somente participações com valor válido nos dois momentos selecionados. Valores monetários preservam precisão decimal; zero continua diferente de informação ausente. As análises descrevem evidências e não atribuem automaticamente mudanças ao programa.
+
+Analistas podem consultar a composição dos agregados, exportar CSV delimitado por ponto e vírgula e gerar relatórios imutáveis. Os arquivos preservam valores decimais sem formatação monetária, protegem contra fórmulas de planilhas e registram uma auditoria de escopo e quantidade. Os relatórios mantêm data de referência e origem; atualizações geram novos recortes. A versão para impressão permite salvar PDF pelo navegador.
+
+Gestores podem publicar um relatório após conferir sua prévia protegida. A publicação conserva somente conteúdo agregado, sem registros individuais; grupos pequenos e células complementares são suprimidos. O mínimo padrão é de cinco registros, configurável entre três e vinte. A retirada da publicação encerra seu acesso público e preserva o histórico institucional. **/results** reúne apenas publicações vigentes.
+
 ## Identidade e descoberta
 
 O perfil de inovação reúne apresentação, competências, interesses, formação e experiência declarada. A pessoa escolhe a visibilidade de cada seção e pode publicar ou retirar seu perfil sem apagar os dados. Projetos também mantêm uma identidade pública opcional, administrada por seus responsáveis.
