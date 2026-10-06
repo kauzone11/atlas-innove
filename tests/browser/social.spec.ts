@@ -34,8 +34,12 @@ async function login(page: Page, email: string) {
   await page.goto("/login?next=/app/personal/feed");
   await page.getByLabel("E-mail", { exact: true }).fill(email);
   await page.getByLabel("Senha", { exact: true }).fill(password);
+  const loginResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/auth/login" && response.request().method() === "POST");
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
-  await expect(page).toHaveURL(/\/app\/personal\/feed$/);
+  expect((await loginResponse).status()).toBe(200);
+  await expect(page).toHaveURL(new URL("/app/personal/feed", baseURL).toString());
+  await expect(page.getByRole("heading", { name: "Início", exact: true })).toBeVisible();
+  expect((await page.context().cookies()).some((cookie) => cookie.name === "atlas_innove_session")).toBe(true);
 }
 
 async function authenticatedApi(context: BrowserContext) {
@@ -169,8 +173,10 @@ test("professional social journey preserves audiences, notifications, keyboard i
     await publicPage.goto(postPath); await expect(publicPage.getByRole("article", { name: "Publicação de Ana Pesquisa", exact: true })).toBeVisible();
     await expect(publicPage.getByRole("link", { name: "Entrar para interagir", exact: true })).toBeVisible();
     await publicPage.getByRole("link", { name: "Ver respostas", exact: true }).click();
-    await expect(publicPage).toHaveURL(/parentCommentId=/); await expect(publicPage.getByText("Vamos publicar a síntese desta etapa para compartilhar o aprendizado.", { exact: true })).toBeVisible();
-    await publicPage.getByRole("link", { name: "Voltar aos comentários", exact: true }).click(); await expect(publicPage.getByText("Quais aprendizados poderão ser compartilhados com outras equipes?", { exact: true })).toBeVisible(); await page.emulateMedia({ reducedMotion: "reduce" }); await page.setViewportSize({ width: 1280, height: 900 });
+    await expect(publicPage).toHaveURL((url) => url.pathname === postPath && Boolean(url.searchParams.get("parentCommentId"))); await expect(publicPage.getByText("Vamos publicar a síntese desta etapa para compartilhar o aprendizado.", { exact: true })).toBeVisible();
+    await publicPage.getByRole("link", { name: "Voltar aos comentários", exact: true }).click();
+    await expect(publicPage).toHaveURL(new URL(postPath, baseURL).toString());
+    await expect(publicPage.getByText("Quais aprendizados poderão ser compartilhados com outras equipes?", { exact: true })).toBeVisible(); await page.emulateMedia({ reducedMotion: "reduce" }); await page.setViewportSize({ width: 1280, height: 900 });
     await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     await page.screenshot({ path: info.outputPath("profile-text-200-percent.png"), fullPage: true });
