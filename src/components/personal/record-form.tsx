@@ -7,7 +7,9 @@ import { Dialog } from "@/components/dialog";
 import type { TeamDto, ProjectDto } from "@/lib/participants/service";
 
 export async function personalRequest(url: string, method: string, input?: unknown) {
-  const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, ...(input === undefined ? {} : { body: JSON.stringify(input) }) });
+  const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, ...(input === undefined ? {} : { body: JSON.stringify(input) }) }).catch(() => {
+    throw new Error("Não foi possível conectar ao Atlas Innove. Verifique sua conexão e tente novamente.");
+  });
   const payload = await response.json();
   if (!response.ok) throw new Error(Object.values(payload.issues ?? {}).flat().join(" ") || payload.error || "Não foi possível concluir a operação.");
   return payload;
