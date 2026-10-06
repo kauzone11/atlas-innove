@@ -1,4 +1,4 @@
-import { test, expect, request, type APIRequestContext, type BrowserContext, type Page, type Route, type TestInfo } from "@playwright/test";
+import { test, expect, request, type APIRequestContext, type BrowserContext, type Locator, type Page, type Route, type TestInfo } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { hash } from "bcryptjs";
 import sharp from "sharp";
@@ -52,9 +52,31 @@ async function upload(api: APIRequestContext, kind = "POST_IMAGE", color = "#BFC
   const response = await api.post("/api/personal/media", { multipart: { kind, file: { name: "research.png", mimeType: "image/png", buffer: await image(color) } } });
   expect(response.status(), await response.text()).toBe(200); return (await response.json()).asset as MediaDto;
 }
+async function expectReadableWords(locator: Locator) {
+  await expect(locator).toBeVisible();
+  const issues = await locator.evaluate((element) => {
+    const bounds = element.getBoundingClientRect(); const failures: string[] = [];
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      for (const match of (node.textContent ?? "").matchAll(/\p{L}[\p{L}\p{M}]*/gu)) {
+        const range = document.createRange(); range.setStart(node, match.index); range.setEnd(node, match.index + match[0].length);
+        const rects = [...range.getClientRects()].filter((rect) => rect.width > 0 && rect.height > 0);
+        if (new Set(rects.map((rect) => Math.round(rect.top))).size > 1 || rects.some((rect) => rect.left < bounds.left - 1 || rect.right > bounds.right + 1)) failures.push(match[0]);
+      }
+    }
+    return failures;
+  });
+  expect(issues, `Words must remain readable without splitting or clipping: ${await locator.innerText()}`).toEqual([]);
+}
 async function snapshot(page: Page, info: TestInfo, name: string) {
   for (const [width, height] of [[1600, 1000], [1440, 900], [1280, 800], [1024, 768], [768, 1024], [430, 932], [390, 844], [375, 812], [320, 568]]) {
     await page.setViewportSize({ width, height });
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement && document.activeElement.getAttribute("aria-expanded") !== "true") document.activeElement.blur();
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      document.querySelectorAll<HTMLElement>('[role="dialog"]').forEach((dialog) => dialog.scrollTo({ top: 0, left: 0, behavior: "instant" }));
+    });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${name} overflows at ${width}`).toBe(true);
     await page.screenshot({ path: info.outputPath(`${name}-${width}.png`), fullPage: true });
   }
@@ -175,6 +197,7 @@ test("real object storage supports profile crop replacement, image composition a
     const four = await db.socialPost.findFirstOrThrow({ where: { authorUserId: f.a.id, id: { not: single.id } }, include: { media: { orderBy: { position: "asc" } } } });
     expect(four.body).toBeNull(); expect(four.media.map((item) => item.altText)).toEqual(["Registro da pesquisa 2", "Registro da pesquisa 1", "Registro da pesquisa 3", "Registro da pesquisa 5"]);
     await page.goto(`/posts/${four.id}`); await snapshot(page, info, "four-image-post");
+    await expectReadableWords(page.getByRole("button", { name: "Compartilhar", exact: true }));
     const openImage = page.getByRole("button", { name: /^Ampliar imagem 1 de 4/ }); await openImage.focus(); await page.keyboard.press("Enter");
     const viewer = page.getByRole("dialog", { name: "Imagem 1 de 4", exact: true }); await expect(viewer).toBeVisible();
     await expect(viewer.getByRole("group", { name: "Imagem ampliada", exact: true })).toBeFocused();
@@ -189,6 +212,11 @@ test("real object storage supports profile crop replacement, image composition a
     await visitor.getByRole("button", { name: "Repostar", exact: true }).click(); const repost = visitor.getByRole("dialog", { name: "Repostar publicação", exact: true }); await repost.getByRole("textbox", { name: /^Seu comentário/ }).fill("Compartilhando os registros de pesquisa."); await repost.getByRole("button", { name: "Repostar", exact: true }).click(); await expect(repost).not.toBeVisible();
     await visitor.goto("/app/personal/feed"); await expect(visitor.getByRole("article", { name: "Publicação de Bruno Imagem", exact: true }).getByRole("button", { name: /^Ampliar imagem 1 de 4/ })).toBeVisible(); await snapshot(visitor, info, "image-repost-feed");
     await page.goto(`/posts/${four.id}`); await page.emulateMedia({ reducedMotion: "reduce" }); await page.setViewportSize({ width: 390, height: 844 }); await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+    const enlargedPost = page.getByRole("article", { name: "Publicação de Ana Imagem", exact: true });
+    await expectReadableWords(enlargedPost.getByRole("link", { name: "Ana Imagem", exact: true }));
+    await expectReadableWords(enlargedPost.locator("header").getByText("Pesquisa aplicada e colaboração profissional", { exact: true }));
+    await expectReadableWords(enlargedPost.locator("header time"));
+    for (const label of ["Curtir", "Comentar", "Repostar", "Compartilhar"]) await expectReadableWords(enlargedPost.getByRole("button", { name: label, exact: true }).first());
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true); await page.screenshot({ path: info.outputPath("image-post-text-200-percent.png"), fullPage: true });
     expect(errors).toEqual([]);
   } finally { await ownApi?.dispose(); await other.close(); await anonymous.close(); await f.cleanup(); }
@@ -212,9 +240,22 @@ test("media HTTP preserves ownership, S3 privacy and current post/profile visibi
     const cover = await upload(a, "PROFILE_COVER"); expect((await a.patch("/api/personal/profile/media", { data: { kind: "PROFILE_COVER", mediaId: cover.id } })).status()).toBe(200);
     expect((await b.patch("/api/personal/profile/media", { data: { kind: "PROFILE_AVATAR", mediaId: avatar.id } })).status()).toBe(404);
     const publicAsset = await upload(a); const publicCreated = await a.post("/api/personal/social/posts", { data: { visibility: "PUBLIC", media: [{ mediaId: publicAsset.id }] } }); expect(publicCreated.status()).toBe(200);
-    for (const item of [avatar, cover, publicAsset]) { const response = await anonymous.request.get(item.url); expect(response.status()).toBe(200); expect(response.headers()["content-type"]).toContain("image/webp"); expect(response.headers()["x-content-type-options"]).toBe("nosniff"); expect(response.headers()["cache-control"]).toContain("no-store"); }
+    for (const item of [avatar, cover, publicAsset]) {
+      const response = await anonymous.request.get(item.url); expect(response.status()).toBe(200); expect(response.headers()["content-type"]).toContain("image/webp"); expect(response.headers()["x-content-type-options"]).toBe("nosniff"); expect(response.headers()["cache-control"]).toContain("no-store");
+      const optimizedUrl = `/_next/image?url=${encodeURIComponent(item.url)}&w=384&q=75`;
+      expect((await a.get(optimizedUrl)).status(), "Owner media must bypass the shared image optimizer").toBe(400);
+      expect((await anonymous.request.get(optimizedUrl)).status(), "Public media must not enter the shared image optimizer cache").toBe(400);
+    }
+    const demoImage = await anonymous.request.get("/_next/image?url=%2Fdemo%2Fmarina-duarte-profile.webp&w=384&q=75");
+    expect(demoImage.status(), "Static demo assets must retain the supported optimizer path").toBe(200);
+    expect(demoImage.headers()["content-type"]).toMatch(/^image\//);
     expect((await a.patch("/api/personal/profile", { data: { section: "unpublish" } })).status()).toBe(200);
-    for (const item of [avatar, cover, publicAsset]) expect((await anonymous.request.get(item.url)).status()).toBe(404);
+    for (const item of [avatar, cover, publicAsset]) {
+      expect((await anonymous.request.get(item.url)).status()).toBe(404);
+      const optimizedUrl = `/_next/image?url=${encodeURIComponent(item.url)}&w=384&q=75`;
+      expect((await a.get(optimizedUrl)).status(), "Unpublished owner media must bypass the shared image optimizer").toBe(400);
+      expect((await anonymous.request.get(optimizedUrl)).status(), "Unpublished media must not be served from the shared image optimizer cache").toBe(400);
+    }
     expect((await a.get(avatar.url)).status()).toBe(200);
     expect((await a.delete("/api/personal/network/blocks", { data: { blockedUserId: f.b.id } })).status()).toBe(200);
     expect((await a.patch("/api/personal/profile", { data: { section: "privacy", data: { profileVisibility: "PLATFORM", skillsVisibility: "PRIVATE", experienceVisibility: "PRIVATE", educationVisibility: "PRIVATE", linksVisibility: "PRIVATE", verifiedParticipationVisibility: "PRIVATE", projectsVisibility: "PRIVATE" } } })).status()).toBe(200);

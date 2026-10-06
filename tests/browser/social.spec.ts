@@ -1,4 +1,4 @@
-import { test, expect, request, type APIRequestContext, type Page, type BrowserContext, type TestInfo } from "@playwright/test";
+import { test, expect, request, type APIRequestContext, type Page, type BrowserContext, type Locator, type TestInfo } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { hash } from "bcryptjs";
 import { db } from "@/lib/db";
@@ -58,9 +58,33 @@ function recordErrors(page: Page, errors: string[]) {
   page.on("response", (response) => { if (response.status() >= 500) errors.push(`HTTP ${response.status()} ${response.url()}`); });
 }
 
+async function expectReadableWords(locator: Locator) {
+  await expect(locator).toBeVisible();
+  const issues = await locator.evaluate((element) => {
+    const bounds = element.getBoundingClientRect(); const failures: string[] = [];
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      for (const match of (node.textContent ?? "").matchAll(/\p{L}[\p{L}\p{M}]*/gu)) {
+        const range = document.createRange(); range.setStart(node, match.index); range.setEnd(node, match.index + match[0].length);
+        const rects = [...range.getClientRects()].filter((rect) => rect.width > 0 && rect.height > 0);
+        if (new Set(rects.map((rect) => Math.round(rect.top))).size > 1 || rects.some((rect) => rect.left < bounds.left - 1 || rect.right > bounds.right + 1)) failures.push(match[0]);
+      }
+    }
+    return failures;
+  });
+  expect(issues, `Words must remain readable without splitting or clipping: ${await locator.innerText()}`).toEqual([]);
+}
+
 async function screenshot(page: Page, info: TestInfo, name: string, widths = [1600, 1440, 1280, 1024, 768, 430, 390, 375, 320]) {
+  const heights: Record<number, number> = { 1600: 1000, 1440: 900, 1280: 800, 1024: 768, 768: 1024, 430: 932, 390: 844, 375: 812, 320: 568 };
   for (const width of widths) {
-    await page.setViewportSize({ width, height: 844 });
+    await page.setViewportSize({ width, height: heights[width] });
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement && document.activeElement.getAttribute("aria-expanded") !== "true") document.activeElement.blur();
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      document.querySelectorAll<HTMLElement>('[role="dialog"]').forEach((dialog) => dialog.scrollTo({ top: 0, left: 0, behavior: "instant" }));
+    });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `${name} overflow at ${width}`).toBe(true);
     await page.screenshot({ path: info.outputPath(`${name}-${width}.png`), fullPage: true });
   }
@@ -76,7 +100,7 @@ test("professional social journey preserves audiences, notifications, keyboard i
   recordErrors(page, errors); recordErrors(bPage, errors); recordErrors(publicPage, errors);
   try {
     await login(page, f.a.email);
-    await screenshot(page, info, "empty-feed", [1440, 390]);
+    await screenshot(page, info, "empty-feed");
     await page.goto("/app/personal/profile"); await screenshot(page, info, "profile-no-activity", [1440, 390]);
     await page.goto("/app/personal/profile/edit");
     await page.getByRole("combobox", { name: /^Quem pode seguir você/ }).selectOption("EVERYONE");
@@ -95,7 +119,7 @@ test("professional social journey preserves audiences, notifications, keyboard i
     await composer.getByRole("combobox", { name: /^Visibilidade/ }).selectOption("PUBLIC");
     await composer.getByRole("button", { name: "Adicionar link", exact: true }).click();
     await composer.getByLabel("Link externo (opcional)", { exact: true }).fill("https://example.test/pesquisa");
-    await screenshot(page, info, "composer", [1440, 390, 320]);
+    await screenshot(page, info, "composer");
     await composer.getByRole("button", { name: "Publicar", exact: true }).focus();
     await page.keyboard.press("Tab"); await expect(composer.getByRole("button", { name: "Fechar janela", exact: true })).toBeFocused();
     await composer.getByRole("button", { name: "Publicar", exact: true }).click(); await expect(composer).not.toBeVisible();
@@ -124,7 +148,7 @@ test("professional social journey preserves audiences, notifications, keyboard i
     await login(bPage, f.b.email);
     await bPage.goto(`/app/personal/network/people/${f.a.innovationProfile!.handle}`);
     await expect(bPage.getByRole("heading", { name: "Ana Pesquisa", exact: true })).toBeVisible();
-    await screenshot(bPage, info, "other-profile", [1440, 390, 320]);
+    await screenshot(bPage, info, "other-profile");
     await bPage.getByRole("button", { name: "Seguir", exact: true }).focus(); await bPage.keyboard.press("Enter");
     await expect(bPage.getByRole("button", { name: "Seguindo", exact: true })).toHaveAttribute("aria-pressed", "true");
     expect(await db.networkConnection.count({ where: { OR: [{ userAId: f.b.id }, { userBId: f.b.id }] } })).toBe(0);
@@ -133,6 +157,7 @@ test("professional social journey preserves audiences, notifications, keyboard i
     await expect(card).toBeVisible(); await expect(card).toContainText("Nova pesquisa aplicada");
     await card.getByRole("button", { name: "Escolher reação", exact: true }).click();
     await screenshot(bPage, info, "reaction-menu", [1440, 390, 320]);
+    for (const label of ["Parabéns", "Divertido"]) await expectReadableWords(card.getByRole("group", { name: "Reações", exact: true }).getByRole("button", { name: label, exact: true }));
     await card.getByRole("group", { name: "Reações", exact: true }).getByRole("button", { name: "Genial", exact: true }).click();
     await expect(card.getByRole("button", { name: "Genial", exact: true })).toHaveAttribute("aria-pressed", "true");
     await card.getByRole("button", { name: "1 reação", exact: true }).click();
@@ -155,7 +180,7 @@ test("professional social journey preserves audiences, notifications, keyboard i
     await repost.getByRole("textbox", { name: /^Seu comentário \(opcional\)/ }).fill("Uma contribuição para nossa colaboração profissional.");
     await repost.getByRole("button", { name: "Repostar", exact: true }).click(); await expect(repost).not.toBeVisible();
     await expect(bPage.getByRole("article", { name: "Publicação de Bruno Pesquisa", exact: true })).toContainText("Repostagem de");
-    await screenshot(bPage, info, "repost", [1440, 390]);
+    await screenshot(bPage, info, "repost");
     await bContext.grantPermissions(["clipboard-read", "clipboard-write"]);
     await card.getByRole("button", { name: "Compartilhar", exact: true }).click();
     await expect(card.getByRole("status")).toContainText("Link da publicação copiado");
@@ -169,16 +194,21 @@ test("professional social journey preserves audiences, notifications, keyboard i
     await aComments.getByLabel("Resposta", { exact: true }).fill("Vamos publicar a síntese desta etapa para compartilhar o aprendizado.");
     await aComments.getByRole("button", { name: "Responder", exact: true }).last().click();
     await expect(aComments).toContainText("Vamos publicar a síntese");
+    await screenshot(page, info, "post-comments");
+    await page.goto("/app/personal/profile/followers"); await expect(page.getByRole("heading", { name: "Seguidores", exact: true })).toBeVisible(); await expect(page.getByRole("link", { name: "Bruno Pesquisa", exact: true })).toBeVisible(); await screenshot(page, info, "followers");
+    await bPage.goto("/app/personal/profile/following"); await expect(bPage.getByRole("heading", { name: "Seguindo", exact: true })).toBeVisible(); await expect(bPage.getByRole("link", { name: "Ana Pesquisa", exact: true })).toBeVisible(); await screenshot(bPage, info, "following");
+    await page.goto("/app/personal/profile/activity"); await expect(page.getByRole("heading", { name: "Atividade", exact: true })).toBeVisible(); await expect(page.getByRole("article", { name: "Publicação de Ana Pesquisa", exact: true })).toBeVisible(); await screenshot(page, info, "activity");
     await page.goto("/app/personal/profile"); await expect(page.getByRole("heading", { name: "Em destaque", exact: true })).toBeVisible(); await screenshot(page, info, "own-profile");
-    await publicPage.goto(`/people/${f.a.innovationProfile!.handle}`); await screenshot(publicPage, info, "public-profile", [1440, 390, 320]);
+    await publicPage.goto(`/people/${f.a.innovationProfile!.handle}`); await screenshot(publicPage, info, "public-profile");
     await publicPage.goto(postPath); await expect(publicPage.getByRole("article", { name: "Publicação de Ana Pesquisa", exact: true })).toBeVisible();
     await expect(publicPage.getByRole("link", { name: "Entrar para interagir", exact: true })).toBeVisible();
     await publicPage.getByRole("link", { name: "Ver respostas", exact: true }).click();
     await expect(publicPage).toHaveURL((url) => url.pathname === postPath && Boolean(url.searchParams.get("parentCommentId"))); await expect(publicPage.getByText("Vamos publicar a síntese desta etapa para compartilhar o aprendizado.", { exact: true })).toBeVisible();
     await publicPage.getByRole("link", { name: "Voltar aos comentários", exact: true }).click();
     await expect(publicPage).toHaveURL(new URL(postPath, baseURL).toString());
-    await expect(publicPage.getByText("Quais aprendizados poderão ser compartilhados com outras equipes?", { exact: true })).toBeVisible(); await page.emulateMedia({ reducedMotion: "reduce" }); await page.setViewportSize({ width: 1280, height: 900 });
+    await expect(publicPage.getByText("Quais aprendizados poderão ser compartilhados com outras equipes?", { exact: true })).toBeVisible(); await screenshot(publicPage, info, "public-post"); await page.emulateMedia({ reducedMotion: "reduce" }); await page.setViewportSize({ width: 1280, height: 900 });
     await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+    await expectReadableWords(page.getByRole("heading", { name: "Ana Pesquisa", exact: true }));
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     await page.screenshot({ path: info.outputPath("profile-text-200-percent.png"), fullPage: true });
     await page.goto(`/app/personal/network/people/${f.b.innovationProfile!.handle}`);
