@@ -3,6 +3,13 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   outputFileTracingRoot: process.cwd(),
+  // Authorized media must never enter the optimizer's public cache after access is revoked.
+  images: {
+    localPatterns: [
+      { pathname: "/brand/**", search: "" },
+      { pathname: "/demo/**", search: "" },
+    ],
+  },
   async headers() {
     return [
       {
