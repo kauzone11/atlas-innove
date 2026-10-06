@@ -22,6 +22,16 @@ export function socialIdentity(row: IdentityRow, viewerUserId?: string | null): 
     handle: visible ? profile?.handle ?? null : null, headline: visible ? profile?.headline ?? null : null, avatarMedia: visible ? mediaDto(profile?.avatarMedia) : null };
 }
 
+export async function getSocialViewerIdentity(viewerUserId?: string | null): Promise<Pick<SocialIdentity, "fullName" | "avatarMedia"> | undefined> {
+  if (!viewerUserId) return undefined;
+  const viewer = await db.user.findUnique({ where: { id: viewerUserId }, select: {
+    profile: { select: { fullName: true } },
+    innovationProfile: { select: { avatarMedia: { select: mediaSelect } } },
+  } });
+  if (!viewer) return undefined;
+  return { fullName: viewer.profile?.fullName ?? "", avatarMedia: mediaDto(viewer.innovationProfile?.avatarMedia) };
+}
+
 function postSelect(viewerUserId?: string | null, publicOnly = false) {
   return {
     id: true, authorUserId: true, body: true, externalUrl: true, visibility: true, commentPolicy: true, allowReposts: true,
