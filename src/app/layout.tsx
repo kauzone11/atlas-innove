@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { getAppBaseUrl } from "@/lib/app-base-url";
 
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://innove.ouseagency.com"),
+  metadataBase: getAppBaseUrl(),
   title: {
     default: "Atlas Innove",
     template: "%s · Atlas Innove",

@@ -33,7 +33,7 @@ export function Dialog({ open, onClose, title, description, children, mode = "di
       .filter((element): element is HTMLElement => element instanceof HTMLElement && element !== backdrop)
       .map((element) => ({ element, inert: element.inert }));
     for (const { element } of background) element.inert = true;
-    const focusableSelector = "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
+    const focusableSelector = "a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1']):not(:disabled)";
     const initialFocus = surfaceRef.current?.querySelector<HTMLElement>("[data-autofocus]")
       ?? surfaceRef.current?.querySelector<HTMLElement>("input, select, textarea")
       ?? surfaceRef.current?.querySelector<HTMLElement>("button, a[href]");
@@ -67,7 +67,7 @@ export function Dialog({ open, onClose, title, description, children, mode = "di
     <div className={backdropClassName} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div ref={surfaceRef} tabIndex={-1} className={surfaceClassName} role="dialog" aria-modal="true" aria-labelledby={headingId} aria-describedby={descriptionId}>
         <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4 sm:px-6">
-          <div className="min-w-0"><h2 id={headingId} className="text-lg font-semibold tracking-[-0.02em] text-ink">{title}</h2>{description ? <p id={descriptionId} className="mt-1 text-sm leading-6 text-slate">{description}</p> : null}</div>
+          <div className="min-w-0"><h2 id={headingId} className="break-words text-lg font-semibold tracking-[-0.02em] text-ink">{title}</h2>{description ? <p id={descriptionId} className="mt-1 break-words text-sm leading-6 text-slate">{description}</p> : null}</div>
           <button type="button" className="button-secondary min-h-11 shrink-0 px-3" onClick={onClose} aria-label="Fechar janela"><X size={18} aria-hidden="true" /></button>
         </div>
         <div className="px-5 py-5 sm:px-6">{children}</div>

@@ -30,6 +30,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:ci_only_password@localhost:5432/atlas_innove_ci?schema=public
       SESSION_SECRET: ci-only-session-secret-not-for-production-0123456789
       REQUIRE_DOMAIN_DATABASE: "true"
+      APP_BASE_URL: "https://innove.example.test"
       DEMO_ENABLED: "false"
       NEXT_TELEMETRY_DISABLED: "1"
     steps:

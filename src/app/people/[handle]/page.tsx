@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PublicShell } from "@/components/public-shell";
 import { ProfileRenderer } from "@/components/profiles/profile-renderer";
 import { getPublicProfile } from "@/lib/profiles/service";
+import { appMetadataUrl } from "@/lib/app-base-url";
 
 type Context = { params: Promise<{ handle: string }> };
 export async function generateMetadata({ params }: Context): Promise<Metadata> {
@@ -10,7 +11,7 @@ export async function generateMetadata({ params }: Context): Promise<Metadata> {
   if (!profile) return { title: "Perfil não encontrado", robots: { index: false, follow: false } };
   return {
     title: profile.fullName, description: profile.headline ?? undefined,
-    alternates: { canonical: `https://innove.ouseagency.com/people/${profile.handle}` },
+    alternates: { canonical: appMetadataUrl(`/people/${profile.handle}`) },
     robots: { index: true, follow: true },
   };
 }

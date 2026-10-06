@@ -6,6 +6,8 @@ RUN npm ci
 
 FROM dependencies AS builder
 
+ARG APP_BASE_URL
+ENV APP_BASE_URL=$APP_BASE_URL
 COPY prisma ./prisma
 RUN npx prisma generate
 COPY . .

@@ -12,6 +12,7 @@ export function FundingCallNavigation({ programId, callId }: { programId: string
     { label: "Candidaturas", href: `${base}/applications` },
     { label: "Avaliação", href: `${base}/evaluation` },
     { label: "Classificação", href: `${base}/ranking` },
+    { label: "Execução", href: `${base}/execution` },
     { label: "Acompanhamento", href: `${base}/tracking` },
   ];
   const active = items.find((item) => item.href === pathname || (item.href !== base && pathname.startsWith(`${item.href}/`)))?.href ?? base;

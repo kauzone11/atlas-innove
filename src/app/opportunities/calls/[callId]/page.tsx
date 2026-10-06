@@ -6,11 +6,12 @@ import { Breadcrumbs, PageHeader } from "@/components/ui";
 import { OpportunityCallDetail } from "@/components/opportunities/call-detail";
 import { getPublicOpportunity } from "@/lib/opportunities/service";
 import { getAuthenticatedSession } from "@/lib/auth/session";
+import { appMetadataUrl } from "@/lib/app-base-url";
 type Props = { params: Promise<{ callId: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { callId } = await params; const call = await getPublicOpportunity(callId);
   if (!call) return { title: "Edital não encontrado | Atlas Innove", robots: { index: false, follow: false } };
-  return { title: `${call.title} | Atlas Innove`, description: (call.objective || `${call.institution} · Edital ${call.callNumber}`).slice(0, 160), alternates: { canonical: `/opportunities/calls/${callId}` } };
+  return { title: `${call.title} | Atlas Innove`, description: (call.objective || `${call.institution} · Edital ${call.callNumber}`).slice(0, 160), alternates: { canonical: appMetadataUrl(`/opportunities/calls/${callId}`) } };
 }
 export default async function PublicCallPage({ params }: Props) {
   const { callId } = await params; const [call, auth] = await Promise.all([getPublicOpportunity(callId), getAuthenticatedSession()]); if (!call) notFound();

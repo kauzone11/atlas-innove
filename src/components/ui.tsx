@@ -14,10 +14,10 @@ export function PageHeader({
 }) {
   return (
     <header className="page-header">
-      <div className="min-w-0">
+      <div className="min-w-0 max-w-full">
         {breadcrumbs}
-        <h1>{title}</h1>
-        {description ? <p>{description}</p> : null}
+        <h1 className="break-words">{title}</h1>
+        {description ? <p className="break-words">{description}</p> : null}
       </div>
       {action ? <div className="page-header-actions">{action}</div> : null}
     </header>
@@ -29,9 +29,9 @@ export function Breadcrumbs({ items }: { items: Array<{ label: string; href?: st
     <nav className="breadcrumbs" aria-label="Navegação estrutural">
       <ol>
         {items.map((item, index) => (
-          <li key={`${item.label}-${index}`} className="flex items-center gap-2">
-            {item.href ? <Link href={item.href}>{item.label}</Link> : <span aria-current="page">{item.label}</span>}
-            {index < items.length - 1 ? <span aria-hidden="true">/</span> : null}
+          <li key={`${item.label}-${index}`} className="flex min-w-0 max-w-full items-center gap-2">
+            {item.href ? <Link className="min-w-0 break-words" href={item.href}>{item.label}</Link> : <span className="min-w-0 break-words" aria-current="page">{item.label}</span>}
+            {index < items.length - 1 ? <span className="shrink-0" aria-hidden="true">/</span> : null}
           </li>
         ))}
       </ol>
@@ -50,9 +50,9 @@ export function Panel({ children, className = "" }: { children: ReactNode; class
 export function PanelHeader({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
   return (
     <div className="panel-header flex flex-col items-start justify-between gap-4 sm:flex-row">
-      <div className="min-w-0">
-        <h2>{title}</h2>
-        {description ? <p>{description}</p> : null}
+      <div className="min-w-0 max-w-full">
+        <h2 className="break-words">{title}</h2>
+        {description ? <p className="break-words">{description}</p> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>

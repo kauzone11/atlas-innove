@@ -1,0 +1,49 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Check, ListTodo, Pencil, Plus } from "lucide-react";
+import { Dialog } from "@/components/dialog";
+import { Panel, PanelHeader, StatusBadge } from "@/components/ui";
+import { ParticipantEmpty } from "@/components/personal/record-list";
+import { personalRequest } from "@/components/personal/record-form";
+import { formatMonitoringDate } from "@/lib/monitoring/format";
+import type { ProjectCollaborationDto, ProjectCollaboratorDto, ProjectTaskDto } from "@/lib/project-collaboration/service";
+import { taskPriorityLabels, taskStatusLabels, type TaskStatus } from "@/lib/project-collaboration/state";
+
+function TaskEditor({ projectId, task, collaborators }: { projectId: string; task?: ProjectTaskDto; collaborators: ProjectCollaboratorDto[] }) {
+  const router = useRouter(); const [open, setOpen] = useState(false); const [pending, setPending] = useState(false); const [error, setError] = useState<string | null>(null);
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); const data = new FormData(event.currentTarget); setPending(true); setError(null);
+    try {
+      const assigneeUserId = data.get("assigneeUserId") || null;
+      await personalRequest(`/api/personal/projects/${projectId}/tasks${task ? `/${task.id}` : ""}`, task ? "PATCH" : "POST", {
+        title: data.get("title"), description: data.get("description") || null, priority: data.get("priority"), dueAt: data.get("dueAt") || null,
+        ...(!task || assigneeUserId !== task.assigneeUserId ? { assigneeUserId } : {}), ...(task ? { expectedRevision: task.revision } : {}),
+      }); setOpen(false); router.refresh();
+    } catch (error) { setError(error instanceof Error ? error.message : "Não foi possível salvar a tarefa."); }
+    finally { setPending(false); }
+  }
+  return <><button type="button" className="button-secondary" onClick={() => { setError(null); setOpen(true); }}>{task ? <Pencil size={15} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}{task ? "Editar" : "Criar tarefa"}</button><Dialog open={open} onClose={() => { if (!pending) setOpen(false); }} title={task ? "Editar tarefa" : "Criar tarefa"} description="Organize o próximo passo e escolha quem ficará responsável."><form onSubmit={submit} className="space-y-4"><label className="block space-y-2 text-sm font-medium"><span>Título</span><input className="field-control" name="title" defaultValue={task?.title} required minLength={2} maxLength={180} /></label><label className="block space-y-2 text-sm font-medium"><span>Descrição (opcional)</span><textarea className="field-control" name="description" defaultValue={task?.description ?? ""} rows={3} maxLength={4000} /></label><label className="block space-y-2 text-sm font-medium"><span>Responsável (opcional)</span><select className="field-control" name="assigneeUserId" defaultValue={task?.assigneeUserId ?? ""}><option value="">Sem responsável</option>{task?.assigneeUserId && !task.assigneeHasCurrentAccess ? <option value={task.assigneeUserId}>{task.assigneeName} · Sem vínculo atual</option> : null}{collaborators.map((person) => <option key={person.userId} value={person.userId}>{person.fullName}</option>)}</select></label><div className="grid gap-4 sm:grid-cols-2"><label className="block space-y-2 text-sm font-medium"><span>Prioridade</span><select className="field-control" name="priority" defaultValue={task?.priority ?? "MEDIUM"}>{Object.entries(taskPriorityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="block space-y-2 text-sm font-medium"><span>Prazo (opcional)</span><input className="field-control" type="date" name="dueAt" defaultValue={task?.dueAt ?? ""} /></label></div>{error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}<button className="button-primary w-full" disabled={pending}>{pending ? "Salvando…" : "Salvar tarefa"}</button></form></Dialog></>;
+}
+
+function TaskStatusActions({ task }: { task: ProjectTaskDto }) {
+  const router = useRouter(); const [pending, setPending] = useState(false); const [cancelOpen, setCancelOpen] = useState(false); const [error, setError] = useState<string | null>(null);
+  async function change(status: TaskStatus) {
+    setPending(true); setError(null);
+    try { await personalRequest(`/api/personal/projects/${task.projectId}/tasks/${task.id}`, "PATCH", { status, expectedRevision: task.revision }); setCancelOpen(false); router.refresh(); }
+    catch (error) { setError(error instanceof Error ? error.message : "Não foi possível atualizar a tarefa."); }
+    finally { setPending(false); }
+  }
+  if (!task.canChangeStatus) return null;
+  return <div><div className="flex flex-wrap gap-2"><button type="button" className="button-secondary" disabled={pending} onClick={() => void change(task.status === "TODO" ? "IN_PROGRESS" : "TODO")}>{task.status === "TODO" ? "Iniciar" : "Voltar a pendente"}</button><button type="button" className="button-secondary" disabled={pending} onClick={() => void change("DONE")}><Check size={16} aria-hidden="true" />Concluir</button><button type="button" className="button-tertiary" disabled={pending} onClick={() => setCancelOpen(true)}>Cancelar tarefa</button></div>{error && !cancelOpen ? <p className="mt-2 text-sm text-danger" role="alert">{error}</p> : null}<Dialog open={cancelOpen} onClose={() => { if (!pending) setCancelOpen(false); }} title="Cancelar tarefa" description={`A tarefa “${task.title}” será encerrada. O registro será preservado e não poderá ser reaberto.`}>{error ? <p className="mb-3 text-sm text-danger" role="alert">{error}</p> : null}<div className="flex flex-wrap gap-3"><button className="button-secondary" disabled={pending} onClick={() => setCancelOpen(false)}>Manter tarefa</button><button className="button-primary" disabled={pending} onClick={() => void change("CANCELLED")}>{pending ? "Cancelando…" : "Confirmar cancelamento"}</button></div></Dialog></div>;
+}
+
+export function ProjectTasks({ projectId, workspace }: { projectId: string; workspace: ProjectCollaborationDto }) {
+  const filter = workspace.taskFilter; const tasks = workspace.tasks;
+  const taskHref = (value: string, page = 1) => `/app/personal/projects/${projectId}?section=tasks&taskFilter=${value}&taskPage=${page}`;
+  const emptyTitle = workspace.taskTotal > 0 ? "Nenhuma tarefa nesta página" : filter === "pending" ? "Nenhuma tarefa pendente" : filter === "completed" ? "Nenhuma tarefa encerrada" : "Nenhuma tarefa registrada";
+  const emptyDescription = workspace.taskTotal > 0 ? "Volte à primeira página para consultar as tarefas deste filtro." : filter === "pending" ? "Consulte Todas ou Encerradas para ver o histórico, ou organize o próximo passo com uma tarefa." : filter === "completed" ? "As tarefas concluídas ou canceladas aparecerão neste histórico." : "Organize o próximo passo do projeto com uma tarefa.";
+  return <Panel><PanelHeader title="Tarefas" description="Trabalho privado dos colaboradores atuais do projeto." action={workspace.canManage ? <TaskEditor projectId={projectId} collaborators={workspace.collaborators} /> : undefined} /><div className="flex flex-wrap gap-2 border-b border-line px-5 py-3" role="group" aria-label="Filtrar tarefas">{([["pending", "Pendentes"], ["all", "Todas"], ["completed", "Encerradas"]] as const).map(([value, label]) => <Link key={value} aria-current={filter === value ? "page" : undefined} className={filter === value ? "button-secondary bg-paper" : "button-tertiary"} href={taskHref(value)}>{label}</Link>)}</div>{tasks.length ? <ul className="divide-y divide-line">{tasks.map((task) => <li key={task.id} className="space-y-3 px-5 py-4"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1"><h3 className="flex items-start gap-2 break-words font-medium"><ListTodo size={17} className="mt-0.5 shrink-0 text-slate" aria-hidden="true" /><span className="min-w-0 break-words">{task.title}</span></h3><div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate"><StatusBadge label={taskStatusLabels[task.status]} tone={task.status === "DONE" ? "success" : "neutral"} /><span>Prioridade {taskPriorityLabels[task.priority].toLocaleLowerCase("pt-BR")}</span><span>{task.assigneeName ?? "Sem responsável"}{task.assigneeUserId && !task.assigneeHasCurrentAccess ? " · Sem vínculo atual" : ""}</span>{task.dueAt ? <span className={task.overdue ? "font-medium text-danger" : ""}>{task.overdue ? "Em atraso · " : "Prazo · "}{formatMonitoringDate(task.dueAt)}</span> : null}</div></div>{task.canEdit ? <TaskEditor projectId={projectId} task={task} collaborators={workspace.collaborators} /> : null}</div>{task.description ? <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate">{task.description}</p> : null}<TaskStatusActions task={task} /></li>)}</ul> : <ParticipantEmpty title={emptyTitle} description={emptyDescription} action={workspace.taskTotal > 0 ? <Link className="button-secondary" href={taskHref(filter)}>Primeira página</Link> : undefined} />}{workspace.taskTotal > workspace.taskPageSize ? <nav aria-label="Paginação de tarefas" className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-4 text-sm"><p className="text-slate">Página {workspace.taskPage} de {Math.ceil(workspace.taskTotal / workspace.taskPageSize)} · {workspace.taskTotal} tarefas</p><div className="flex gap-2">{workspace.taskPage > 1 ? <Link className="button-secondary" href={taskHref(filter, workspace.taskPage - 1)}>Anterior</Link> : null}{workspace.taskPage * workspace.taskPageSize < workspace.taskTotal ? <Link className="button-secondary" href={taskHref(filter, workspace.taskPage + 1)}>Próxima</Link> : null}</div></nav> : null}</Panel>;
+}

@@ -5,6 +5,7 @@ import { ExternalLink, ShieldCheck } from "lucide-react";
 import { PublicShell } from "@/components/public-shell";
 import { StatusBadge } from "@/components/ui";
 import { getPublicProject } from "@/lib/participants/public-project";
+import { appMetadataUrl } from "@/lib/app-base-url";
 import { projectStatusLabels } from "@/lib/participants/presentation";
 import { formatMonitoringDate } from "@/lib/monitoring/format";
 
@@ -12,7 +13,7 @@ type Props = { params: Promise<{ slug: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const project = await getPublicProject((await params).slug);
   if (!project) return { title: "Projeto não encontrado", robots: { index: false, follow: false } };
-  return { title: `${project.name} · Atlas Innove`, description: project.summary.slice(0, 160), alternates: { canonical: `https://innove.ouseagency.com/projects/${project.slug}` }, robots: { index: true, follow: true } };
+  return { title: `${project.name} · Atlas Innove`, description: project.summary.slice(0, 160), alternates: { canonical: appMetadataUrl(`/projects/${project.slug}`) }, robots: { index: true, follow: true } };
 }
 export default async function PublicProjectPage({ params }: Props) {
   const project = await getPublicProject((await params).slug);

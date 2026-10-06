@@ -22,7 +22,7 @@ A proposta é organizar, em uma mesma infraestrutura, o contexto do apoio recebi
 
 O modelo conceitual parte desta sequência:
 
-**Instituição → Programa de fomento → Edital → Coorte → Empreendimento → Ondas de acompanhamento → Evidências → Análise**
+**Instituição → Programa de fomento → Edital → Seleção → Apoio e execução → Acompanhamento longitudinal → Evidências → Análise**
 
 ## Como o modelo funciona
 
@@ -77,17 +77,25 @@ npm run dev
 
 As flags `ALLOW_DEV_RESET_TOKEN` e `ALLOW_DEV_INVITE_TOKEN` são exclusivas para desenvolvimento e devem permanecer desativadas em produção.
 
+Em produção, `APP_BASE_URL` define a origem HTTPS dos metadados públicos e deve estar configurada no build e na execução. Builds Docker recebem essa origem pelo argumento `APP_BASE_URL`.
+
 Os testes de domínio devem usar um PostgreSQL descartável. A integração contínua aplica as migrations e executa as verificações de tipos, segurança, domínio, demonstração e build, sem dispensar o banco de testes.
 
 ## Participação e seleção
 
 A mesma conta pode atuar como participante e acessar os espaços institucionais para os quais possui autorização. Pessoas, equipes e projetos mantêm sua identidade ao participar de diferentes programas.
 
-**Pessoa → Equipe → Projeto → Candidatura → Edital → Avaliação → Decisão → Acompanhamento**
+**Pessoa → Equipe → Projeto → Candidatura → Avaliação → Decisão → Apoio → Execução → Acompanhamento**
 
 Equipes e projetos são privados por padrão. Convites permitem ingressar em uma equipe; a candidatura entrega à instituição uma cópia das informações apresentadas na data do envio, preservada mesmo quando o projeto evolui.
 
-A avaliação humana utiliza critérios e pesos definidos por edital. A classificação reúne apenas avaliações enviadas e informa a decisão institucional. O resultado é publicado de forma intencional; participantes consultam seu próprio resultado. Projetos selecionados podem ingressar em uma coorte com vínculo à candidatura de origem.
+A avaliação humana utiliza critérios e pesos definidos por edital. A classificação reúne apenas avaliações enviadas e informa a decisão institucional. O resultado é publicado de forma intencional; participantes consultam seu próprio resultado. Uma candidatura selecionada pode originar um apoio, financeiro ou não, com período de execução, obrigações e documentos próprios.
+
+A execução organiza entregas e relatórios, preservando cada versão enviada e a análise institucional. Desembolsos registram repasses previstos e realizados; não processam pagamentos nem representam despesas do projeto. Responsáveis pelo projeto elaboram as submissões, recebem orientações de ajuste e acompanham seu histórico.
+
+O acompanhamento longitudinal continua separado das obrigações da execução. Um apoio ativo pode ser conectado a um empreendimento e a uma coorte, preservando a candidatura de origem. As ondas podem começar durante a execução e continuar após sua conclusão; vínculos históricos anteriores permanecem válidos.
+
+Tarefas, recursos e atividade operacional pertencem ao espaço privado dos colaboradores atuais do projeto. Essas informações não são compartilhadas automaticamente com a instituição ou com páginas públicas. Os centros de ações organizam pendências reais a partir dos registros da plataforma.
 
 Os protocolos de acompanhamento preservam versões imutáveis de seus indicadores. Cada coorte utiliza uma versão definida, e as observações de cada onda mantêm o histórico, distinguindo valores observados de informações ausentes.
 

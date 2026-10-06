@@ -9,6 +9,7 @@ import { PageHeader, Panel, PanelHeader, StatusBadge, statusTone } from "@/compo
 import { MonitoringWaves } from "@/components/monitoring-waves";
 import { getLatestCohortResults, getOrganizationMonitoring } from "@/lib/monitoring/read-model";
 import { formatIndicatorValue } from "@/lib/monitoring/format";
+import { getInstitutionExecutionAttention } from "@/lib/action-center/institution";
 
 export default async function AppHomePage() {
   const auth = await getAuthenticatedSession();
@@ -17,11 +18,12 @@ export default async function AppHomePage() {
   if (!context && auth.memberships.length > 1) redirect("/app/organizations");
   if (!context) return <EmptyWorkspace />;
 
-  const [programs, ventures, waves, latestResults] = await Promise.all([
+  const [programs, ventures, waves, latestResults, executionAttention] = await Promise.all([
     listOrganizationPrograms(context.organization.id),
     listOrganizationVentures(context.organization.id),
     getOrganizationMonitoring(context.organization.id),
     getLatestCohortResults(context.organization.id),
+    getInstitutionExecutionAttention(context),
   ]);
   const activeWaves = waves.filter((wave) => ["OVERDUE", "OPEN", "UPCOMING"].includes(wave.attention));
   const expected = waves.filter((wave) => wave.status !== "ARCHIVED").reduce((total, wave) => total + wave.coverage.expected, 0);
@@ -39,6 +41,8 @@ export default async function AppHomePage() {
         <SummaryItem label="Ondas abertas" value={waves.filter((wave) => wave.status === "OPEN").length} href="/app/follow-ups" />
         <SummaryItem label="Observações enviadas" value={`${submitted}/${expected}`} href="/app/follow-ups" />
       </dl>
+
+      {executionAttention.pendingReviews || executionAttention.overdueObligations ? <section className="flex flex-wrap items-center justify-between gap-4 border-y border-line py-4" aria-labelledby="execution-attention"><div><h2 id="execution-attention" className="text-sm font-semibold">Execução dos apoios</h2><p className="mt-1 text-sm text-slate">{executionAttention.pendingReviews} submissão(ões) aguardando análise · {executionAttention.overdueObligations} obrigação(ões) em atraso</p></div><Link href="/app/execution" className="button-secondary">Consultar execução</Link></section> : null}
 
       <Panel>
         <PanelHeader title="Próximas ações" description="Ondas em atraso, abertas e previstas nos programas da organização." action={<Link href="/app/follow-ups" className="button-tertiary min-h-9 px-2 text-xs">Ver acompanhamentos</Link>} />
