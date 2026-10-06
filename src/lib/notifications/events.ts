@@ -1,14 +1,7 @@
 import type { NotificationKind, Prisma } from "@prisma/client";
-import { createNotifications, MAX_NOTIFICATION_FANOUT } from "@/lib/notifications/service";
-
-export async function projectManagerIds(client: Prisma.TransactionClient, projectId: string) {
-  const project = await client.project.findUnique({ where: { id: projectId }, select: {
-    memberships: { where: { leftAt: null, role: { in: ["OWNER", "LEAD"] } }, select: { userId: true }, orderBy: { userId: "asc" }, take: MAX_NOTIFICATION_FANOUT },
-    primaryTeam: { select: { archivedAt: true, memberships: { where: { status: "ACTIVE", leftAt: null, role: { in: ["OWNER", "LEAD"] } }, select: { userId: true }, orderBy: { userId: "asc" }, take: MAX_NOTIFICATION_FANOUT } } },
-  } });
-  if (!project) return [];
-  return [...new Set([...project.memberships, ...(!project.primaryTeam?.archivedAt ? project.primaryTeam?.memberships ?? [] : [])].map((member) => member.userId))].sort().slice(0, MAX_NOTIFICATION_FANOUT);
-}
+import { createNotifications } from "@/lib/notifications/service";
+import { projectManagerIds } from "@/lib/network/project-contact";
+export { projectManagerIds } from "@/lib/network/project-contact";
 
 export async function notifyAwardManagers(client: Prisma.TransactionClient, input: {
   organizationId: string; awardId: string; actorUserId: string; kind: NotificationKind;

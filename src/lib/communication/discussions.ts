@@ -100,8 +100,13 @@ export async function replyProjectDiscussion(userId: string, projectId: string, 
     const message = await client.projectDiscussionMessage.create({ data: { discussionId, authorUserId: userId, body, createdAt: now }, select: { id: true } });
     await client.projectDiscussion.update({ where: { id: discussionId }, data: { updatedAt: now } });
     await client.projectDiscussionSubscription.upsert({ where: { discussionId_userId: { discussionId, userId } }, create: { discussionId, userId }, update: {} });
-    const subscribers = await client.projectDiscussionSubscription.findMany({ where: { discussionId, userId: { in: collaboratorIds, not: userId } }, orderBy: [{ createdAt: "asc" }, { userId: "asc" }], select: { userId: true }, take: 100 });
-    await createNotifications(client, subscribers.map(({ userId: recipientUserId }) => ({ actorUserId: userId, recipientUserId, kind: "PROJECT_DISCUSSION" as const, entityType: "PROJECT_DISCUSSION", entityId: discussionId, title: "Resposta em discussão do projeto", body: "Uma discussão que você acompanha recebeu uma resposta.", href: `/app/personal/projects/${projectId}/discussions/${discussionId}`, dedupeKey: `discussion-reply:${message.id}:${recipientUserId}` })));
+    let afterUserId: string | undefined;
+    for (;;) {
+      const subscribers: Array<{ userId: string }> = await client.projectDiscussionSubscription.findMany({ where: { discussionId, userId: { in: collaboratorIds, not: userId, ...(afterUserId ? { gt: afterUserId } : {}) } }, orderBy: { userId: "asc" }, select: { userId: true }, take: 100 });
+      if (!subscribers.length) break;
+      await createNotifications(client, subscribers.map(({ userId: recipientUserId }) => ({ actorUserId: userId, recipientUserId, kind: "PROJECT_DISCUSSION" as const, entityType: "PROJECT_DISCUSSION", entityId: discussionId, title: "Resposta em discussão do projeto", body: "Uma discussão que você acompanha recebeu uma resposta.", href: `/app/personal/projects/${projectId}/discussions/${discussionId}`, dedupeKey: `discussion-reply:${message.id}:${recipientUserId}` })));
+      afterUserId = subscribers.at(-1)?.userId;
+    }
     return { messageId: message.id };
   });
 }

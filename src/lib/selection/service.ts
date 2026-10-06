@@ -3,7 +3,8 @@ import { Prisma, type FundingCall, type Application } from "@prisma/client";
 import { AuthorizationError, assertActiveOrganizationAccess, hasAtLeastRole } from "@/lib/auth/authorization";
 import { participantApplicationAccessWhere, projectAccessWhere, requireProjectAccess, requireTeamAccess } from "@/lib/auth/participant-access";
 import { db } from "@/lib/db";
-import { createNotifications, MAX_NOTIFICATION_FANOUT } from "@/lib/notifications/service";
+import { createNotifications } from "@/lib/notifications/service";
+import { historicalApplicationRecipientPage, type HistoricalRecipient } from "@/lib/auth/application-history";
 import { assertCohortCanReceiveEnrollment } from "@/lib/domain-invariants";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 import { isEnrollmentEligibleAt } from "@/lib/observations/validation";
@@ -297,8 +298,13 @@ export async function publishCallResults(organizationId: string, programId: stri
     const applications = await transaction.application.findMany({ where: { organizationId, fundingCallId: callId, status: { notIn: ["DRAFT", "WITHDRAWN"] } }, select: { id: true, decision: true, submittedByUserId: true }, orderBy: { id: "asc" } });
     if (!applications.length || applications.some((application) => application.decision === "PENDING")) throw new DomainConflictError("APPLICATION_DECISIONS_INCOMPLETE");
     const now = new Date(); await transaction.fundingCall.updateMany({ where: { organizationId, id: callId }, data: { status: "RESULT_PUBLISHED", resultsPublishedAt: now } });
-    const recipients = [...new Map(applications.map((application) => [application.submittedByUserId, application])).values()].slice(0, MAX_NOTIFICATION_FANOUT);
-    await createNotifications(transaction, recipients.map((application) => ({ recipientUserId: application.submittedByUserId, actorUserId: userId, kind: "APPLICATION_RESULT", entityType: "Application", entityId: application.id, title: "O resultado do edital está disponível.", href: `/app/personal/applications/${application.id}`, dedupeKey: `application-result:${callId}:${application.submittedByUserId}` })));
+    let cursor: HistoricalRecipient | undefined;
+    for (;;) {
+      const recipients = await historicalApplicationRecipientPage(transaction, organizationId, callId, cursor);
+      if (!recipients.length) break;
+      await createNotifications(transaction, recipients.map((recipient) => ({ recipientUserId: recipient.userId, actorUserId: userId, kind: "APPLICATION_RESULT", entityType: "Application", entityId: recipient.applicationId, title: "O resultado do edital está disponível.", href: `/app/personal/applications/${recipient.applicationId}`, dedupeKey: `application-result:${recipient.applicationId}:${recipient.userId}` })));
+      cursor = recipients.at(-1);
+    }
     return { resultsPublishedAt: now.toISOString() };
   });
 }

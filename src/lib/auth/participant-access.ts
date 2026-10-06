@@ -1,4 +1,5 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import { submittedApplicationParticipantsSql } from "@/lib/auth/application-history";
 
 import { AuthorizationError } from "@/lib/auth/authorization";
 import { db } from "@/lib/db";
@@ -26,15 +27,11 @@ export async function participantApplicationAccessWhere(userId: string, client: 
 
 export async function historicalParticipantApplicationIds(userId: string, client: Prisma.TransactionClient = db): Promise<string[]> {
   // Submission time and the frozen team govern history; an ended period's current status cannot revoke that evidence.
-  const records = await client.$queryRaw<Array<{ id: string }>>`
+  const records = await client.$queryRaw<Array<{ id: string }>>(Prisma.sql`
     SELECT a."id" FROM "Application" a
-    WHERE a."submittedAt" IS NOT NULL AND (
-      a."submittedByUserId" = ${userId}
-      OR EXISTS (SELECT 1 FROM "ProjectMembership" m WHERE m."projectId" = a."projectId" AND m."userId" = ${userId}
-        AND m."joinedAt" <= a."submittedAt" AND (m."leftAt" IS NULL OR m."leftAt" > a."submittedAt"))
-      OR EXISTS (SELECT 1 FROM "TeamMembership" m WHERE m."teamId" = a."teamId" AND m."userId" = ${userId}
-        AND m."joinedAt" <= a."submittedAt" AND (m."leftAt" IS NULL OR m."leftAt" > a."submittedAt"))
-    )`;
+    WHERE a."submittedAt" IS NOT NULL AND EXISTS (
+      SELECT 1 FROM (${submittedApplicationParticipantsSql()}) participant WHERE participant."userId" = ${userId}
+    )`);
   return records.map((record) => record.id);
 }
 

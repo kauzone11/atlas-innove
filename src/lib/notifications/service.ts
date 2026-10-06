@@ -15,7 +15,7 @@ const contactKinds = new Set<NotificationKind>([
   "PROJECT_INVITE", "PROJECT_INVITE_ACCEPTED", "PROJECT_COLLABORATION_REQUEST",
   "PROJECT_COLLABORATION_ACCEPTED", "DIRECT_MESSAGE", "PROJECT_DISCUSSION", "PROJECT_MENTION",
 ]);
-export const MAX_NOTIFICATION_FANOUT = 100;
+export const NOTIFICATION_CHUNK_SIZE = 100;
 
 export async function createNotification(client: Prisma.TransactionClient, input: NotificationInput) {
   if (input.actorUserId === input.recipientUserId) return null;
@@ -27,9 +27,19 @@ export async function createNotification(client: Prisma.TransactionClient, input
 }
 
 export async function createNotifications(client: Prisma.TransactionClient, inputs: NotificationInput[]) {
-  const unique = [...new Map(inputs.map((input) => [`${input.recipientUserId}:${input.dedupeKey}`, input])).values()];
-  if (unique.length > MAX_NOTIFICATION_FANOUT) throw new Error("NOTIFICATION_FANOUT_EXCEEDED");
-  for (const input of unique) await createNotification(client, input);
+  const unique = [...new Map(inputs.map((input) => [JSON.stringify([input.recipientUserId, input.dedupeKey]), input])).values()];
+  for (const input of unique) if (!input.href.startsWith("/app/") || /[\\\r\n]/.test(input.href)) throw new Error("INVALID_NOTIFICATION_TARGET");
+  for (let offset = 0; offset < unique.length; offset += NOTIFICATION_CHUNK_SIZE) {
+    const chunk = unique.slice(offset, offset + NOTIFICATION_CHUNK_SIZE).filter((input) => input.actorUserId !== input.recipientUserId);
+    const contacts = chunk.filter((input) => input.actorUserId && contactKinds.has(input.kind));
+    const blocks = contacts.length ? await client.userBlock.findMany({ where: { OR: contacts.flatMap((input) => [
+      { blockerUserId: input.actorUserId!, blockedUserId: input.recipientUserId },
+      { blockerUserId: input.recipientUserId, blockedUserId: input.actorUserId! },
+    ]) }, select: { blockerUserId: true, blockedUserId: true } }) : [];
+    const blockedPairs = new Set(blocks.map((block) => JSON.stringify([block.blockerUserId, block.blockedUserId].sort())));
+    const data = chunk.filter((input) => !input.actorUserId || !contactKinds.has(input.kind) || !blockedPairs.has(JSON.stringify([input.actorUserId, input.recipientUserId].sort())));
+    if (data.length) await client.notification.createMany({ data, skipDuplicates: true });
+  }
 }
 
 export async function unreadNotificationCount(userId: string) {

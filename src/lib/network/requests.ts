@@ -9,7 +9,7 @@ import { lockNetworkUsers } from "@/lib/network/locking";
 import { projectContactAllowedSql, projectManagerIds } from "@/lib/network/project-contact";
 export { projectManagerIds } from "@/lib/network/project-contact";
 import { projectRequestSchema, requestActionSchema } from "@/lib/network/schemas";
-import { createNotification } from "@/lib/notifications/service";
+import { createNotification, createNotifications } from "@/lib/notifications/service";
 
 export type ProjectRequestState = { state: "AVAILABLE" | "UNAVAILABLE" | "PENDING" | "MEMBER"; requestId?: string };
 
@@ -58,7 +58,7 @@ export async function sendProjectRequest(userId: string, projectId: string, valu
     if (await client.projectCollaborationRequest.findFirst({ where: { projectId, requesterUserId: userId, status: "PENDING" }, select: { id: true } })) throw new DomainConflictError("PROJECT_REQUEST_PENDING");
     if (await client.projectCollaborationRequest.count({ where: { requesterUserId: userId, createdAt: { gte: new Date(Date.now() - 86400000) } } }) >= 20) throw new DomainConflictError("NETWORK_REQUEST_LIMIT");
     const request = await client.projectCollaborationRequest.create({ data: { projectId, requesterUserId: userId, message: input.message || null }, select: { id: true } });
-    for (const manager of currentManagerIds.slice(0, 100)) await createNotification(client, { recipientUserId: manager, actorUserId: userId, kind: "PROJECT_COLLABORATION_REQUEST", entityType: "PROJECT_COLLABORATION_REQUEST", entityId: request.id, dedupeKey: `project-request:${request.id}:${manager}`, title: "Interesse em colaborar no projeto", href: `/app/personal/projects/${projectId}?section=requests` });
+    await createNotifications(client, currentManagerIds.map((manager) => ({ recipientUserId: manager, actorUserId: userId, kind: "PROJECT_COLLABORATION_REQUEST", entityType: "PROJECT_COLLABORATION_REQUEST", entityId: request.id, dedupeKey: `project-request:${request.id}:${manager}`, title: "Interesse em colaborar no projeto", href: `/app/personal/projects/${projectId}?section=requests` })));
     return request;
   });
 }
