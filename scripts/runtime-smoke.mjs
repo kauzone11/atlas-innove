@@ -36,10 +36,10 @@ for (const route of ["/demo", "/demo/programas", "/demo/oportunidades", "/demo/a
     const response = await request(route); assert.equal(response.status, process.env.DEMO_ENABLED === "true" ? 200 : 404, route); await response.arrayBuffer();
   });
 }
-for (const route of ["/opportunities/calls/runtime-missing", "/results/runtime-missing", "/people/runtime-missing", "/projects/runtime-missing"]) {
+for (const route of ["/opportunities/calls/runtime-missing", "/results/runtime-missing", "/people/runtime-missing", "/projects/runtime-missing", "/posts/nonexistent-safe-id"]) {
   await check(route, async () => { const response = await request(route); assert.equal(response.status, 404, route); await response.arrayBuffer(); });
 }
-for (const route of ["/app", "/app/personal", "/app/analytics/quality", "/app/personal/network/requests", "/app/messages", "/app/programs/runtime-missing/cohorts/runtime-missing"]) {
+for (const route of ["/app", "/app/personal", "/app/personal/feed", "/app/analytics/quality", "/app/personal/network/requests", "/app/messages", "/app/programs/runtime-missing/cohorts/runtime-missing"]) {
   await check(route, async () => {
     const response = await request(route); assert.ok([302, 303, 307, 308].includes(response.status), `${route}: ${response.status}`);
     const location = new URL(response.headers.get("location"), base); assert.equal(location.pathname, "/login"); assert.equal(location.searchParams.get("next"), route); await response.arrayBuffer();

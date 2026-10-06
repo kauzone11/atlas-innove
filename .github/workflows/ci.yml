@@ -46,6 +46,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run test:security
       - run: npm run test:domain
+      - run: npm run test:social
       - run: npm run test:imports
       - run: npm run test:demo
       - run: npx playwright install --with-deps chromium

@@ -8,7 +8,7 @@ import { createProtocolVersion } from "@/lib/tracking-protocols/service";
 import type { ImportBatch, ImportType } from "@prisma/client";
 
 const password = "Disposable-browser-password-2026!";
-const baseURL = "http://127.0.0.1:3000";
+const baseURL = process.env.INNOVE_BROWSER_BASE_URL ?? "http://127.0.0.1:3000";
 async function fixture() {
   if (process.env.REQUIRE_DOMAIN_DATABASE !== "true" || !process.env.DATABASE_URL?.includes("atlas_innove_ci")) throw new Error("Browser fixtures require the designated disposable CI database");
   const suffix = randomUUID();

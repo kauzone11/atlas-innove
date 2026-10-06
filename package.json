@@ -14,6 +14,7 @@
     "start": "next start",
     "test:runtime": "node scripts/runtime-smoke.mjs",
     "test:imports": "tsx --test src/lib/imports/*.test.ts src/lib/onboarding/*.test.ts",
+    "test:social": "tsx --test src/lib/social/*.test.ts",
     "test:browser": "playwright test",
     "typecheck": "tsc --noEmit",
     "db:format": "prisma format",

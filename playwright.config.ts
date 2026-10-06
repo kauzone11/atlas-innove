@@ -12,5 +12,5 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   outputDir: process.env.INNOVE_BROWSER_OUTPUT ?? join(tmpdir(), "atlas-innove-browser-results"),
   reporter: "list",
-  use: { baseURL: "http://127.0.0.1:3000", browserName: "chromium", locale: "pt-BR", actionTimeout: 15_000, navigationTimeout: 30_000, viewport: { width: 1440, height: 1000 }, screenshot: "only-on-failure", trace: "retain-on-failure" },
+  use: { baseURL: process.env.INNOVE_BROWSER_BASE_URL ?? "http://127.0.0.1:3000", browserName: "chromium", locale: "pt-BR", actionTimeout: 15_000, navigationTimeout: 30_000, viewport: { width: 1440, height: 1000 }, screenshot: "only-on-failure", trace: "retain-on-failure" },
 });
