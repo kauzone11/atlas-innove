@@ -46,12 +46,15 @@ export async function evaluateImportBatch(client: Prisma.TransactionClient, batc
       generatedCount += placeholderCount(resolved, context);
     } catch (error) { item.errors.push(...issues(error)); }
     const keys = [`external:${resolved.input.externalId}`, naturalKey(resolved)];
+    if (resolved.input.type === "FOLLOW_UP_WAVES" && resolved.input.data.offsetMonths != null) keys.push(`offset:${JSON.stringify([resolved.refs.cohort, resolved.input.data.offsetMonths])}`);
     for (const key of keys.filter((key): key is string => Boolean(key))) {
       const same = seen.get(key) ?? []; same.push(item); seen.set(key, same);
     }
   }
   for (const [key, duplicates] of seen) {
-    if (duplicates.length > 1 && batch.type !== "OBSERVATIONS") for (const item of duplicates) item.errors.push({ code: "IMPORT_DUPLICATE_ROW", field: key.startsWith("external:") ? "external_id" : undefined });
+    if (duplicates.length > 1 && batch.type !== "OBSERVATIONS") {
+      for (const item of duplicates) item.errors.push(key.startsWith("offset:") ? { code: "IMPORT_OFFSET_AMBIGUOUS", field: "offset_months" } : { code: "IMPORT_DUPLICATE_ROW", field: key.startsWith("external:") ? "external_id" : undefined });
+    }
   }
   if (generatedCount + rows.length > MAX_IMPORT_ENTITIES) throw new ImportInputError("IMPORT_ENTITY_LIMIT");
   const observationGroups = prepareObservationGroups(rows, context);

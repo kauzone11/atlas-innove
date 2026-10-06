@@ -38,6 +38,14 @@ test("long observation imports preserve real methodology, grouped evidence, pris
       return updateFollowUpWaveStatus(org.id, cohort.id, wave.id, "OPEN");
     }));
     const row = (index: number, key: string, value: string, overrides: Record<string, string> = {}) => ({ external_id: `o${index}`, venture_enrollment_id: enrollments[0][index].id, follow_up_wave_id: waves[0].id, indicator_key: key, value, status: "SUBMITTED", submitted_at: "2024-01-03T09:00:00-03:00", ...overrides });
+    const contradictory = [row(2, "headcount", "1", { cohort_id: cohorts[0].id }), row(2, "revenue", "2.00", { cohort_id: cohorts[1].id })];
+    for (const source of [contradictory, [...contradictory].reverse()]) {
+      const rejected = await stage(source);
+      assert.equal(rejected.status, "FAILED"); assert.equal(rejected.invalidRows, 2);
+      assert.ok((await getImportBatch(user.id, org.id, rejected.id)).rows.every((item) => JSON.stringify(item.errors).includes("IMPORT_REFERENCE_AMBIGUOUS")));
+      await assert.rejects(() => applyImportBatch(user.id, org.id, rejected.id, rejected.revision), /IMPORT_NOT_READY/);
+    }
+    assert.equal(await db.observationValue.count({ where: { organizationId: org.id, observation: { ventureEnrollmentId: enrollments[0][2].id } } }), 0);
     const original = await db.ventureObservation.findFirstOrThrow({ where: { organizationId: org.id, ventureEnrollmentId: enrollments[0][0].id, followUpWaveId: waves[0].id } });
     const ready = await stage([row(0, "revenue", "0.10"), row(0, "headcount", "0"), row(0, "stage", "MARKET"), row(1, "revenue", "", { missing: "true" }), row(1, "headcount", "2")]);
     assert.equal(ready.status, "READY", JSON.stringify((await getImportBatch(user.id, org.id, ready.id)).rows));

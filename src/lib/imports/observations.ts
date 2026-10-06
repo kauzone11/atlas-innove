@@ -36,7 +36,7 @@ export function prepareObservationGroups(rows: EvaluatedImportRow[], context: Im
     const enrollment = context.state.VENTURE_ENROLLMENTS.get(first.refs.venture_enrollment!)!;
     const wave = context.state.FOLLOW_UP_WAVES.get(first.refs.follow_up_wave!)!;
     if (enrollment.cohortId !== wave.cohortId) { fail(group, "COHORT_SCOPE_MISMATCH"); continue; }
-    if (first.refs.cohort && first.refs.cohort !== enrollment.cohortId || first.refs.venture && first.refs.venture !== enrollment.ventureId) { fail(group, "IMPORT_REFERENCE_AMBIGUOUS"); continue; }
+    if (group.some(({ resolved }) => resolved.refs.cohort && resolved.refs.cohort !== enrollment.cohortId || resolved.refs.venture && resolved.refs.venture !== enrollment.ventureId)) { fail(group, "IMPORT_REFERENCE_AMBIGUOUS"); continue; }
     const cohort = context.state.COHORTS.get(enrollment.cohortId);
     const version = cohort?.trackingProtocolVersionId ? context.versions.get(cohort.trackingProtocolVersionId) : null;
     if (!version?.indicators.length) { fail(group, "OBSERVATION_PROTOCOL_MISSING"); continue; }

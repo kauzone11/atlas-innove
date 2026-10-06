@@ -42,6 +42,13 @@ test("historical structural imports apply atomically with tenant references, pri
     const observation = await db.ventureObservation.findFirstOrThrow({ where: { organizationId: org.id } });
     assert.equal(observation.status, "PENDING"); assert.equal(observation.revision, 0);
     assert.equal(await db.importChange.count({ where: { organizationId: org.id, batchId: waveBatch.id, entityType: "OBSERVATIONS", entityId: observation.id } }), 1);
+    const ambiguousWaves = await stage("FOLLOW_UP_WAVES", [1, 2].map((sequence) => ({ external_id: `ambiguous-${sequence}`, cohort_external_id: "co1", name: `Follow-up ${sequence}`, kind: "FOLLOW_UP", sequence: String(sequence), offset_months: "6", scheduled_for: "2024-07-01", status: "CLOSED" })));
+    const ambiguousReady = await validateImportBatch(user.id, org.id, ambiguousWaves.id, ambiguousWaves.revision);
+    assert.equal(ambiguousReady.status, "FAILED"); assert.equal(ambiguousReady.invalidRows, 2);
+    const ambiguousRows = (await getImportBatch(user.id, org.id, ambiguousWaves.id)).rows;
+    assert.ok(ambiguousRows.every((row) => (row.errors as Array<{ code: string }>).some((issue) => issue.code === "IMPORT_OFFSET_AMBIGUOUS")));
+    await assert.rejects(() => applyImportBatch(user.id, org.id, ambiguousReady.id, ambiguousReady.revision), /IMPORT_NOT_READY/);
+    assert.equal(await db.followUpWave.count({ where: { organizationId: org.id } }), 1);
     await importRows("MILESTONES", [{ external_id: "m1", venture_external_id: "v1", type: "FIRST_CUSTOMER", title: "First client", occurred_at: "2024-06-01T10:00:00Z" }]);
     assert.equal(await db.project.count({ where: { createdByUserId: user.id } }), 0);
     assert.equal(await db.application.count({ where: { organizationId: org.id } }), 0);
