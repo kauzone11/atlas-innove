@@ -141,6 +141,19 @@ test("browser upload, invalid preview, keyboard confirmations, lost response rec
     await page.goto("/app/settings/onboarding"); await expect(page.getByRole("heading", { name: "Preparação institucional", exact: true })).toBeVisible();
     const routes = ["/app/settings", "/app/settings/onboarding", "/app/imports", "/app", "/app/analytics", "/app/analytics/quality", "/opportunities", "/results"];
     for (const path of routes) { const response = await page.goto(path); expect(response?.status(), path).toBe(200); await expect(page.locator("h1").first()).toBeVisible(); }
+    for (const path of ["/app/imports", "/app/settings/onboarding", "/app/settings"]) {
+      await page.goto(path);
+      for (const width of [1600, 1440, 1280, 1024, 768, 430, 390, 375, 320]) {
+        await page.setViewportSize({ width, height: 900 });
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `${path} overflow at ${width}`).toBe(true);
+        await page.screenshot({ path: testInfo.outputPath(`${path.split("/").at(-1)}-${width}.png`) });
+      }
+    }
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1280, height: 900 }); await page.goto("/app/imports");
+    await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), "200% text enlargement overflow").toBe(true);
+    await page.screenshot({ path: testInfo.outputPath("imports-text-200-percent.png") });
     expect(runtimeErrors).toEqual([]);
   } finally { await f.cleanup(); }
 });
