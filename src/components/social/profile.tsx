@@ -1,0 +1,23 @@
+import Link from "next/link";
+import { ProfileRenderer } from "@/components/profiles/profile-renderer";
+import { PersonNetworkActions } from "@/components/network/person-actions";
+import { FollowButton } from "@/components/social/follow-button";
+import { PostCard } from "@/components/social/post-card";
+import { PostComposer } from "@/components/social/post-composer";
+import { getPersonNetworkState } from "@/lib/network/connections";
+import { getInviteOptions } from "@/lib/network/invites";
+import { isProfilePublished, type VisibleProfile } from "@/lib/profiles/service";
+import { getActivity } from "@/lib/social/activity";
+import { getFeaturedPosts, getSocialProfileSummary } from "@/lib/social/read-model";
+
+export async function SocialProfile({ profile, viewerUserId, own = false, publicProfile = false, preview = false, publicOnly = false }: { profile: VisibleProfile; viewerUserId?: string | null; own?: boolean; publicProfile?: boolean; preview?: boolean; publicOnly?: boolean }) {
+  const [summary, activity, featured, connection, inviteOptions, viewerPublished] = await Promise.all([
+    getSocialProfileSummary(profile.userId, viewerUserId), getActivity(profile.userId, viewerUserId, { publicOnly }), getFeaturedPosts(profile.userId, viewerUserId, publicOnly),
+    viewerUserId && !own ? getPersonNetworkState(viewerUserId, profile.userId) : Promise.resolve(null),
+    viewerUserId && !own ? getInviteOptions(viewerUserId, profile.userId) : Promise.resolve(undefined),
+    isProfilePublished(viewerUserId),
+  ]);
+  const activityHref = publicOnly ? `/people/${profile.handle}/activity` : own ? "/app/personal/profile/activity" : viewerUserId ? `/app/personal/network/people/${profile.handle}/activity` : `/people/${profile.handle}/activity`;
+  const follow = viewerUserId && !own ? <FollowButton userId={profile.userId} following={summary.following} canFollow={summary.canFollow} primary={summary.primaryProfileAction === "FOLLOW"} /> : null;
+  return <ProfileRenderer profile={profile} counts={<><span>{summary.followerCount} {summary.followerCount === 1 ? "seguidor" : "seguidores"}</span>{!publicOnly && summary.connectionCount !== null ? <Link className="min-h-11 content-center hover:underline" href="/app/personal/network/connections">{summary.connectionCount} {summary.connectionCount === 1 ? "conexão" : "conexões"}</Link> : null}{own && !publicOnly ? <><Link className="min-h-11 content-center hover:underline" href="/app/personal/profile/followers">Seguidores</Link><Link className="min-h-11 content-center hover:underline" href="/app/personal/profile/following">Seguindo</Link></> : null}</>} actions={preview ? undefined : own ? <><PostComposer fullName={profile.fullName} ready={Boolean(profile.fullName && profile.handle && profile.headline)} publicProfile={viewerPublished || publicProfile} compact /><Link className="button-secondary" href="/app/personal/profile/edit">Editar perfil</Link><Link className="button-tertiary" href="/app/personal/profile/preview">Visualizar perfil público</Link></> : viewerUserId && connection ? <div className="flex w-full flex-wrap items-start gap-2">{summary.primaryProfileAction === "FOLLOW" ? follow : null}<PersonNetworkActions userId={profile.userId} connection={connection} inviteOptions={inviteOptions} primaryConnect={summary.primaryProfileAction === "CONNECT"} />{summary.primaryProfileAction !== "FOLLOW" ? follow : null}</div> : <Link className="button-primary" href="/login">Entrar para interagir</Link>} featured={featured.length ? <section className="border-t border-line py-7"><h2 className="text-lg font-semibold">Em destaque</h2><div className="mt-4 grid gap-4">{featured.map((post) => <PostCard key={post.id} post={post} viewerUserId={viewerUserId} publicProfile={viewerPublished || publicProfile} />)}</div></section> : undefined} activity={activity.items.length || own ? <section className="border-t border-line py-7"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-semibold">Atividade</h2>{activity.items.length ? <Link className="button-tertiary" href={activityHref}>Ver toda a atividade</Link> : null}</div>{activity.items.length ? <div className="mt-4 space-y-4">{activity.items.slice(0, 3).map((post) => <PostCard key={post.id} post={post} viewerUserId={viewerUserId} publicProfile={viewerPublished || publicProfile} />)}</div> : <div className="mt-4 border-l-2 border-accent pl-4"><p className="max-w-2xl text-sm leading-7 text-slate">Compartilhe uma atualização sobre o que você está construindo, pesquisando ou aprendendo.</p><Link className="button-tertiary mt-2" href="/app/personal/feed">Abrir início</Link></div>}</section> : undefined} />;
+}

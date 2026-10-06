@@ -6,6 +6,7 @@ import { normalizeTag, publicHandleSchema } from "@/lib/identity/normalization";
 import { getVerifiedParticipations } from "@/lib/participants/trajectory";
 import { profileEducationSchema, profileExperienceSchema, profileLinkSchema, profileRecordKindSchema, profileUpdateSchema, type ProfileRecordKind } from "@/lib/profiles/schemas";
 import { resolveProfileVisibility, type ProfileViewer, type VisibilityScope } from "@/lib/profiles/visibility";
+import { hasUserBlock, lockNetworkUsers } from "@/lib/network/locking";
 
 const profileSelect = {
   id: true, userId: true, handle: true, headline: true, bio: true, city: true, state: true, country: true,
@@ -106,7 +107,7 @@ async function buildVisibleProfile(profile: Prisma.InnovationProfileGetPayload<{
   ]);
   // Public DTOs select safe identity explicitly; account contacts and source application details never enter serialization.
   return {
-    fullName: identity.user.profile?.fullName ?? "Participante", handle: identity.handle, headline: identity.headline, bio: identity.bio,
+    userId: profile.userId, fullName: identity.user.profile?.fullName ?? "Participante", handle: identity.handle, headline: identity.headline, bio: identity.bio,
     location: [identity.city, identity.state, identity.country].filter((value): value is string => Boolean(value)),
     ...(visible(profile.skillsVisibility) ? {
       skills: topics.filter((topic) => topic.type === "SKILL").map((topic) => topic.label),
@@ -124,20 +125,33 @@ async function buildVisibleProfile(profile: Prisma.InnovationProfileGetPayload<{
 }
 export type VisibleProfile = Awaited<ReturnType<typeof buildVisibleProfile>>;
 
+export async function getOwnVisibleProfile(userId: string): Promise<VisibleProfile> {
+  await ensureProfile(userId);
+  const profile = await db.innovationProfile.findUniqueOrThrow({ where: { userId }, select: profileScopeSelect });
+  return buildVisibleProfile(profile, userId);
+}
+
+export async function isProfilePublished(userId?: string | null): Promise<boolean> {
+  if (!userId) return false;
+  return Boolean(await db.innovationProfile.findFirst({ where: { userId, profileVisibility: "PUBLIC", publishedAt: { not: null } }, select: { userId: true } }));
+}
+
 export async function getVisibleProfile(handle: string, viewerUserId?: string | null): Promise<VisibleProfile | null> {
   const parsed = publicHandleSchema.safeParse(handle);
   if (!parsed.success) return null;
   const profile = await db.innovationProfile.findUnique({ where: { handle: parsed.data }, select: profileScopeSelect });
   if (!profile) return null;
+  if (viewerUserId && viewerUserId !== profile.userId && await hasUserBlock(db, viewerUserId, profile.userId)) return null;
   if (viewerUserId !== profile.userId && profile.profileVisibility === "PUBLIC" && !profile.publishedAt && !(viewerUserId && profile.directoryEnabled)) return null;
   if (!await canViewProfileSection({ scope: profile.profileVisibility, profileUserId: profile.userId, viewerUserId })) return null;
   return buildVisibleProfile(profile, viewerUserId);
 }
 
-export async function getPublicProfile(handle: string): Promise<VisibleProfile | null> {
+export async function getPublicProfile(handle: string, viewerUserId?: string | null): Promise<VisibleProfile | null> {
   const parsed = publicHandleSchema.safeParse(handle);
   if (!parsed.success) return null;
   const profile = await db.innovationProfile.findFirst({ where: { handle: parsed.data, profileVisibility: "PUBLIC", publishedAt: { not: null } }, select: profileScopeSelect });
+  if (profile && viewerUserId && viewerUserId !== profile.userId && await hasUserBlock(db, viewerUserId, profile.userId)) return null;
   return profile ? buildVisibleProfile(profile) : null;
 }
 
@@ -152,6 +166,7 @@ export async function updateProfile(userId: string, input: unknown): Promise<voi
   const profile = await ensureProfile(userId);
   try {
     await db.$transaction(async (transaction) => {
+      await lockNetworkUsers(transaction, [userId]);
       await transaction.$queryRaw`SELECT "id" FROM "InnovationProfile" WHERE "id" = ${profile.id} AND "userId" = ${userId} FOR UPDATE`;
       const existing = await transaction.innovationProfile.findUniqueOrThrow({ where: { userId }, select: { id: true, handle: true, headline: true, publishedAt: true, directoryEnabled: true, profileVisibility: true, user: { select: { profile: { select: { fullName: true } } } } } });
       if (parsed.section === "identity") {

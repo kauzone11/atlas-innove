@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, Network, MessageSquare, BriefcaseBusiness, Building2, ChevronDown, FolderKanban, Menu, Settings, Users, Workflow, Compass, X, Route, Layers3, UsersRound, UserRound, ClipboardCheck, ChartNoAxesCombined } from "lucide-react";
+import { Bell, House, Network, MessageSquare, BriefcaseBusiness, Building2, ChevronDown, FolderKanban, Menu, Settings, Users, Workflow, Compass, X, Route, Layers3, UsersRound, UserRound, ClipboardCheck, ChartNoAxesCombined } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -26,6 +26,7 @@ const administrationNavigation = [
 ];
 
 const personalNavigation = [
+  { href: "/app/personal/feed", label: "Início", icon: House },
   { href: "/app/personal", label: "Minha trajetória", icon: Route, exact: true },
   { href: "/app/personal/programs", label: "Meus programas", icon: FolderKanban },
   { href: "/app/personal/projects", label: "Projetos", icon: Layers3 },

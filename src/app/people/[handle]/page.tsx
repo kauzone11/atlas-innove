@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { getAuthenticatedSession } from "@/lib/auth/session";
 import { notFound } from "next/navigation";
 import { PublicShell } from "@/components/public-shell";
-import { ProfileRenderer } from "@/components/profiles/profile-renderer";
+import { SocialProfile } from "@/components/social/profile";
 import { getPublicProfile } from "@/lib/profiles/service";
 import { appMetadataUrl } from "@/lib/app-base-url";
 
@@ -16,7 +17,7 @@ export async function generateMetadata({ params }: Context): Promise<Metadata> {
   };
 }
 export default async function PublicProfilePage({ params }: Context) {
-  const { handle } = await params; const profile = await getPublicProfile(handle);
+  const { handle } = await params; const auth = await getAuthenticatedSession(); const profile = await getPublicProfile(handle, auth?.user.id);
   if (!profile) notFound();
-  return <PublicShell><ProfileRenderer profile={profile} /></PublicShell>;
+  return <PublicShell><SocialProfile profile={profile} viewerUserId={auth?.user.id} publicOnly own={profile.userId === auth?.user.id} /></PublicShell>;
 }
