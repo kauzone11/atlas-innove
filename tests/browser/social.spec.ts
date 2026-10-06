@@ -209,6 +209,17 @@ test("professional social journey preserves audiences, notifications, keyboard i
     await expect(publicPage.getByText("Quais aprendizados poderão ser compartilhados com outras equipes?", { exact: true })).toBeVisible(); await screenshot(publicPage, info, "public-post"); await page.emulateMedia({ reducedMotion: "reduce" }); await page.setViewportSize({ width: 1280, height: 900 });
     await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
     await expectReadableWords(page.getByRole("heading", { name: "Ana Pesquisa", exact: true }));
+    const compactMonograms = page.getByRole("article", { name: "Publicação de Ana Pesquisa", exact: true }).locator("header .atlas-avatar-small");
+    expect(await compactMonograms.count()).toBeGreaterThan(0);
+    for (const monogram of await compactMonograms.all()) {
+      await expect(monogram).toHaveText("AP");
+      const geometry = await monogram.evaluate((element) => {
+        const bounds = element.getBoundingClientRect(); const range = document.createRange(); range.selectNodeContents(element);
+        const rects = [...range.getClientRects()].filter((rect) => rect.width > 0 && rect.height > 0);
+        return { lines: new Set(rects.map((rect) => Math.round(rect.top))).size, contained: rects.every((rect) => rect.left >= bounds.left - 1 && rect.right <= bounds.right + 1 && rect.top >= bounds.top - 1 && rect.bottom <= bounds.bottom + 1) };
+      });
+      expect(geometry, "Both decorative avatar initials must remain on one line inside the avatar at 200% text").toEqual({ lines: 1, contained: true });
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     await page.screenshot({ path: info.outputPath("profile-text-200-percent.png"), fullPage: true });
     await page.goto(`/app/personal/network/people/${f.b.innovationProfile!.handle}`);
