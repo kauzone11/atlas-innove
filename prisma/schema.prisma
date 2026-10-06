@@ -302,6 +302,15 @@ model User {
   importBatches                ImportBatch[]                   @relation("ImportCreatedBy")
   importsApplied               ImportBatch[]                   @relation("ImportAppliedBy")
   importsRolledBack            ImportBatch[]                   @relation("ImportRolledBackBy")
+  followings                   UserFollow[]                    @relation("FollowFollower")
+  followers                    UserFollow[]                    @relation("FollowFollowed")
+  socialPosts                  SocialPost[]
+  postReactions                PostReaction[]
+  postComments                 PostComment[]
+  commentReactions             CommentReaction[]
+  savedPosts                   SavedPost[]
+  featuredPosts                FeaturedPost[]
+  socialRateLimitEvents        SocialRateLimitEvent[]
 }
 
 model UserProfile {
@@ -316,28 +325,30 @@ model UserProfile {
 }
 
 model InnovationProfile {
-  id                              String              @id @default(cuid())
-  userId                          String              @unique
-  handle                          String?             @unique @db.VarChar(64)
+  id                              String               @id @default(cuid())
+  userId                          String               @unique
+  handle                          String?              @unique @db.VarChar(64)
   headline                        String?
   bio                             String?
   city                            String?
   state                           String?
   country                         String?
-  profileVisibility               VisibilityScope     @default(PRIVATE)
-  skillsVisibility                VisibilityScope     @default(PRIVATE)
-  experienceVisibility            VisibilityScope     @default(PRIVATE)
-  educationVisibility             VisibilityScope     @default(PRIVATE)
-  linksVisibility                 VisibilityScope     @default(PRIVATE)
-  verifiedParticipationVisibility VisibilityScope     @default(PRIVATE)
-  projectsVisibility              VisibilityScope     @default(PRIVATE)
+  profileVisibility               VisibilityScope      @default(PRIVATE)
+  skillsVisibility                VisibilityScope      @default(PRIVATE)
+  experienceVisibility            VisibilityScope      @default(PRIVATE)
+  educationVisibility             VisibilityScope      @default(PRIVATE)
+  linksVisibility                 VisibilityScope      @default(PRIVATE)
+  verifiedParticipationVisibility VisibilityScope      @default(PRIVATE)
+  projectsVisibility              VisibilityScope      @default(PRIVATE)
   publishedAt                     DateTime?
-  directoryEnabled                Boolean             @default(false)
-  collaborationStatus             CollaborationStatus @default(NOT_AVAILABLE)
+  directoryEnabled                Boolean              @default(false)
+  collaborationStatus             CollaborationStatus  @default(NOT_AVAILABLE)
   collaborationNote               String?
-  createdAt                       DateTime            @default(now())
-  updatedAt                       DateTime            @updatedAt
-  user                            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  followPolicy                    FollowPolicy         @default(EVERYONE)
+  primaryProfileAction            PrimaryProfileAction @default(CONNECT)
+  createdAt                       DateTime             @default(now())
+  updatedAt                       DateTime             @updatedAt
+  user                            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   topics                          ProfileTopic[]
   education                       ProfileEducation[]
   experience                      ProfileExperience[]
@@ -1478,6 +1489,12 @@ enum NetworkRequestStatus {
 }
 
 enum NotificationKind {
+  NEW_FOLLOWER
+  POST_REACTION
+  POST_COMMENT
+  COMMENT_REPLY
+  COMMENT_REACTION
+  POST_REPOST
   CONNECTION_REQUEST
   CONNECTION_ACCEPTED
   TEAM_INVITE
@@ -1714,6 +1731,8 @@ model SafetyReport {
   reportedUserId   String
   conversationId   String?
   messageId        String?
+  postId           String?
+  commentId        String?
   reason           SafetyReportReason
   details          String?
   status           SafetyReportStatus @default(OPEN)
@@ -1725,9 +1744,164 @@ model SafetyReport {
   conversation     Conversation?      @relation(fields: [conversationId], references: [id], onDelete: Restrict)
   message          DirectMessage?     @relation(fields: [messageId], references: [id], onDelete: Restrict)
   reviewedBy       User?              @relation("SafetyReviewer", fields: [reviewedByUserId], references: [id], onDelete: Restrict)
+  post             SocialPost?        @relation(fields: [postId], references: [id], onDelete: Restrict)
+  comment          PostComment?       @relation(fields: [commentId], references: [id], onDelete: Restrict)
 
   @@index([status, createdAt, id])
   @@index([reporterUserId, createdAt])
+}
+
+enum FollowPolicy {
+  EVERYONE
+  CONNECTIONS_ONLY
+}
+
+enum PrimaryProfileAction {
+  CONNECT
+  FOLLOW
+}
+
+enum PostVisibility {
+  PUBLIC
+  PLATFORM
+  CONNECTIONS
+}
+
+enum PostCommentPolicy {
+  EVERYONE
+  CONNECTIONS_ONLY
+  OFF
+}
+
+enum ReactionType {
+  LIKE
+  CELEBRATE
+  SUPPORT
+  LOVE
+  INSIGHTFUL
+  FUNNY
+}
+
+model UserFollow {
+  id             String    @id @default(cuid())
+  followerUserId String
+  followedUserId String
+  createdAt      DateTime  @default(now())
+  endedAt        DateTime?
+  follower       User      @relation("FollowFollower", fields: [followerUserId], references: [id], onDelete: Cascade)
+  followed       User      @relation("FollowFollowed", fields: [followedUserId], references: [id], onDelete: Cascade)
+
+  @@index([followerUserId, endedAt, createdAt, id])
+  @@index([followedUserId, endedAt, createdAt, id])
+}
+
+model SocialPost {
+  id             String            @id @default(cuid())
+  authorUserId   String
+  body           String?
+  visibility     PostVisibility    @default(PLATFORM)
+  commentPolicy  PostCommentPolicy @default(EVERYONE)
+  allowReposts   Boolean           @default(true)
+  externalUrl    String?
+  repostOfPostId String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  editedAt       DateTime?
+  deletedAt      DateTime?
+  author         User              @relation(fields: [authorUserId], references: [id], onDelete: Restrict)
+  repostOf       SocialPost?       @relation("PostRepost", fields: [repostOfPostId], references: [id], onDelete: Restrict)
+  reposts        SocialPost[]      @relation("PostRepost")
+  reactions      PostReaction[]
+  comments       PostComment[]
+  saves          SavedPost[]
+  featured       FeaturedPost[]
+  safetyReports  SafetyReport[]
+
+  @@index([authorUserId, deletedAt, createdAt, id])
+  @@index([visibility, deletedAt, createdAt, id])
+  @@index([repostOfPostId, deletedAt])
+}
+
+model PostReaction {
+  postId    String
+  userId    String
+  type      ReactionType
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  post      SocialPost   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+  @@index([userId, createdAt])
+}
+
+model PostComment {
+  id                   String            @id @default(cuid())
+  postId               String
+  authorUserId         String
+  parentCommentId      String?
+  body                 String
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  editedAt             DateTime?
+  deletedAt            DateTime?
+  hiddenByPostAuthorAt DateTime?
+  post                 SocialPost        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author               User              @relation(fields: [authorUserId], references: [id], onDelete: Restrict)
+  parentComment        PostComment?      @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Restrict)
+  replies              PostComment[]     @relation("CommentReplies")
+  reactions            CommentReaction[]
+  safetyReports        SafetyReport[]
+
+  @@unique([postId, id])
+  @@index([postId, parentCommentId, createdAt, id])
+  @@index([authorUserId, createdAt, id])
+}
+
+model CommentReaction {
+  commentId String
+  userId    String
+  type      ReactionType
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  comment   PostComment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, userId])
+  @@index([userId, createdAt])
+}
+
+model SavedPost {
+  userId    String
+  postId    String
+  createdAt DateTime   @default(now())
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      SocialPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@index([userId, createdAt, postId])
+}
+
+model FeaturedPost {
+  userId    String
+  postId    String
+  position  Int
+  createdAt DateTime   @default(now())
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      SocialPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@unique([userId, position])
+}
+
+model SocialRateLimitEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String   @db.VarChar(32)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind, createdAt])
 }
 
 enum ImportType {

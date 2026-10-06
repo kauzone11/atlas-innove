@@ -15,6 +15,7 @@ export async function blockUser(userId: string, value: unknown) {
     const now = new Date();
     await client.connectionRequest.updateMany({ where: { userAId, userBId, status: "PENDING" }, data: { status: "CANCELLED", cancelledAt: now } });
     await client.networkConnection.updateMany({ where: { userAId, userBId, endedAt: null }, data: { endedAt: now, endedByUserId: userId } });
+    await client.userFollow.updateMany({ where: { endedAt: null, OR: [{ followerUserId: userId, followedUserId: blockedUserId }, { followerUserId: blockedUserId, followedUserId: userId }] }, data: { endedAt: now } });
   });
 }
 

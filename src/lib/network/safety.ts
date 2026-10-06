@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 import { boundedPage, reviewSafetyReportSchema, safetyReportSchema } from "@/lib/communication/schemas";
 import { canonicalUserPair, lockUserPair } from "@/lib/network/locking";
+import { reportSocialContent } from "@/lib/social/moderation";
 
 async function canReferencePerson(client: Prisma.TransactionClient, userId: string, otherUserId: string): Promise<boolean> {
   const pair = canonicalUserPair(userId, otherUserId);
@@ -26,6 +27,7 @@ async function canReferencePerson(client: Prisma.TransactionClient, userId: stri
 export async function createSafetyReport(userId: string, value: unknown, now = new Date()) {
   const input = safetyReportSchema.parse(value);
   if (input.reportedUserId === userId) throw new AuthorizationError("SAFETY_CONTEXT_UNAVAILABLE");
+  if (input.postId || input.commentId) return reportSocialContent(userId, { postId: input.postId, commentId: input.commentId, reason: input.reason, details: input.details }, input.reportedUserId);
   return db.$transaction(async (client) => {
     await lockUserPair(client, userId, input.reportedUserId);
     if (input.conversationId) {
@@ -45,12 +47,13 @@ export async function listSafetyReports(userId: string, options: { page?: unknow
   const where = { status };
   const [records, total] = await Promise.all([
     db.safetyReport.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: (page - 1) * pageSize, take: pageSize, select: {
-      id: true, reason: true, details: true, status: true, conversationId: true, messageId: true, createdAt: true, reviewedAt: true,
+      id: true, reason: true, details: true, status: true, conversationId: true, messageId: true, postId: true, commentId: true, createdAt: true, reviewedAt: true,
+      post: { select: { body: true, deletedAt: true } }, comment: { select: { body: true, deletedAt: true, hiddenByPostAuthorAt: true } },
       reporter: { select: { id: true, profile: { select: { fullName: true } } } }, reported: { select: { id: true, profile: { select: { fullName: true } } } },
       message: { select: { body: true, createdAt: true, deletedAt: true } }, reviewedBy: { select: { profile: { select: { fullName: true } } } },
     } }), db.safetyReport.count({ where }),
   ]);
-  return { page, pageSize, status, total, reports: records.map((record) => ({ id: record.id, reason: record.reason, details: record.details, status: record.status, conversationId: record.conversationId, messageId: record.messageId, createdAt: record.createdAt.toISOString(), reviewedAt: record.reviewedAt?.toISOString() ?? null, reporter: { userId: record.reporter.id, fullName: record.reporter.profile?.fullName ?? "Pessoa da plataforma" }, reported: { userId: record.reported.id, fullName: record.reported.profile?.fullName ?? "Pessoa da plataforma" }, message: record.message ? { body: record.message.body, createdAt: record.message.createdAt.toISOString(), deleted: Boolean(record.message.deletedAt) } : null, reviewedByName: record.reviewedBy?.profile?.fullName ?? null })) };
+  return { page, pageSize, status, total, reports: records.map((record) => ({ id: record.id, reason: record.reason, details: record.details, status: record.status, conversationId: record.conversationId, messageId: record.messageId, postId: record.postId, commentId: record.commentId, socialContent: record.comment ? { body: record.comment.body, deleted: Boolean(record.comment.deletedAt), hidden: Boolean(record.comment.hiddenByPostAuthorAt) } : record.post ? { body: record.post.body, deleted: Boolean(record.post.deletedAt), hidden: false } : null, createdAt: record.createdAt.toISOString(), reviewedAt: record.reviewedAt?.toISOString() ?? null, reporter: { userId: record.reporter.id, fullName: record.reporter.profile?.fullName ?? "Pessoa da plataforma" }, reported: { userId: record.reported.id, fullName: record.reported.profile?.fullName ?? "Pessoa da plataforma" }, message: record.message ? { body: record.message.body, createdAt: record.message.createdAt.toISOString(), deleted: Boolean(record.message.deletedAt) } : null, reviewedByName: record.reviewedBy?.profile?.fullName ?? null })) };
 }
 
 export async function reviewSafetyReport(userId: string, reportId: string, value: unknown, now = new Date()): Promise<void> {

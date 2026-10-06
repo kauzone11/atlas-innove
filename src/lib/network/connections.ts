@@ -7,6 +7,7 @@ import { connectionRequestSchema, requestActionSchema } from "@/lib/network/sche
 import { createNotification } from "@/lib/notifications/service";
 import { loadInteractionIdentities } from "@/lib/network/interaction-identity";
 import { boundedPage } from "@/lib/communication/schemas";
+import { createAutomaticFollows, endConnectionOnlyFollows } from "@/lib/social/follows";
 
 export type PersonNetworkState = { state: "AVAILABLE" | "UNAVAILABLE" | "CONNECTED" | "OUTGOING" | "INCOMING"; requestId?: string; connectionId?: string };
 
@@ -61,6 +62,7 @@ export async function respondConnectionRequest(userId: string, requestId: string
     await client.connectionRequest.update({ where: { id: requestId }, data: { status: action === "accept" ? "ACCEPTED" : action === "decline" ? "DECLINED" : "CANCELLED", ...(action === "cancel" ? { cancelledAt: now } : { respondedAt: now }) } });
     if (action === "accept") {
       const connection = await client.networkConnection.create({ data: { userAId: request.userAId, userBId: request.userBId, sourceRequestId: request.id } });
+      await createAutomaticFollows(client, request.userAId, request.userBId);
       await createNotification(client, { recipientUserId: request.requesterUserId, actorUserId: userId, kind: "CONNECTION_ACCEPTED", entityType: "NETWORK_CONNECTION", entityId: connection.id, dedupeKey: `connection-accepted:${request.id}`, title: "Solicitação de conexão aceita", href: "/app/personal/network/connections" });
       return { connectionId: connection.id };
     }
@@ -74,6 +76,7 @@ export async function disconnectConnection(userId: string, connectionId: string)
     if (!initial || ![initial.userAId, initial.userBId].includes(userId)) throw new ResourceNotFoundError("NETWORK_CONNECTION_NOT_FOUND");
     await lockUserPair(client, initial.userAId, initial.userBId);
     await client.networkConnection.updateMany({ where: { id: connectionId, endedAt: null }, data: { endedAt: new Date(), endedByUserId: userId } });
+    await endConnectionOnlyFollows(client, initial.userAId, initial.userBId);
   });
 }
 

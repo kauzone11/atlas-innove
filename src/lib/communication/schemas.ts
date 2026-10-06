@@ -12,9 +12,12 @@ export const safetyReportSchema = z.object({
   reportedUserId: identifier,
   conversationId: identifier.optional(),
   messageId: identifier.optional(),
+  postId: identifier.optional(),
+  commentId: identifier.optional(),
   reason: z.enum(["SPAM", "HARASSMENT", "IMPERSONATION", "INAPPROPRIATE_CONTENT", "OTHER"]),
   details: z.string().trim().max(2000).optional().transform((value) => value || null),
-}).strict().refine((value) => !value.messageId || Boolean(value.conversationId), "Informe a conversa desta mensagem.");
+}).strict().refine((value) => !value.messageId || Boolean(value.conversationId), "Informe a conversa desta mensagem.")
+  .refine((value) => !(value.conversationId && (value.postId || value.commentId)), "Escolha um único contexto para a denúncia.");
 export const reviewSafetyReportSchema = z.object({ status: z.enum(["REVIEWED", "DISMISSED", "ACTIONED"]) }).strict();
 
 export function boundedPage(value: unknown): number {
