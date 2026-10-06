@@ -4,9 +4,9 @@ import { db } from "@/lib/db";
 import { ImportInputError } from "@/lib/imports/errors";
 import { importRevisionSchema } from "@/lib/imports/schemas";
 
-export async function withImportTransaction<T>(userId: string, organizationId: string, action: (client: Prisma.TransactionClient) => Promise<T>) {
+export async function withImportTransaction<T>(userId: string, organizationId: string, action: (client: Prisma.TransactionClient) => Promise<T>, exclusive = false) {
   return db.$transaction(async (client) => {
-    await assertImportAccess(userId, organizationId, client);
+    await assertImportAccess(userId, organizationId, client, exclusive);
     // Serialize import mutations per tenant, including external-ID allocation across batches.
     await client.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${'institutional-import:' + organizationId}, 0))`;
     return action(client);

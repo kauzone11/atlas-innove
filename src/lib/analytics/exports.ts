@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { withAnalyticsSnapshot } from "@/lib/analytics/transaction";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 import { assertAnalyticsAccess } from "@/lib/analytics/access";
 import { getAnalyticsSourceDigest, getPortfolioAnalytics, getCohortAnalytics } from "@/lib/analytics/read-model";
@@ -109,7 +109,7 @@ function portfolioTable(portfolio: Awaited<ReturnType<typeof getPortfolioAnalyti
 
 export async function createAnalyticsExport(access: AnalyticsAccess, rawInput: AnalyticsExportInput) {
   const input = analyticsExportSchema.parse(rawInput);
-  return db.$transaction(async (client) => {
+  return withAnalyticsSnapshot(async (client) => {
     await assertAnalyticsAccess(access, "ANALYST", client);
     const cohort = input.cohortId ? await client.cohort.findFirst({ where: { organizationId: access.organizationId, id: input.cohortId }, select: { fundingProgramId: true } }) : null;
     if (input.cohortId && !cohort) throw new ResourceNotFoundError("COHORT_NOT_FOUND");
@@ -145,5 +145,5 @@ export async function createAnalyticsExport(access: AnalyticsAccess, rawInput: A
     const csv = serializeCsv([...table.columns, ...metadataColumns], table.rows.map((row) => [...row, ...metadata]));
     const audit = await client.dataExportAudit.create({ data: { organizationId: access.organizationId, exportedByUserId: access.userId, type: input.type, format: "CSV", scopeType, scopeId, fundingProgramId: programId ?? null, cohortId: input.cohortId ?? null, parameters: input as Prisma.InputJsonObject, rowCount: table.rows.length, dataAsOf, sourceDigest }, select: { id: true } });
     return { csv, filename: `atlas-innove-${input.type.toLowerCase().replaceAll("_", "-")}-${dataAsOf.toISOString().slice(0, 10)}.csv`, rowCount: table.rows.length, auditId: audit.id };
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 60000 });
+  });
 }

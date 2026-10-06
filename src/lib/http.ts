@@ -5,6 +5,7 @@ import { AuthorizationError } from "@/lib/auth/authorization";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 
 const errorMessages: Record<string, string> = {
+  ANALYTICS_SOURCE_CHANGED: "Os dados mudaram durante a preparação. Confira o estado atual e tente novamente.",
   NETWORK_SELF_ACTION: "Escolha outra pessoa para esta ação.",
   NETWORK_SELF_REQUEST: "Você não pode enviar uma solicitação para si.",
   NETWORK_SELF_BLOCK: "Você não pode bloquear seu próprio perfil.",
