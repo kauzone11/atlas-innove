@@ -1,7 +1,7 @@
-import { historicalParticipantApplicationIds } from "@/lib/auth/participant-access";
+import { historicalParticipantApplicationIds, projectAccessWhere } from "@/lib/auth/participant-access";
 import { db } from "@/lib/db";
 
-export type TrajectoryEventType = "TEAM_JOINED" | "TEAM_LEFT" | "PROJECT_CREATED" | "PROJECT_JOINED" | "PROJECT_LEFT" | "APPLICATION_SUBMITTED" | "APPLICATION_WITHDRAWN" | "APPLICATION_SELECTED" | "COHORT_JOINED" | "VENTURE_MILESTONE";
+export type TrajectoryEventType = "TEAM_JOINED" | "TEAM_LEFT" | "PROJECT_CREATED" | "PROJECT_JOINED" | "PROJECT_LEFT" | "APPLICATION_SUBMITTED" | "APPLICATION_WITHDRAWN" | "APPLICATION_SELECTED" | "COHORT_JOINED" | "VENTURE_MILESTONE" | "AWARD_PREPARED" | "AWARD_ACTIVATED" | "AWARD_COMPLETED" | "AWARD_REPORT_APPROVED";
 export type TrajectoryEvent = { id: string; type: TrajectoryEventType; category: "teams" | "projects" | "programs" | "milestones"; title: string; occurredAt: string; href: string };
 export type VerifiedParticipation = { id: string; institution: string; program: string; call: string; projectName: string | null; projectUrl: string | null; date: string };
 
@@ -52,6 +52,15 @@ export async function getParticipantTrajectory(userId: string): Promise<Trajecto
     where: { OR: enrollments.map((enrollment) => ({ organizationId: enrollment.organizationId, ventureId: enrollment.ventureId, occurredAt: { gte: enrollment.enrolledAt } })) },
     select: { id: true, organizationId: true, ventureId: true, title: true, type: true, occurredAt: true },
   }) : [];
+  const awards = applicationIds.length ? await db.award.findMany({
+    where: { applicationId: { in: applicationIds } },
+    select: {
+      id: true, organizationId: true, application: { select: { projectId: true, projectNameSnapshot: true } },
+      statusHistory: { where: { toStatus: { in: ["PREPARING", "ACTIVE", "COMPLETED"] } }, select: { id: true, fromStatus: true, toStatus: true, changedAt: true }, orderBy: { changedAt: "asc" }, take: 100 },
+      obligations: { where: { type: { in: ["PROGRESS_REPORT", "FINAL_REPORT", "FINANCIAL_REPORT"] } }, select: { submissions: { where: { reviewStatus: "APPROVED" }, select: { id: true, reviewedAt: true }, take: 1 } }, take: 200 },
+    }, orderBy: [{ createdAt: "desc" }, { id: "asc" }], take: 500,
+  }) : [];
+  const currentProjectIds = new Set((await db.project.findMany({ where: { id: { in: awards.map((award) => award.application.projectId) }, ...projectAccessWhere(userId) }, select: { id: true }, take: 500 })).map((project) => project.id));
   const events: TrajectoryEvent[] = [];
   const add = (id: string, type: TrajectoryEventType, category: TrajectoryEvent["category"], title: string, at: Date, href: string) => events.push({ id, type, category, title, occurredAt: at.toISOString(), href });
   for (const member of teams) {
@@ -70,6 +79,17 @@ export async function getParticipantTrajectory(userId: string): Promise<Trajecto
     if (application.submittedAt) add(`submitted-${application.id}`, "APPLICATION_SUBMITTED", "programs", `Candidatura enviada · ${application.fundingCall.title}`, application.submittedAt, href);
     if (application.withdrawnAt) add(`withdrawn-${application.id}`, "APPLICATION_WITHDRAWN", "programs", `Candidatura retirada · ${application.fundingCall.title}`, application.withdrawnAt, href);
     if (application.decision === "SELECTED" && application.fundingCall.resultsPublishedAt) add(`selected-${application.id}`, "APPLICATION_SELECTED", "programs", `Projeto selecionado · ${application.fundingCall.title}`, application.fundingCall.resultsPublishedAt, href);
+  }
+  for (const award of awards) {
+    const href = currentProjectIds.has(award.application.projectId) ? `/app/personal/awards/${award.id}` : "/app/personal/programs";
+    for (const history of award.statusHistory) {
+      const type = history.toStatus === "PREPARING" ? "AWARD_PREPARED" : history.toStatus === "ACTIVE" ? "AWARD_ACTIVATED" : "AWARD_COMPLETED";
+      const title = history.toStatus === "PREPARING" ? "Apoio preparado" : history.toStatus === "COMPLETED" ? "Execução concluída" : history.fromStatus === "SUSPENDED" ? "Execução retomada" : "Execução iniciada";
+      add(`award-history-${history.id}`, type, "programs", `${title} · ${award.application.projectNameSnapshot}`, history.changedAt, href);
+    }
+    for (const obligation of award.obligations) for (const submission of obligation.submissions) {
+      if (submission.reviewedAt) add(`award-report-${submission.id}`, "AWARD_REPORT_APPROVED", "programs", `Relatório aprovado · ${award.application.projectNameSnapshot}`, submission.reviewedAt, href);
+    }
   }
   for (const enrollment of enrollments) add(`cohort-${enrollment.id}`, "COHORT_JOINED", "programs", `Ingresso na coorte ${enrollment.cohort.name}`, enrollment.enrolledAt, `/app/personal/applications/${enrollment.applicationId}`);
   for (const milestone of milestones) {

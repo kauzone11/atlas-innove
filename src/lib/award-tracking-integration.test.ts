@@ -1,0 +1,64 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import test from "node:test";
+import { db } from "@/lib/db";
+import { createProject } from "@/lib/participants/service";
+import { createAward, createObligation, getInstitutionAward, transitionAward, type OrganizationAccess } from "@/lib/awards/service";
+import { enrollAward, getAwardTrackingPreview } from "@/lib/awards/tracking";
+import { enrollCallApplications } from "@/lib/selection/service";
+import { getParticipantActions } from "@/lib/action-center/read-model";
+import { getParticipantTrajectory } from "@/lib/participants/trajectory";
+
+test("award tracking preserves provenance, historical enrollments and independent monitoring", async (context) => {
+  if (!process.env.DATABASE_URL) { assert.notEqual(process.env.REQUIRE_DOMAIN_DATABASE, "true"); context.skip("Disposable PostgreSQL required"); return; }
+  context.after(() => db.$disconnect());
+  const suffix = randomUUID();
+  const manager = await db.user.create({ data: { email: `bridge-manager-${suffix}@example.test`, passwordHash: "test-only" }, include: { profile: true } });
+  const participant = await db.user.create({ data: { email: `bridge-participant-${suffix}@example.test`, passwordHash: "test-only" } });
+  const organization = await db.organization.create({ data: { name: "Bridge institution", slug: `bridge-${suffix}` } });
+  const membership = await db.organizationMembership.create({ data: { organizationId: organization.id, userId: manager.id, role: "MANAGER" }, include: { organization: true } });
+  const access: OrganizationAccess = { auth: { user: manager, session: { id: "test-session", activeOrganizationId: organization.id }, memberships: [membership] }, organization, membership };
+  const program = await db.fundingProgram.create({ data: { organizationId: organization.id, name: "Bridge program", slug: `bridge-${suffix}`, createdByUserId: manager.id, status: "ACTIVE" } });
+  const call = await db.fundingCall.create({ data: { organizationId: organization.id, fundingProgramId: program.id, title: "Selected call", callNumber: "bridge", status: "RESULT_PUBLISHED", resultsPublishedAt: new Date() } });
+  const otherCall = await db.fundingCall.create({ data: { organizationId: organization.id, fundingProgramId: program.id, title: "Other call", callNumber: "other", status: "RESULT_PUBLISHED", resultsPublishedAt: new Date() } });
+  const cohort = await db.cohort.create({ data: { organizationId: organization.id, fundingProgramId: program.id, fundingCallId: call.id, name: "Longitudinal cohort", status: "ACTIVE" } });
+  const wrongCohort = await db.cohort.create({ data: { organizationId: organization.id, fundingProgramId: program.id, fundingCallId: otherCall.id, name: "Different cycle", status: "ACTIVE" } });
+  const applications = [];
+  for (const label of ["new", "historical"]) {
+    const project = await createProject(participant.id, { name: `${label} initiative`, summary: "An initiative with stable project identity." });
+    const application = await db.application.create({ data: { organizationId: organization.id, fundingCallId: call.id, projectId: project.id, submittedByUserId: participant.id, submittedAt: new Date(), status: "DECIDED", decision: "SELECTED", projectNameSnapshot: project.name, projectSummarySnapshot: project.summary } });
+    applications.push(application);
+  }
+  const [application, historicalApplication] = applications;
+  let award = await createAward(access, program.id, call.id, { applicationId: application.id, startsAt: "2026-10-06" });
+  await assert.rejects(() => enrollAward(access, award.id, { cohortId: cohort.id }), /AWARD_TRACKING_ACTIVE_REQUIRED/);
+  award = await transitionAward(access, award.id, { revision: award.revision, status: "ACTIVE", confirmed: true });
+  await assert.rejects(() => getAwardTrackingPreview(access, award.id, wrongCohort.id), /APPLICATION_COHORT_CALL_MISMATCH/);
+  await enrollAward(access, award.id, { cohortId: cohort.id, mapping: { ventureId: null, kind: "PROJECT" } });
+  const enrollment = await db.ventureEnrollment.findUniqueOrThrow({ where: { organizationId_applicationId: { organizationId: organization.id, applicationId: application.id } } });
+  assert.equal(enrollment.awardId, award.id);
+  assert.equal(enrollment.applicationId, application.id);
+  assert.equal((await db.venture.findUniqueOrThrow({ where: { id: enrollment.ventureId } })).sourceProjectId, application.projectId);
+  await assert.rejects(() => db.ventureEnrollment.update({ where: { id: enrollment.id }, data: { applicationId: historicalApplication.id } }));
+  await transitionAward(access, award.id, { revision: award.revision, status: "COMPLETED" });
+  assert.equal((await db.ventureEnrollment.findUniqueOrThrow({ where: { id: enrollment.id } })).status, "ACTIVE");
+  assert.equal((await db.cohort.findUniqueOrThrow({ where: { id: cohort.id } })).status, "ACTIVE");
+  await enrollCallApplications(organization.id, program.id, call.id, manager.id, cohort.id, [historicalApplication.id]);
+  const historical = await db.ventureEnrollment.findUniqueOrThrow({ where: { organizationId_applicationId: { organizationId: organization.id, applicationId: historicalApplication.id } } });
+  assert.equal(historical.awardId, null);
+  let secondAward = await createAward(access, program.id, call.id, { applicationId: historicalApplication.id, startsAt: "2026-10-06" });
+  secondAward = await transitionAward(access, secondAward.id, { revision: secondAward.revision, status: "ACTIVE", confirmed: true });
+  const historicalResult = await enrollAward(access, secondAward.id, { cohortId: cohort.id });
+  assert.equal(historicalResult.historicalTrackingPreserved, true);
+  assert.equal((await getInstitutionAward(access, secondAward.id)).historicalEnrollments[0]?.id, historical.id);
+  assert.equal((await db.ventureEnrollment.findUniqueOrThrow({ where: { id: historical.id } })).awardId, null);
+  await createObligation(access, secondAward.id, { type: "FINAL_REPORT", title: "Required report", dueAt: "2026-01-01" });
+  const actions = await getParticipantActions(participant.id);
+  assert.equal(actions[0]?.urgency, "OVERDUE");
+  assert.ok(actions[0].href.includes(secondAward.id));
+  assert.deepEqual(await getParticipantActions(manager.id), []);
+  const trajectory = await getParticipantTrajectory(participant.id);
+  assert.ok(trajectory.some((event) => event.type === "AWARD_ACTIVATED"));
+  assert.ok(trajectory.some((event) => event.type === "AWARD_COMPLETED"));
+  assert.equal(JSON.stringify(trajectory).includes("approvedAmount"), false);
+});

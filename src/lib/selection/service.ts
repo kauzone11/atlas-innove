@@ -318,10 +318,15 @@ export async function getCallEnrollmentPreview(organizationId: string, programId
   return { cohort: { id: cohort.id, name: cohort.name }, applications: applications.map((application) => { const venture = ventures.find((venture) => venture.sourceProjectId === application.projectId); return { id: application.id, projectNameSnapshot: application.projectNameSnapshot, teamNameSnapshot: application.teamNameSnapshot, venture: venture ? { id: venture.id, name: venture.name, kind: venture.kind, archivedAt: venture.archivedAt?.toISOString() ?? null } : null, enrollmentId: application.enrollments[0]?.id ?? null }; }), availableVentures: ventures.filter((venture) => !venture.archivedAt).map((venture) => ({ id: venture.id, name: venture.name, kind: venture.kind, eligibleApplicationIds: applications.filter((application) => venture.sourceProjectId === null || venture.sourceProjectId === application.projectId).map((application) => application.id) })) };
 }
 
-export async function enrollCallApplications(organizationId: string, programId: string, callId: string, userId: string, cohortId: string, applicationIds: string[], mappings: EnrollmentMapping[] = []) {
+export async function enrollCallApplications(organizationId: string, programId: string, callId: string, userId: string, cohortId: string, applicationIds: string[], mappings: EnrollmentMapping[] = [], awardId?: string) {
   enrollApplicationsSchema.parse({ cohortId, applicationIds, mappings });
   if (new Set(mappings.map((mapping) => mapping.applicationId)).size !== mappings.length || mappings.some((mapping) => !applicationIds.includes(mapping.applicationId))) throw new DomainConflictError("APPLICATION_VENTURE_MAPPING_INVALID");
   return db.$transaction(async (transaction) => {
+    if (awardId) {
+      // Award tracking serializes organization and membership changes before authorizing the ingress.
+      await transaction.$queryRaw`SELECT "id" FROM "Organization" WHERE "id" = ${organizationId} FOR SHARE`;
+      await transaction.$queryRaw`SELECT "id" FROM "OrganizationMembership" WHERE "organizationId" = ${organizationId} AND "userId" = ${userId} FOR SHARE`;
+    }
     await requireInstitutionRole(transaction, userId, organizationId, "MANAGER");
     // Existing cohort operations take cohort before call; preserving that order avoids lock inversion.
     await transaction.$queryRaw`SELECT "id" FROM "Cohort" WHERE "organizationId" = ${organizationId} AND "id" = ${cohortId} FOR UPDATE`;
@@ -330,6 +335,13 @@ export async function enrollCallApplications(organizationId: string, programId: 
     // Every batch takes project and venture locks in stable order across calls and cohorts.
     const projectIds = [...new Set(applications.map((application) => application.projectId))].sort();
     await transaction.$queryRaw(Prisma.sql`SELECT "id" FROM "Project" WHERE "id" IN (${Prisma.join(projectIds)}) ORDER BY "id" FOR UPDATE`);
+    if (awardId) {
+      // Participant writes take Project before Award; the tracking bridge preserves that lock order.
+      await transaction.$queryRaw`SELECT "id" FROM "Award" WHERE "organizationId" = ${organizationId} AND "id" = ${awardId} FOR UPDATE`;
+      const award = await transaction.award.findFirst({ where: { organizationId, id: awardId, fundingCallId: callId }, select: { applicationId: true, status: true } });
+      if (!award || applications.length !== 1 || award.applicationId !== applications[0].id) throw new DomainConflictError("AWARD_TRACKING_SCOPE_INVALID");
+      if (award.status !== "ACTIVE") throw new DomainConflictError("AWARD_TRACKING_ACTIVE_REQUIRED");
+    }
     const mappedSources = await transaction.venture.findMany({ where: { organizationId, sourceProjectId: { in: applications.map((application) => application.projectId) } }, select: { id: true } });
     const ventureIds = [...new Set([...mappedSources.map((venture) => venture.id), ...mappings.map((mapping) => mapping.ventureId).filter((id): id is string => Boolean(id))])].sort();
     if (ventureIds.length) await transaction.$queryRaw(Prisma.sql`SELECT "id" FROM "Venture" WHERE "organizationId" = ${organizationId} AND "id" IN (${Prisma.join(ventureIds)}) ORDER BY "id" FOR UPDATE`);
@@ -355,7 +367,7 @@ export async function enrollCallApplications(organizationId: string, programId: 
       if (venture.archivedAt) throw new DomainConflictError("APPLICATION_VENTURE_ARCHIVED");
       const existing = await transaction.ventureEnrollment.findUnique({ where: { organizationId_cohortId_ventureId: { organizationId, cohortId, ventureId: venture.id } } });
       if (existing && existing.applicationId !== application.id) throw new DomainConflictError("APPLICATION_VENTURE_ALREADY_ENROLLED");
-      const enrollment = existing ?? await transaction.ventureEnrollment.create({ data: { organizationId, cohortId, ventureId: venture.id, applicationId: application.id } });
+      const enrollment = existing ?? await transaction.ventureEnrollment.create({ data: { organizationId, cohortId, ventureId: venture.id, applicationId: application.id, ...(awardId ? { awardId } : {}) } });
       const eligible = waves.filter((wave) => isEnrollmentEligibleAt(enrollment, wave.scheduledFor ?? wave.opensAt ?? wave.createdAt, Boolean(wave.scheduledFor)));
       if (eligible.length) await transaction.ventureObservation.createMany({ data: eligible.map((wave) => ({ organizationId, cohortId, ventureEnrollmentId: enrollment.id, followUpWaveId: wave.id })), skipDuplicates: true });
       enrollments.push({ applicationId: application.id, enrollmentId: enrollment.id, ventureId: venture.id, reused: Boolean(existing) });
