@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     const { user } = await requireAuthenticatedSession();
     assertSocialOrigin(request);
     if (!isStorageConfigured()) throw unavailableStorage();
-    const asset = await withMediaUploadSlot(async () => uploadMedia(user.id, await readMediaUpload(request)));
+    const asset = await withMediaUploadSlot(user.id, async () => uploadMedia(user.id, await readMediaUpload(request)));
     return NextResponse.json({ asset }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { return errorResponse(error); }
 }

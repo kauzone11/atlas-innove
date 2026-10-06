@@ -65,9 +65,33 @@ test("animated image containers and polyglot metadata never survive processing",
 
 test("upload body admission is bounded before parsing and always releases capacity", async () => {
   let release!: () => void; const wait = new Promise<void>((resolve) => { release = resolve; });
-  const active = Array.from({ length: 4 }, () => withMediaUploadSlot(() => wait));
-  await assert.rejects(() => withMediaUploadSlot(async () => true), /MEDIA_UPLOAD_BUSY/);
-  release(); await Promise.all(active); assert.equal(await withMediaUploadSlot(async () => true), true);
+  const active = Array.from({ length: 4 }, (_, index) => withMediaUploadSlot(`u${index}`, () => wait));
+  await assert.rejects(() => withMediaUploadSlot("u4", async () => true), /MEDIA_UPLOAD_BUSY/);
+  release(); await Promise.all(active); assert.equal(await withMediaUploadSlot("u0", async () => true), true);
+});
+
+test("one user cannot monopolize intake while stalled bodies time out without waiting for cancellation", async () => {
+  let release!: () => void; const wait = new Promise<void>((resolve) => { release = resolve; });
+  const active = [withMediaUploadSlot("same-user", () => wait), withMediaUploadSlot("same-user", () => wait)];
+  await assert.rejects(() => withMediaUploadSlot("same-user", async () => true), /MEDIA_USER_UPLOAD_BUSY/);
+  assert.equal(await withMediaUploadSlot("another-user", async () => true), true);
+  release(); await Promise.all(active);
+  let cancelled = false;
+  const stalled = new ReadableStream<Uint8Array>({ pull: () => new Promise(() => undefined), cancel() { cancelled = true; return new Promise(() => undefined); } });
+  const request = new Request("http://localhost/upload", { method: "POST", headers: { "content-type": "multipart/form-data; boundary=a" }, body: stalled, duplex: "half" } as RequestInit);
+  const started = Date.now();
+  await assert.rejects(() => withMediaUploadSlot("same-user", () => readMediaUpload(request, { timeoutMs: 25 })), /MEDIA_UPLOAD_TIMEOUT/);
+  assert.ok(Date.now() - started < 1000); assert.equal(cancelled, true);
+  assert.equal(await withMediaUploadSlot("same-user", () => withMediaUploadSlot("same-user", async () => true)), true);
+});
+
+test("oversized streams release intake even when their cancellation hook never settles", async () => {
+  let cancelled = false;
+  const oversized = new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(new Uint8Array(11 * 1024 * 1024)); }, cancel() { cancelled = true; return new Promise(() => undefined); } });
+  const request = new Request("http://localhost/upload", { method: "POST", headers: { "content-type": "multipart/form-data; boundary=a" }, body: oversized, duplex: "half" } as RequestInit);
+  await assert.rejects(() => withMediaUploadSlot("oversized-user", () => readMediaUpload(request)), /MEDIA_TOO_LARGE/);
+  assert.equal(cancelled, true);
+  assert.equal(await withMediaUploadSlot("oversized-user", () => withMediaUploadSlot("oversized-user", async () => true)), true);
 });
 
 test("multipart byte limits are enforced for declared and streamed request bodies", async () => {
