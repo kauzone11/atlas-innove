@@ -1,8 +1,11 @@
 import type { PostCommentPolicy, PostVisibility, ReactionType } from "@prisma/client";
+import type { MediaDto, SocialPostMediaDto } from "@/lib/media/types";
+export type { SocialPostMediaDto } from "@/lib/media/types";
 
-export type SocialIdentity = { userId: string; fullName: string; handle: string | null; headline: string | null };
+export type SocialIdentity = { userId: string; fullName: string; handle: string | null; headline: string | null; avatarMedia: MediaDto | null };
 export type SocialPostDto = {
   id: string; author: SocialIdentity; body: string | null; externalUrl: string | null;
+  media: SocialPostMediaDto[];
   visibility: PostVisibility; commentPolicy: PostCommentPolicy; allowReposts: boolean;
   createdAt: string; editedAt: string | null; repostOfPostId: string | null;
   original: SocialPostDto | null; reactionCount: number; commentCount: number; repostCount: number;

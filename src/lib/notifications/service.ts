@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { ResourceNotFoundError } from "@/lib/errors";
 import { hasUserBlock } from "@/lib/network/locking";
 import { z } from "zod";
+import { socialIdentity, socialIdentitySelect } from "@/lib/social/read-model";
 
 export type NotificationInput = {
   recipientUserId: string; actorUserId?: string | null; kind: NotificationKind;
@@ -61,11 +62,11 @@ export async function unreadNotificationCount(userId: string) {
 export async function listNotifications(userId: string, rawPage = 1) {
   const page = z.coerce.number().int().min(1).max(10000).catch(1).parse(rawPage);
   const records = await db.notification.findMany({ where: { recipientUserId: userId, archivedAt: null, ...currentSocialNotificationWhere(userId) },
-    select: { id: true, kind: true, title: true, body: true, href: true, readAt: true, createdAt: true },
+    select: { id: true, kind: true, title: true, body: true, href: true, readAt: true, createdAt: true, actor: { select: socialIdentitySelect } },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: (page - 1) * 30, take: 31,
   });
   return { page, hasNext: records.length > 30, notifications: records.slice(0, 30).map((record) => ({
-    ...record, readAt: record.readAt?.toISOString() ?? null, createdAt: record.createdAt.toISOString(),
+    ...record, actor: record.actor ? socialIdentity(record.actor, userId) : null, readAt: record.readAt?.toISOString() ?? null, createdAt: record.createdAt.toISOString(),
   })) };
 }
 

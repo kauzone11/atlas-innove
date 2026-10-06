@@ -5,8 +5,9 @@ import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 import { canonicalUserPair, hasUserBlock, lockUserPair, requireActiveConnection } from "@/lib/network/locking";
 import { createNotification } from "@/lib/notifications/service";
 import { boundedPage, createConversationSchema, sendMessageSchema } from "@/lib/communication/schemas";
+import { mediaDto, mediaSelect } from "@/lib/media/presentation";
 
-const personSelect = { id: true, profile: { select: { fullName: true } }, innovationProfile: { select: { handle: true, headline: true, profileVisibility: true, directoryEnabled: true, publishedAt: true } } } as const;
+const personSelect = { id: true, profile: { select: { fullName: true } }, innovationProfile: { select: { handle: true, headline: true, profileVisibility: true, directoryEnabled: true, publishedAt: true, avatarMedia: { select: mediaSelect } } } } as const;
 const conversationSelect = {
   id: true, userAId: true, userBId: true, createdAt: true, lastMessageAt: true,
   participants: { select: { userId: true, lastReadAt: true, user: { select: personSelect } } },
@@ -18,7 +19,7 @@ type MessageRecord = Prisma.DirectMessageGetPayload<{ select: typeof messageSele
 function personDto(person: Prisma.UserGetPayload<{ select: typeof personSelect }>) {
   const profile = person.innovationProfile;
   const visible = profile?.profileVisibility === "PLATFORM" || (profile?.profileVisibility === "PUBLIC" && Boolean(profile.publishedAt || profile.directoryEnabled));
-  return { userId: person.id, fullName: person.profile?.fullName || "Pessoa da plataforma", handle: visible && profile?.directoryEnabled ? profile.handle : null, headline: visible ? profile?.headline ?? null : null };
+  return { userId: person.id, fullName: person.profile?.fullName || "Pessoa da plataforma", handle: visible && profile?.directoryEnabled ? profile.handle : null, headline: visible ? profile?.headline ?? null : null, avatarMedia: visible ? mediaDto(profile?.avatarMedia) : null };
 }
 function messageDto(message: MessageRecord) {
   return { id: message.id, senderUserId: message.senderUserId, body: message.deletedAt ? null : message.body, createdAt: message.createdAt.toISOString(), deleted: Boolean(message.deletedAt) };
@@ -87,7 +88,7 @@ export async function getConversation(userId: string, conversationId: string, be
   const activeConnection = await db.networkConnection.findFirst({ where: { ...canonicalUserPair(userId, other.userId), endedAt: null }, select: { id: true } });
   const blocked = await hasUserBlock(db, userId, other.userId);
   const canSend = Boolean(activeConnection) && !blocked;
-  return { id: conversationId, person: { ...personDto(other.user), ...(blocked ? { handle: null, headline: null } : {}) }, messages, olderCursor: records.length > 50 ? messages[0]?.id ?? null : null, canSend };
+  return { id: conversationId, person: { ...personDto(other.user), ...(blocked ? { handle: null, headline: null, avatarMedia: null } : {}) }, messages, olderCursor: records.length > 50 ? messages[0]?.id ?? null : null, canSend };
 }
 
 export async function markConversationRead(userId: string, conversationId: string, lastMessageId: string): Promise<void> {

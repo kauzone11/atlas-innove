@@ -4,10 +4,12 @@ import { ResourceNotFoundError } from "@/lib/errors";
 import { boundedPage } from "@/lib/communication/schemas";
 import { connectedUserWhere, unblockedUserWhere, visiblePostWhere } from "@/lib/social/visibility";
 import type { SocialCommentDto, SocialIdentity, SocialPage, SocialPostDto } from "@/lib/social/types";
+import { mediaDto, mediaSelect } from "@/lib/media/presentation";
 
 export const socialIdentitySelect = {
   id: true, profile: { select: { fullName: true } }, innovationProfile: { select: {
     handle: true, headline: true, profileVisibility: true, publishedAt: true, directoryEnabled: true,
+    avatarMedia: { select: mediaSelect },
   } },
 } satisfies Prisma.UserSelect;
 type IdentityRow = Prisma.UserGetPayload<{ select: typeof socialIdentitySelect }>;
@@ -17,13 +19,14 @@ export function socialIdentity(row: IdentityRow, viewerUserId?: string | null): 
   const visible = row.id === viewerUserId || (viewerUserId && profile?.profileVisibility === "PLATFORM")
     || (profile?.profileVisibility === "PUBLIC" && Boolean(profile.publishedAt || (viewerUserId && profile.directoryEnabled)));
   return { userId: row.id, fullName: row.profile?.fullName || "Pessoa da plataforma",
-    handle: visible ? profile?.handle ?? null : null, headline: visible ? profile?.headline ?? null : null };
+    handle: visible ? profile?.handle ?? null : null, headline: visible ? profile?.headline ?? null : null, avatarMedia: visible ? mediaDto(profile?.avatarMedia) : null };
 }
 
 function postSelect(viewerUserId?: string | null, publicOnly = false) {
   return {
     id: true, authorUserId: true, body: true, externalUrl: true, visibility: true, commentPolicy: true, allowReposts: true,
     createdAt: true, editedAt: true, repostOfPostId: true, author: { select: socialIdentitySelect },
+    media: { select: { mediaId: true, position: true, altText: true, asset: { select: mediaSelect } }, orderBy: { position: "asc" }, take: 4 },
     reactions: { where: { userId: viewerUserId ?? "__anonymous__" }, select: { type: true }, take: 1 },
     saves: { where: { userId: viewerUserId ?? "__anonymous__" }, select: { userId: true }, take: 1 },
     featured: { where: { userId: viewerUserId ?? "__anonymous__" }, select: { userId: true }, take: 1 },
@@ -52,6 +55,7 @@ export async function loadPosts(where: Prisma.SocialPostWhereInput, viewerUserId
   const connected = new Set(connections.flatMap((row) => [row.userAId, row.userBId]));
   const dto = (row: typeof rows[number]): SocialPostDto => ({
     id: row.id, author: socialIdentity(row.author, options.publicOnly ? null : viewerUserId), body: row.body, externalUrl: row.externalUrl,
+    media: row.media.flatMap((item) => { const media = mediaDto(item.asset); return media ? [{ ...media, mediaId: item.mediaId, position: item.position, altText: item.altText }] : []; }),
     visibility: row.visibility, commentPolicy: row.commentPolicy, allowReposts: row.allowReposts,
     createdAt: row.createdAt.toISOString(), editedAt: row.editedAt?.toISOString() ?? null, repostOfPostId: row.repostOfPostId,
     original: null, reactionCount: row._count.reactions, commentCount: row._count.comments, repostCount: row._count.reposts,

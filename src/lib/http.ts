@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { MediaError } from "@/lib/media/errors";
 
 import { AuthorizationError } from "@/lib/auth/authorization";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
@@ -202,6 +203,7 @@ function messageForCode(code: string): string {
 }
 
 export function errorResponse(error: unknown): NextResponse {
+  if (error instanceof MediaError) return NextResponse.json({ error: error.publicMessage, code: error.code }, { status: error.status, headers: { "Cache-Control": "private, no-store" } });
   if (error instanceof ZodError) {
     return NextResponse.json(
       { error: "Dados inválidos.", issues: error.flatten().fieldErrors },

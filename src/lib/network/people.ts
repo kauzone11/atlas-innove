@@ -6,10 +6,12 @@ import { getDiscoveryContext } from "@/lib/network/discovery-context";
 import { peopleDiscoverySchema } from "@/lib/network/discovery-schemas";
 import { explainPeopleRelevance } from "@/lib/network/relevance";
 import { matchesTopicsSql, normalizedTagSql } from "@/lib/network/discovery-sql";
+import { mediaDto, mediaSelect } from "@/lib/media/presentation";
 
 const discoverableScopes = ["PUBLIC", "PLATFORM"] as const;
 const personSelect = {
   userId: true, handle: true, headline: true, city: true, state: true, country: true,
+  avatarMedia: { select: mediaSelect },
   skillsVisibility: true, collaborationStatus: true, collaborationNote: true,
   user: { select: { profile: { select: { fullName: true } } } },
   topics: { select: { type: true, label: true }, orderBy: [{ position: "asc" }, { id: "asc" }], take: 40 },
@@ -31,6 +33,7 @@ function personDto(profile: Prisma.InnovationProfileGetPayload<{ select: typeof 
   const topics = discoverableScopes.some((scope) => scope === profile.skillsVisibility) ? profile.topics : [];
   return {
     userId: profile.userId, handle: profile.handle!, fullName: profile.user.profile!.fullName,
+    avatarMedia: mediaDto(profile.avatarMedia),
     headline: profile.headline!, location: [profile.city, profile.state, profile.country].filter((value): value is string => Boolean(value)),
     skills: topics.filter((topic) => topic.type === "SKILL").map((topic) => topic.label),
     interests: topics.filter((topic) => topic.type === "INTEREST").map((topic) => topic.label),

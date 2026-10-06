@@ -6,14 +6,15 @@ import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 import { createNotifications } from "@/lib/notifications/service";
 import { lockNetworkUsers } from "@/lib/network/locking";
 import { boundedPage, createDiscussionSchema, discussionStatusSchema, discussionSubscriptionSchema, sendMessageSchema } from "@/lib/communication/schemas";
+import { socialIdentity, socialIdentitySelect } from "@/lib/social/read-model";
 
-const personSelect = { id: true, profile: { select: { fullName: true } } } as const;
+const personSelect = socialIdentitySelect;
 const discussionSelect = { id: true, projectId: true, title: true, status: true, createdByUserId: true, createdAt: true, updatedAt: true, createdBy: { select: personSelect }, _count: { select: { messages: true } } } as const;
 const messageSelect = { id: true, authorUserId: true, body: true, createdAt: true, deletedAt: true, author: { select: personSelect } } as const;
 type DiscussionRecord = Prisma.ProjectDiscussionGetPayload<{ select: typeof discussionSelect }>;
 
-function discussionDto(record: DiscussionRecord) {
-  return { id: record.id, projectId: record.projectId, title: record.title, status: record.status, createdByUserId: record.createdByUserId, createdByName: record.createdBy.profile?.fullName ?? "Pessoa da plataforma", createdAt: record.createdAt.toISOString(), updatedAt: record.updatedAt.toISOString(), replyCount: Math.max(0, record._count.messages - 1) };
+function discussionDto(record: DiscussionRecord, viewerUserId?: string) {
+  return { id: record.id, projectId: record.projectId, title: record.title, status: record.status, createdByUserId: record.createdByUserId, createdByName: record.createdBy.profile?.fullName ?? "Pessoa da plataforma", createdByAvatarMedia: socialIdentity(record.createdBy, viewerUserId).avatarMedia, createdAt: record.createdAt.toISOString(), updatedAt: record.updatedAt.toISOString(), replyCount: Math.max(0, record._count.messages - 1) };
 }
 
 async function currentCollaboratorIds(projectId: string, client: Prisma.TransactionClient = db): Promise<string[]> {
@@ -58,7 +59,7 @@ export async function listProjectDiscussions(userId: string, projectId: string, 
     db.projectDiscussion.findMany({ where: { projectId }, select: discussionSelect, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], skip: (page - 1) * pageSize, take: pageSize }),
     db.projectDiscussion.count({ where: { projectId } }),
   ]);
-  return { project: { id: access.id, name: access.name }, discussions: records.map(discussionDto), page, pageSize, total, canCreate: !access.archivedAt && access.status !== "ARCHIVED" };
+  return { project: { id: access.id, name: access.name }, discussions: records.map((record) => discussionDto(record, userId)), page, pageSize, total, canCreate: !access.archivedAt && access.status !== "ARCHIVED" };
 }
 
 export async function getProjectDiscussion(userId: string, projectId: string, discussionId: string, beforeId?: string) {
@@ -73,9 +74,9 @@ export async function getProjectDiscussion(userId: string, projectId: string, di
     db.projectDiscussionMessage.findMany({ where: { discussionId, ...(cursor ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] } : {}) }, select: messageSelect, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 51 }),
     db.projectDiscussionSubscription.findUnique({ where: { discussionId_userId: { discussionId, userId } }, select: { userId: true } }),
   ]);
-  const messages = records.slice(0, 50).reverse().map((record) => ({ id: record.id, authorUserId: record.authorUserId, authorName: record.author.profile?.fullName ?? "Pessoa da plataforma", body: record.deletedAt ? null : record.body, deleted: Boolean(record.deletedAt), createdAt: record.createdAt.toISOString() }));
+  const messages = records.slice(0, 50).reverse().map((record) => ({ id: record.id, authorUserId: record.authorUserId, authorName: record.author.profile?.fullName ?? "Pessoa da plataforma", avatarMedia: socialIdentity(record.author, userId).avatarMedia, body: record.deletedAt ? null : record.body, deleted: Boolean(record.deletedAt), createdAt: record.createdAt.toISOString() }));
   const active = !access.archivedAt && access.status !== "ARCHIVED";
-  return { ...discussionDto(discussion), projectName: access.name, messages, olderCursor: records.length > 50 ? messages[0]?.id ?? null : null, subscribed: Boolean(subscription), canSubscribe: active, canManage: access.canManage, canReply: discussion.status === "OPEN" && active };
+  return { ...discussionDto(discussion, userId), projectName: access.name, messages, olderCursor: records.length > 50 ? messages[0]?.id ?? null : null, subscribed: Boolean(subscription), canSubscribe: active, canManage: access.canManage, canReply: discussion.status === "OPEN" && active };
 }
 
 export async function createProjectDiscussion(userId: string, projectId: string, value: unknown, now = new Date()) {
@@ -85,7 +86,7 @@ export async function createProjectDiscussion(userId: string, projectId: string,
     await discussionAccess(userId, projectId, client, true);
     await checkRate(userId, client, now);
     const discussion = await client.projectDiscussion.create({ data: { projectId, title: input.title, createdByUserId: userId, createdAt: now, messages: { create: { authorUserId: userId, body: input.body, createdAt: now } }, subscriptions: { create: { userId } } }, select: discussionSelect });
-    return discussionDto(discussion);
+    return discussionDto(discussion, userId);
   });
 }
 
@@ -117,7 +118,7 @@ export async function updateDiscussionStatus(userId: string, projectId: string, 
     const { access } = await discussionAccess(userId, projectId, client, true);
     if (!access.canManage) throw new AuthorizationError("PARTICIPANT_ROLE_FORBIDDEN");
     await requireDiscussion(projectId, discussionId, client);
-    return discussionDto(await client.projectDiscussion.update({ where: { id: discussionId }, data: { status: input.status }, select: discussionSelect }));
+    return discussionDto(await client.projectDiscussion.update({ where: { id: discussionId }, data: { status: input.status }, select: discussionSelect }), userId);
   });
 }
 

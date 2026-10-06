@@ -5,6 +5,18 @@ import { errorResponse } from "@/lib/http";
 import { AuthorizationError } from "@/lib/auth/authorization";
 
 export type SocialRouteContext<Key extends string> = { params: Promise<Record<Key, string>> };
+export function assertSocialOrigin(request: Request) {
+  const origin = request.headers.get("origin");
+  if (!origin) return;
+  let allowed = false;
+  try {
+    const source = new URL(origin);
+    const target = new URL(`${source.protocol}//${request.headers.get("host") ?? new URL(request.url).host}`);
+    allowed = ["http:", "https:"].includes(source.protocol) && !source.username && !source.password
+      && source.pathname === "/" && !source.search && !source.hash && source.host === target.host;
+  } catch { allowed = false; }
+  if (!allowed) throw new AuthorizationError("SOCIAL_ORIGIN_FORBIDDEN");
+}
 export async function socialRead(action: (userId: string) => Promise<unknown>) {
   try {
     const { user } = await requireAuthenticatedSession();
@@ -14,18 +26,7 @@ export async function socialRead(action: (userId: string) => Promise<unknown>) {
 export async function socialWrite(request: Request, action: (userId: string, input: unknown) => Promise<unknown>) {
   try {
     const { user } = await requireAuthenticatedSession();
-    const origin = request.headers.get("origin");
-    if (origin) {
-      let allowed = false;
-      try {
-        const source = new URL(origin);
-        // Reverse proxies preserve the browser-facing Host while Next may use an internal request URL.
-        const target = new URL(`${source.protocol}//${request.headers.get("host") ?? new URL(request.url).host}`);
-        allowed = ["http:", "https:"].includes(source.protocol) && !source.username && !source.password
-          && source.pathname === "/" && !source.search && !source.hash && source.host === target.host;
-      } catch { allowed = false; }
-      if (!allowed) throw new AuthorizationError("SOCIAL_ORIGIN_FORBIDDEN");
-    }
+    assertSocialOrigin(request);
     const text = await request.text();
     if (text.length > 16000) return NextResponse.json({ error: "O conteúdo enviado é muito longo." }, { status: 413 });
     let input: unknown = {};

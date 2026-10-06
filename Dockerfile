@@ -30,6 +30,13 @@ RUN npx prisma generate
 # The production image runs migrations and the explicit, idempotent demo seed before serving traffic.
 COPY --from=builder /app/src/lib/db.ts ./src/lib/db.ts
 COPY --from=builder /app/src/demo/fixtures/index.ts ./src/demo/fixtures/index.ts
+# Explicit maintenance uses the same authorization-safe tombstone cleanup without loading application routes.
+COPY --from=builder /app/scripts/media-cleanup.ts ./scripts/media-cleanup.ts
+COPY --from=builder /app/src/lib/media/cleanup.ts /app/src/lib/media/presentation.ts /app/src/lib/media/types.ts /app/src/lib/media/errors.ts ./src/lib/media/
+COPY --from=builder /app/src/lib/storage/client.ts /app/src/lib/storage/config.ts ./src/lib/storage/
+COPY --from=builder /app/src/lib/network/locking.ts ./src/lib/network/locking.ts
+COPY --from=builder /app/src/lib/errors.ts ./src/lib/errors.ts
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
 COPY package.json package-lock.json ./
 
 RUN chown -R nextjs:nodejs /app

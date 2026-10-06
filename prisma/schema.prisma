@@ -311,6 +311,7 @@ model User {
   savedPosts                   SavedPost[]
   featuredPosts                FeaturedPost[]
   socialRateLimitEvents        SocialRateLimitEvent[]
+  mediaAssets                  MediaAsset[]
 }
 
 model UserProfile {
@@ -346,6 +347,10 @@ model InnovationProfile {
   collaborationNote               String?
   followPolicy                    FollowPolicy         @default(EVERYONE)
   primaryProfileAction            PrimaryProfileAction @default(CONNECT)
+  avatarMediaId                   String?              @unique
+  coverMediaId                    String?              @unique
+  avatarMedia                     MediaAsset?          @relation("ProfileAvatar", fields: [avatarMediaId], references: [id], onDelete: Restrict)
+  coverMedia                      MediaAsset?          @relation("ProfileCover", fields: [coverMediaId], references: [id], onDelete: Restrict)
   createdAt                       DateTime             @default(now())
   updatedAt                       DateTime             @updatedAt
   user                            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1811,6 +1816,7 @@ model SocialPost {
   author         User              @relation(fields: [authorUserId], references: [id], onDelete: Restrict)
   repostOf       SocialPost?       @relation("PostRepost", fields: [repostOfPostId], references: [id], onDelete: Restrict)
   reposts        SocialPost[]      @relation("PostRepost")
+  media          SocialPostMedia[]
   reactions      PostReaction[]
   comments       PostComment[]
   saves          SavedPost[]
@@ -1902,6 +1908,52 @@ model SocialRateLimitEvent {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, kind, createdAt])
+}
+
+enum MediaKind {
+  PROFILE_AVATAR
+  PROFILE_COVER
+  POST_IMAGE
+}
+
+enum MediaStatus {
+  PENDING
+  READY
+  DELETED
+}
+
+model MediaAsset {
+  id                String             @id @default(cuid())
+  ownerUserId       String
+  kind              MediaKind
+  storageKey        String             @unique
+  mimeType          String             @default("image/webp")
+  sizeBytes         Int
+  width             Int
+  height            Int
+  derivatives       Json
+  status            MediaStatus        @default(PENDING)
+  createdAt         DateTime           @default(now())
+  deletedAt         DateTime?
+  physicalDeletedAt DateTime?
+  owner             User               @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
+  avatarOf          InnovationProfile? @relation("ProfileAvatar")
+  coverOf           InnovationProfile? @relation("ProfileCover")
+  postMedia         SocialPostMedia?
+
+  @@index([ownerUserId, status, createdAt])
+  @@index([status, createdAt, physicalDeletedAt])
+}
+
+model SocialPostMedia {
+  postId   String
+  mediaId  String     @unique
+  position Int
+  altText  String?
+  post     SocialPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  asset    MediaAsset @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@id([postId, position])
 }
 
 enum ImportType {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { postMediaInputSchema } from "@/lib/media/schemas";
 
 export const socialIdentifierSchema = z.string().trim().min(1).max(128);
 export const postVisibilitySchema = z.enum(["PUBLIC", "PLATFORM", "CONNECTIONS"]);
@@ -11,9 +12,10 @@ export const socialExternalUrlSchema = z.string().trim().max(2000).nullable().op
 }, "Use um endereço HTTPS válido, sem credenciais.");
 export const createPostSchema = z.object({
   body: postBody, externalUrl: socialExternalUrlSchema,
+  media: postMediaInputSchema.default([]),
   visibility: postVisibilitySchema.default("PLATFORM"), commentPolicy: postCommentPolicySchema.default("EVERYONE"), allowReposts: z.boolean().default(true),
-}).strict().refine((input) => Boolean(input.body || input.externalUrl), "Escreva uma publicação ou adicione um link.");
-export const updatePostSchema = z.object({ body: postBody.optional(), externalUrl: socialExternalUrlSchema.optional() }).strict().refine((input) => input.body !== undefined || input.externalUrl !== undefined, "Modifique o texto ou link da publicação.");
+}).strict().refine((input) => Boolean(input.body || input.externalUrl || input.media.length), "Escreva uma publicação, adicione um link ou uma imagem.");
+export const updatePostSchema = z.object({ body: postBody.optional(), externalUrl: socialExternalUrlSchema.optional(), media: postMediaInputSchema.optional() }).strict().refine((input) => input.body !== undefined || input.externalUrl !== undefined || input.media !== undefined, "Modifique o texto, link ou imagens da publicação.");
 export const repostSchema = z.object({
   body: postBody, visibility: postVisibilitySchema.optional(), commentPolicy: postCommentPolicySchema.default("EVERYONE"), allowReposts: z.boolean().default(true),
 }).strict();

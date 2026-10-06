@@ -1,4 +1,6 @@
 import { db } from "@/lib/db";
+import { mediaDto, mediaSelect } from "@/lib/media/presentation";
+import type { MediaDto } from "@/lib/media/types";
 
 // Callers must obtain these IDs from an interaction already scoped to its viewer, never from request input.
 export async function loadInteractionIdentities(viewerUserId: string, authorizedUserIds: string[]) {
@@ -8,6 +10,7 @@ export async function loadInteractionIdentities(viewerUserId: string, authorized
     db.user.findMany({ where: { id: { in: ids } }, select: {
       id: true, profile: { select: { fullName: true } }, innovationProfile: { select: {
         handle: true, headline: true, directoryEnabled: true, publishedAt: true, profileVisibility: true, skillsVisibility: true,
+        avatarMedia: { select: mediaSelect },
         topics: { select: { type: true, label: true }, orderBy: [{ position: "asc" }, { id: "asc" }], take: 40 },
       } },
     } }),
@@ -20,6 +23,7 @@ export async function loadInteractionIdentities(viewerUserId: string, authorized
     const topics = visible && (profile?.skillsVisibility === "PUBLIC" || profile?.skillsVisibility === "PLATFORM") ? profile.topics : [];
     return [person.id, {
       userId: person.id, fullName: person.profile?.fullName || "Pessoa da plataforma",
+      avatarMedia: visible ? mediaDto(profile?.avatarMedia) : null,
       handle: visible && profile?.directoryEnabled ? profile.handle : null, headline: visible ? profile?.headline ?? null : null,
       skills: topics.filter((topic) => topic.type === "SKILL").map((topic) => topic.label),
       interests: topics.filter((topic) => topic.type === "INTEREST").map((topic) => topic.label),
@@ -27,4 +31,4 @@ export async function loadInteractionIdentities(viewerUserId: string, authorized
   }));
 }
 
-export type InteractionIdentity = { userId: string; fullName: string; handle: string | null; headline: string | null; skills: string[]; interests: string[] };
+export type InteractionIdentity = { userId: string; fullName: string; handle: string | null; headline: string | null; skills: string[]; interests: string[]; avatarMedia: MediaDto | null };
