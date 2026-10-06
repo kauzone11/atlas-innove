@@ -53,17 +53,4 @@ jobs:
           node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3000 > "$RUNNER_TEMP/innove-runtime.log" 2>&1 &
           innove_runtime_pid=$!
           trap 'kill "$innove_runtime_pid" 2>/dev/null || true' EXIT
-          for innove_attempt in $(seq 1 30); do
-            if curl --silent --fail http://127.0.0.1:3000/api/health > "$RUNNER_TEMP/innove-health.json"; then
-              grep -q '"status":"ok"' "$RUNNER_TEMP/innove-health.json"
-              curl --silent --fail http://127.0.0.1:3000/login > /dev/null
-              exit 0
-            fi
-            if ! kill -0 "$innove_runtime_pid" 2>/dev/null; then
-              cat "$RUNNER_TEMP/innove-runtime.log"
-              exit 1
-            fi
-            sleep 1
-          done
-          cat "$RUNNER_TEMP/innove-runtime.log"
-          exit 1
+          npm run test:runtime || { cat "$RUNNER_TEMP/innove-runtime.log"; exit 1; }
