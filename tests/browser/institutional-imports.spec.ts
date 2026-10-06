@@ -180,7 +180,7 @@ test("browser error export, stale second tab and revoked membership preserve ins
     await expect(second.getByText("Aguardando conferência", { exact: true })).toBeVisible(); await second.close();
     await db.organizationMembership.update({ where: { id: f.member.id }, data: { role: "ANALYST" } });
     await page.reload(); await expect(page.getByText("Esta área está disponível para gestores, administradores e proprietários da instituição.", { exact: true })).toBeVisible();
-    expect((await page.request.get(`/api/organizations/${f.org.id}/imports/${batchId}`)).status()).toBe(403);
+    expect(await page.evaluate(async (url) => (await fetch(url)).status, `/api/organizations/${f.org.id}/imports/${batchId}`)).toBe(403);
     expect(await db.venture.count({ where: { organizationId: f.org.id } })).toBe(0);
   } finally { await f.cleanup(); }
 });
