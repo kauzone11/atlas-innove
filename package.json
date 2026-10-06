@@ -20,8 +20,8 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:seed:demo": "tsx prisma/seed-demo.ts",
     "test:demo": "tsx --test src/lib/demo/demo.test.ts",
-    "test:security": "tsx --test src/lib/auth/authorization.test.ts src/lib/auth/tenant.test.ts src/lib/domain-invariants.test.ts src/lib/observations/validation.test.ts src/lib/monitoring/coverage.test.ts",
-    "test:domain": "tsx --test src/lib/domain-integration.test.ts src/lib/operational-core-integration.test.ts"
+    "test:security": "tsx --test src/lib/auth/authorization.test.ts src/lib/auth/tenant.test.ts src/lib/domain-invariants.test.ts src/lib/observations/validation.test.ts src/lib/monitoring/coverage.test.ts src/lib/selection/score.test.ts",
+    "test:domain": "tsx --test src/lib/domain-integration.test.ts src/lib/operational-core-integration.test.ts src/lib/participant-integration.test.ts src/lib/selection-integration.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.2.1",
