@@ -863,7 +863,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .analytics-table-wrap { min-width: 0; width: 100%; }
 .analytics-table { width: 100%; border-collapse: collapse; text-align: start; font-size: .8125rem; }
 .analytics-table caption { padding: .9rem 1.25rem; color: var(--slate); font-size: .75rem; line-height: 1.65; text-align: start; }
-.analytics-table th { border-block: 1px solid var(--line); background: var(--surface-subtle); padding: .7rem 1.1rem; font-size: .6875rem; font-weight: 650; vertical-align: top; }
+.analytics-table th { border-block: 1px solid var(--line); background: var(--surface-subtle); padding: .7rem 1.1rem; font-size: .6875rem; font-weight: 650; text-align: start; vertical-align: top; }
 .analytics-table td { border-bottom: 1px solid var(--line); padding: 1rem 1.1rem; line-height: 1.65; vertical-align: top; font-variant-numeric: tabular-nums; }
 .analytics-table tr:last-child td { border-bottom: 0; }
 .analytics-table-wrap + .analytics-table-wrap { border-top: 1px solid var(--line); }
