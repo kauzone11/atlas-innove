@@ -18,8 +18,8 @@ type RouteContext = { params: Promise<{ organizationId: string; membershipId: st
 export async function PATCH(request: Request, context: RouteContext) {
   try {
     const { organizationId, membershipId } = await context.params;
-    const input = schema.parse(await request.json());
     const access = await requireOrganizationAccess(organizationId, "ADMIN");
+    const input = schema.parse(await request.json());
     const current = await db.organizationMembership.findFirst({ where: { id: membershipId, organizationId } });
     if (!current) {
       throw new AuthorizationError("MEMBERSHIP_NOT_FOUND");
@@ -38,7 +38,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       }
     }
     const membership = await db.organizationMembership.update({
-      where: { id: membershipId },
+      where: { id: membershipId, organizationId },
       data: { role: nextRole, ...(input.status ? { status: input.status } : {}) },
     });
     return NextResponse.json({ membership });

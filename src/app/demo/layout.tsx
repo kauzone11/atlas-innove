@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { DemoShell } from "@/components/demo/demo-shell";
+import { hasConfiguredDemoOrganization } from "@/lib/demo/read-model";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +12,7 @@ export const metadata: Metadata = {
   openGraph: { title: "Atlas Innove — Demonstração", description: "Acompanhamento longitudinal de empreendimentos apoiados.", type: "website" },
 };
 
-export default function DemoLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function DemoLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  if (!(await hasConfiguredDemoOrganization())) notFound();
   return <DemoShell>{children}</DemoShell>;
 }
