@@ -299,6 +299,9 @@ model User {
   safetyReportsFiled           SafetyReport[]                  @relation("SafetyReporter")
   safetyReportsReceived        SafetyReport[]                  @relation("SafetyReported")
   safetyReportsReviewed        SafetyReport[]                  @relation("SafetyReviewer")
+  importBatches                ImportBatch[]                   @relation("ImportCreatedBy")
+  importsApplied               ImportBatch[]                   @relation("ImportAppliedBy")
+  importsRolledBack            ImportBatch[]                   @relation("ImportRolledBackBy")
 }
 
 model UserProfile {
@@ -434,6 +437,8 @@ model Organization {
   dataExports          DataExportAudit[]
   analyticsSettings    OrganizationAnalyticsSettings?
   resultPublications   PublicResultPublication[]
+  importBatches        ImportBatch[]
+  externalReferences   ExternalReference[]
 }
 
 model OrganizationMembership {
@@ -1723,4 +1728,138 @@ model SafetyReport {
 
   @@index([status, createdAt, id])
   @@index([reporterUserId, createdAt])
+}
+
+enum ImportType {
+  FUNDING_PROGRAMS
+  FUNDING_CALLS
+  COHORTS
+  VENTURES
+  VENTURE_ENROLLMENTS
+  FOLLOW_UP_WAVES
+  OBSERVATIONS
+  MILESTONES
+}
+
+enum ImportStatus {
+  UPLOADED
+  VALIDATING
+  READY
+  APPLYING
+  APPLIED
+  FAILED
+  ROLLED_BACK
+}
+
+enum ImportRowStatus {
+  PENDING
+  VALID
+  INVALID
+  APPLIED
+  SKIPPED
+  ROLLED_BACK
+}
+
+enum ImportOperation {
+  CREATE
+  UPDATE
+}
+
+model ImportBatch {
+  id                 String              @id @default(cuid())
+  organizationId     String
+  type               ImportType
+  status             ImportStatus        @default(UPLOADED)
+  revision           Int                 @default(1)
+  schemaVersion      Int                 @default(1)
+  namespace          String              @db.VarChar(80)
+  sourceName         String?             @db.VarChar(200)
+  sourceDigest       String              @db.VarChar(64)
+  delimiter          String              @db.VarChar(1)
+  headers            Json
+  mapping            Json                @default("{}")
+  options            Json                @default("{}")
+  mappingConfirmedAt DateTime?
+  totalRows          Int
+  validRows          Int                 @default(0)
+  invalidRows        Int                 @default(0)
+  warningRows        Int                 @default(0)
+  appliedRows        Int                 @default(0)
+  createdByUserId    String
+  appliedByUserId    String?
+  rolledBackByUserId String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  validatedAt        DateTime?
+  appliedAt          DateTime?
+  failedAt           DateTime?
+  rolledBackAt       DateTime?
+  failureCode        String?             @db.VarChar(80)
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy          User                @relation("ImportCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  appliedBy          User?               @relation("ImportAppliedBy", fields: [appliedByUserId], references: [id], onDelete: Restrict)
+  rolledBackBy       User?               @relation("ImportRolledBackBy", fields: [rolledBackByUserId], references: [id], onDelete: Restrict)
+  rows               ImportRow[]
+  changes            ImportChange[]
+  externalReferences ExternalReference[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, createdAt, id])
+  @@index([organizationId, namespace, type, sourceDigest])
+}
+
+model ImportRow {
+  id                 String          @id @default(cuid())
+  organizationId     String
+  batchId            String
+  rowNumber          Int
+  rawData            Json
+  normalizedData     Json?
+  status             ImportRowStatus @default(PENDING)
+  errors             Json            @default("[]")
+  warnings           Json            @default("[]")
+  resolvedReferences Json?
+  createdAt          DateTime        @default(now())
+  batch              ImportBatch     @relation(fields: [organizationId, batchId], references: [organizationId, id], onDelete: Cascade)
+  changes            ImportChange[]
+
+  @@unique([organizationId, batchId, id])
+  @@unique([batchId, rowNumber])
+  @@index([organizationId, batchId, status, rowNumber])
+}
+
+model ImportChange {
+  id             String          @id @default(cuid())
+  organizationId String
+  batchId        String
+  rowId          String?
+  entityType     ImportType
+  entityId       String
+  operation      ImportOperation
+  beforeData     Json?
+  afterDigest    String          @db.VarChar(64)
+  createdAt      DateTime        @default(now())
+  rolledBackAt   DateTime?
+  batch          ImportBatch     @relation(fields: [organizationId, batchId], references: [organizationId, id], onDelete: Cascade)
+  row            ImportRow?      @relation(fields: [organizationId, batchId, rowId], references: [organizationId, batchId, id], onDelete: NoAction)
+
+  @@unique([organizationId, batchId, entityType, entityId])
+  @@index([organizationId, entityType, entityId])
+}
+
+model ExternalReference {
+  id                     String       @id @default(cuid())
+  organizationId         String
+  namespace              String       @db.VarChar(80)
+  entityType             ImportType
+  externalId             String       @db.VarChar(160)
+  entityId               String
+  createdByImportBatchId String?
+  createdAt              DateTime     @default(now())
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByImportBatch   ImportBatch? @relation(fields: [organizationId, createdByImportBatchId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([organizationId, namespace, entityType, externalId], map: "ExternalReference_tenant_source_key")
+  @@index([organizationId, entityType, entityId])
+  @@index([organizationId, createdByImportBatchId])
 }

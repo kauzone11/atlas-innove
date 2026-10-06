@@ -13,6 +13,7 @@
     "build": "next build",
     "start": "next start",
     "test:runtime": "node scripts/runtime-smoke.mjs",
+    "test:imports": "tsx --test src/lib/imports/*.test.ts",
     "typecheck": "tsc --noEmit",
     "db:format": "prisma format",
     "db:validate": "prisma validate",
