@@ -93,6 +93,7 @@ test("professional social journey preserves audiences, notifications, keyboard i
     await trigger.click();
     await composer.getByRole("textbox", { name: /^Publicação/ }).fill("Nova pesquisa aplicada com parceiros do ecossistema. Compartilhamos aprendizados e evidências desta etapa.");
     await composer.getByRole("combobox", { name: /^Visibilidade/ }).selectOption("PUBLIC");
+    await composer.getByRole("button", { name: "Adicionar link", exact: true }).click();
     await composer.getByLabel("Link externo (opcional)", { exact: true }).fill("https://example.test/pesquisa");
     await screenshot(page, info, "composer", [1440, 390, 320]);
     await composer.getByRole("button", { name: "Publicar", exact: true }).focus();

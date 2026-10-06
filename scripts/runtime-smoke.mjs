@@ -39,6 +39,15 @@ for (const route of ["/demo", "/demo/programas", "/demo/oportunidades", "/demo/a
 for (const route of ["/opportunities/calls/runtime-missing", "/results/runtime-missing", "/people/runtime-missing", "/projects/runtime-missing", "/posts/nonexistent-safe-id"]) {
   await check(route, async () => { const response = await request(route); assert.equal(response.status, 404, route); await response.arrayBuffer(); });
 }
+for (const route of ["/api/media/runtime-missing", "/api/media/runtime-missing?variant=large", "/api/media/runtime-missing?variant=original"]) {
+  await check(route, async () => {
+    const response = await request(route);
+    assert.ok([400, 404].includes(response.status), `${route}: ${response.status}`);
+    assert.match(response.headers.get("cache-control") ?? "", /no-store/);
+    const body = await response.text();
+    assert.ok(!/Prisma|storageKey|accessKey|secret|bucket|stack trace/i.test(body), `${route}: internal details in response`);
+  });
+}
 for (const route of ["/app", "/app/personal", "/app/personal/feed", "/app/analytics/quality", "/app/personal/network/requests", "/app/messages", "/app/programs/runtime-missing/cohorts/runtime-missing"]) {
   await check(route, async () => {
     const response = await request(route); assert.ok([302, 303, 307, 308].includes(response.status), `${route}: ${response.status}`);

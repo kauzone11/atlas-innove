@@ -11,7 +11,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     services:
       postgres:
         image: postgres:16-alpine
@@ -33,6 +33,13 @@ jobs:
       APP_BASE_URL: "https://innove.example.test"
       DEMO_ENABLED: "false"
       NEXT_TELEMETRY_DISABLED: "1"
+      INNOVE_MEDIA_BROWSER_TESTS: "true"
+      OBJECT_STORAGE_ENDPOINT: http://127.0.0.1:59000
+      OBJECT_STORAGE_REGION: us-east-1
+      OBJECT_STORAGE_BUCKET: atlas-innove-social-ci
+      OBJECT_STORAGE_ACCESS_KEY_ID: innove-ci-local
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: disposable-ci-media-storage-only
+      OBJECT_STORAGE_FORCE_PATH_STYLE: "true"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -40,6 +47,26 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Cache pinned local S3 test server
+        id: media-store-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/atlas-innove-minio
+          key: ${{ runner.os }}-${{ runner.arch }}-minio-7aac2a2c5b7c882e68c1ce017d8256be2feea27f-go1.24.8
+      - uses: actions/setup-go@v5
+        if: steps.media-store-cache.outputs.cache-hit != 'true'
+        with:
+          go-version: 1.24.8
+          cache: false
+      - name: Build pinned local S3 test server
+        if: steps.media-store-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$HOME/.cache/atlas-innove-minio"
+          GOBIN="$HOME/.cache/atlas-innove-minio" GOMAXPROCS=2 go install github.com/minio/minio@7aac2a2c5b7c882e68c1ce017d8256be2feea27f
+      - name: Start private local S3 test storage
+        run: |
+          MINIO_ROOT_USER="$OBJECT_STORAGE_ACCESS_KEY_ID" MINIO_ROOT_PASSWORD="$OBJECT_STORAGE_SECRET_ACCESS_KEY" "$HOME/.cache/atlas-innove-minio/minio" server "$RUNNER_TEMP/innove-media" --address 127.0.0.1:59000 --console-address 127.0.0.1:59001 > "$RUNNER_TEMP/innove-media.log" 2>&1 &
+          node scripts/prepare-media-test-store.mjs
       - run: npm run db:generate
       - run: npx prisma validate
       - run: npm run db:migrate:deploy
@@ -47,6 +74,7 @@ jobs:
       - run: npm run test:security
       - run: npm run test:domain
       - run: npm run test:social
+      - run: npm run test:media
       - run: npm run test:imports
       - run: npm run test:demo
       - run: npx playwright install --with-deps chromium
@@ -67,5 +95,6 @@ jobs:
           name: institutional-runtime-${{ github.sha }}
           path: |
             ${{ runner.temp }}/innove-runtime.log
+            ${{ runner.temp }}/innove-media.log
             ${{ runner.temp }}/innove-browser-results
           retention-days: 14
