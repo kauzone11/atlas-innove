@@ -3,6 +3,10 @@ import test from "node:test";
 
 import {
   assertCohortCanReceiveEnrollment,
+  assertCohortCanReceiveWave,
+  assertCallStatusTransition,
+  assertCohortStatusTransition,
+  assertProgramStatusTransition,
   assertCohortFundingCallScope,
   assertCohortProtocolVersionScope,
   assertEnrollmentIsUnique,
@@ -72,4 +76,22 @@ test("program lifecycle only permits new cohorts while draft or active", () => {
   assert.doesNotThrow(() => assertProgramCanReceiveCohort("DRAFT"));
   assert.doesNotThrow(() => assertProgramCanReceiveCohort("ACTIVE"));
   assert.throws(() => assertProgramCanReceiveCohort("CLOSED"), { code: "PROGRAM_NOT_ELIGIBLE_FOR_COHORT" });
+});
+
+test("closed and archived cohorts preserve reads but cannot receive new waves", () => {
+  for (const status of ["PLANNED", "ACTIVE"]) assert.doesNotThrow(() => assertCohortCanReceiveWave(status));
+  for (const status of ["CLOSED", "ARCHIVED"]) assert.throws(() => assertCohortCanReceiveWave(status), { code: "COHORT_NOT_ELIGIBLE_FOR_WAVE" });
+});
+
+test("operational lifecycles cannot resurrect terminal historical records", () => {
+  assert.doesNotThrow(() => assertProgramStatusTransition("ACTIVE", "CLOSED"));
+  assert.doesNotThrow(() => assertCohortStatusTransition("PLANNED", "CLOSED"));
+  assert.doesNotThrow(() => assertCallStatusTransition("IN_REVIEW", "RESULT_PUBLISHED"));
+  assert.doesNotThrow(() => assertCallStatusTransition("RESULT_PUBLISHED", "CLOSED"));
+  for (const next of ["DRAFT", "ACTIVE"]) assert.throws(() => assertProgramStatusTransition("CLOSED", next));
+  for (const next of ["PLANNED", "ACTIVE"]) assert.throws(() => assertCohortStatusTransition("CLOSED", next));
+  for (const next of ["DRAFT", "OPEN", "IN_REVIEW"]) assert.throws(() => assertCallStatusTransition("CLOSED", next));
+  assert.throws(() => assertCallStatusTransition("ARCHIVED", "OPEN"));
+  assert.throws(() => assertCohortStatusTransition("ARCHIVED", "ACTIVE"));
+  assert.throws(() => assertProgramStatusTransition("ARCHIVED", "ACTIVE"));
 });

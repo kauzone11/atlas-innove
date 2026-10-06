@@ -125,6 +125,47 @@ enum VentureObservationStatus {
   MISSED
 }
 
+enum TeamRole {
+  OWNER
+  LEAD
+  MEMBER
+}
+
+enum ProjectRole {
+  OWNER
+  LEAD
+  MEMBER
+}
+
+enum ProjectStatus {
+  IDEA
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum ApplicationStatus {
+  DRAFT
+  SUBMITTED
+  IN_REVIEW
+  DECIDED
+  WITHDRAWN
+}
+
+enum ApplicationDecision {
+  PENDING
+  SELECTED
+  WAITLIST
+  NOT_SELECTED
+  DISQUALIFIED
+}
+
+enum EvaluationStatus {
+  DRAFT
+  SUBMITTED
+}
+
 model User {
   id                     String                   @id @default(cuid())
   email                  String                   @unique
@@ -139,6 +180,15 @@ model User {
   sessions               Session[]
   passwordResetTokens    PasswordResetToken[]
   fundingProgramsCreated FundingProgram[]         @relation("FundingProgramCreatedBy")
+  teamsCreated           Team[]                   @relation("TeamCreatedBy")
+  teamMemberships        TeamMembership[]
+  teamInvitesSent        TeamInvite[]             @relation("TeamInvitedBy")
+  teamInvitesAccepted    TeamInvite[]             @relation("TeamInviteAcceptedBy")
+  projectsCreated        Project[]                @relation("ProjectCreatedBy")
+  projectMemberships     ProjectMembership[]
+  applicationsSubmitted  Application[]            @relation("ApplicationSubmittedBy")
+  applicationDecisions   Application[]            @relation("ApplicationDecidedBy")
+  applicationEvaluations ApplicationEvaluation[]
 }
 
 model UserProfile {
@@ -176,6 +226,9 @@ model Organization {
   observationValues    ObservationValue[]
   milestones           Milestone[]
   opportunities        Opportunity[]
+  applications         Application[]
+  evaluationCriteria   EvaluationCriterion[]
+  evaluations          ApplicationEvaluation[]
 }
 
 model OrganizationMembership {
@@ -263,29 +316,35 @@ model FundingProgram {
 }
 
 model FundingCall {
-  id                  String                @id @default(cuid())
+  id                  String                  @id @default(cuid())
   organizationId      String
   fundingProgramId    String
   title               String
   shortTitle          String?
   callNumber          String
   objective           String?
-  status              FundingCallStatus     @default(DRAFT)
+  status              FundingCallStatus       @default(DRAFT)
   publishedAt         DateTime?
   applicationStartsAt DateTime?
   applicationEndsAt   DateTime?
-  totalBudget         Decimal?              @db.Decimal(14, 2)
-  maximumSupport      Decimal?              @db.Decimal(14, 2)
+  totalBudget         Decimal?                @db.Decimal(14, 2)
+  maximumSupport      Decimal?                @db.Decimal(14, 2)
   targetProjects      Int?
   executionMonths     Int?
   sourceUrl           String?
   sourceCheckedAt     DateTime?
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
-  organization        Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  fundingProgram      FundingProgram        @relation(fields: [organizationId, fundingProgramId], references: [organizationId, id], onDelete: Cascade)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  organization        Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fundingProgram      FundingProgram          @relation(fields: [organizationId, fundingProgramId], references: [organizationId, id], onDelete: Cascade)
   cohorts             Cohort[]
   documents           FundingCallDocument[]
+  applicationsEnabled Boolean                 @default(false)
+  evaluationStartedAt DateTime?
+  resultsPublishedAt  DateTime?
+  applications        Application[]
+  evaluationCriteria  EvaluationCriterion[]
+  evaluations         ApplicationEvaluation[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, id, fundingProgramId])
@@ -349,12 +408,15 @@ model Venture {
   archivedAt        DateTime?
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
+  sourceProjectId   String?
+  sourceProject     Project?            @relation(fields: [sourceProjectId], references: [id], onDelete: Restrict)
   organization      Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   enrollments       VentureEnrollment[]
   milestones        Milestone[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, slug])
+  @@unique([organizationId, sourceProjectId])
   @@index([organizationId, kind, archivedAt])
 }
 
@@ -369,12 +431,15 @@ model VentureEnrollment {
   status            VentureEnrollmentStatus @default(ACTIVE)
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
+  applicationId     String?
+  application       Application?            @relation(fields: [organizationId, applicationId], references: [organizationId, id], onDelete: Restrict)
   organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   cohort            Cohort                  @relation(fields: [organizationId, cohortId], references: [organizationId, id], onDelete: Cascade)
   venture           Venture                 @relation(fields: [organizationId, ventureId], references: [organizationId, id], onDelete: Cascade)
   observations      VentureObservation[]
 
   @@unique([organizationId, cohortId, ventureId])
+  @@unique([organizationId, applicationId])
   @@unique([organizationId, cohortId, id])
   @@index([organizationId, cohortId, status])
   @@index([organizationId, cohortId, withdrawnAt])
@@ -533,4 +598,180 @@ model Opportunity {
 
   @@unique([organizationId, callNumber])
   @@index([organizationId, status])
+}
+
+model Team {
+  id              String           @id @default(cuid())
+  name            String
+  description     String?
+  createdByUserId String
+  archivedAt      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  createdBy       User             @relation("TeamCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  memberships     TeamMembership[]
+  invites         TeamInvite[]
+  projects        Project[]
+  applications    Application[]
+}
+
+model TeamMembership {
+  id        String           @id @default(cuid())
+  teamId    String
+  userId    String
+  role      TeamRole         @default(MEMBER)
+  status    MembershipStatus @default(ACTIVE)
+  joinedAt  DateTime         @default(now())
+  leftAt    DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  team      Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([teamId, userId])
+  @@index([userId, status, leftAt])
+}
+
+model TeamInvite {
+  id               String    @id @default(cuid())
+  teamId           String
+  invitedByUserId  String
+  email            String?
+  role             TeamRole  @default(MEMBER)
+  tokenHash        String    @unique
+  expiresAt        DateTime
+  acceptedAt       DateTime?
+  acceptedByUserId String?
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  team             Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  invitedBy        User      @relation("TeamInvitedBy", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+  acceptedBy       User?     @relation("TeamInviteAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([teamId, expiresAt])
+}
+
+model Project {
+  id              String              @id @default(cuid())
+  name            String
+  summary         String
+  description     String?
+  status          ProjectStatus       @default(IDEA)
+  createdByUserId String
+  primaryTeamId   String?
+  archivedAt      DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  createdBy       User                @relation("ProjectCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  primaryTeam     Team?               @relation(fields: [primaryTeamId], references: [id], onDelete: Restrict)
+  memberships     ProjectMembership[]
+  applications    Application[]
+  ventures        Venture[]
+
+  @@index([primaryTeamId, archivedAt])
+}
+
+model ProjectMembership {
+  id        String      @id @default(cuid())
+  projectId String
+  userId    String
+  role      ProjectRole @default(MEMBER)
+  joinedAt  DateTime    @default(now())
+  leftAt    DateTime?
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, userId])
+  @@index([userId, leftAt])
+}
+
+model Application {
+  id                         String                  @id @default(cuid())
+  organizationId             String
+  fundingCallId              String
+  projectId                  String
+  teamId                     String?
+  submittedByUserId          String
+  status                     ApplicationStatus       @default(DRAFT)
+  revision                   Int                     @default(0)
+  projectNameSnapshot        String
+  projectSummarySnapshot     String
+  projectDescriptionSnapshot String?
+  teamNameSnapshot           String?
+  submittedAt                DateTime?
+  withdrawnAt                DateTime?
+  decision                   ApplicationDecision     @default(PENDING)
+  decidedAt                  DateTime?
+  decidedByUserId            String?
+  decisionNote               String?
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @updatedAt
+  organization               Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fundingCall                FundingCall             @relation(fields: [organizationId, fundingCallId], references: [organizationId, id], onDelete: Cascade)
+  project                    Project                 @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  team                       Team?                   @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  submittedBy                User                    @relation("ApplicationSubmittedBy", fields: [submittedByUserId], references: [id], onDelete: Restrict)
+  decidedBy                  User?                   @relation("ApplicationDecidedBy", fields: [decidedByUserId], references: [id], onDelete: Restrict)
+  evaluations                ApplicationEvaluation[]
+  enrollments                VentureEnrollment[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, fundingCallId, id])
+  @@unique([fundingCallId, projectId])
+  @@index([organizationId, fundingCallId, status])
+  @@index([projectId, submittedByUserId])
+}
+
+model EvaluationCriterion {
+  id             String                       @id @default(cuid())
+  organizationId String
+  fundingCallId  String
+  name           String
+  description    String?
+  weight         Decimal                      @db.Decimal(10, 4)
+  maxScore       Decimal                      @db.Decimal(10, 4)
+  position       Int                          @default(0)
+  createdAt      DateTime                     @default(now())
+  organization   Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fundingCall    FundingCall                  @relation(fields: [organizationId, fundingCallId], references: [organizationId, id], onDelete: Cascade)
+  scores         ApplicationEvaluationScore[]
+
+  @@unique([organizationId, fundingCallId, id])
+  @@index([organizationId, fundingCallId, position])
+}
+
+model ApplicationEvaluation {
+  id              String                       @id @default(cuid())
+  organizationId  String
+  fundingCallId   String
+  applicationId   String
+  evaluatorUserId String
+  status          EvaluationStatus             @default(DRAFT)
+  revision        Int                          @default(0)
+  submittedAt     DateTime?
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+  organization    Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fundingCall     FundingCall                  @relation(fields: [organizationId, fundingCallId], references: [organizationId, id], onDelete: Cascade)
+  application     Application                  @relation(fields: [organizationId, fundingCallId, applicationId], references: [organizationId, fundingCallId, id], onDelete: Cascade)
+  evaluator       User                         @relation(fields: [evaluatorUserId], references: [id], onDelete: Restrict)
+  scores          ApplicationEvaluationScore[]
+
+  @@unique([organizationId, fundingCallId, id])
+  @@unique([organizationId, applicationId, evaluatorUserId])
+  @@index([organizationId, fundingCallId, status])
+}
+
+model ApplicationEvaluationScore {
+  id             String                @id @default(cuid())
+  organizationId String
+  fundingCallId  String
+  evaluationId   String
+  criterionId    String
+  score          Decimal               @db.Decimal(10, 4)
+  comment        String?
+  evaluation     ApplicationEvaluation @relation(fields: [organizationId, fundingCallId, evaluationId], references: [organizationId, fundingCallId, id], onDelete: Cascade)
+  criterion      EvaluationCriterion   @relation(fields: [organizationId, fundingCallId, criterionId], references: [organizationId, fundingCallId, id], onDelete: Cascade)
+
+  @@unique([evaluationId, criterionId])
 }

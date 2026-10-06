@@ -18,6 +18,7 @@ const callFields = z.object({
   callNumber: z.string().trim().min(1, "Informe o número do edital.").max(80, "O número do edital deve ter até 80 caracteres."),
   objective: optionalText(4000),
   status: fundingCallStatusSchema.default("DRAFT"),
+  applicationsEnabled: z.boolean().default(false),
   publishedAt: optionalDate,
   applicationStartsAt: optionalDate,
   applicationEndsAt: optionalDate,

@@ -12,7 +12,7 @@ const registerSchema = z.object({
   fullName: z.string().trim().min(2).max(120),
   email: z.string().email().max(254),
   password: z.string().min(12).max(128),
-  organizationName: z.string().trim().min(2).max(160),
+  organizationName: z.preprocess((value) => typeof value === "string" && !value.trim() ? undefined : value, z.string().trim().min(2).max(160).optional()),
 });
 
 export async function POST(request: Request) {
@@ -20,7 +20,6 @@ export async function POST(request: Request) {
     const input = registerSchema.parse(await request.json());
     const email = normalizeEmail(input.email);
     const passwordHash = await bcrypt.hash(input.password, 12);
-    const organizationSlug = createOrganizationSlug(input.organizationName);
 
     const result = await db.$transaction(async (tx) => {
       const user = await tx.user.create({
@@ -30,18 +29,14 @@ export async function POST(request: Request) {
           profile: { create: { fullName: input.fullName } },
         },
       });
-      const organization = await tx.organization.create({
-        data: { name: input.organizationName, slug: organizationSlug },
-      });
-      await tx.organizationMembership.create({
-        data: { userId: user.id, organizationId: organization.id, role: "OWNER" },
-      });
+      const organization = input.organizationName ? await tx.organization.create({ data: { name: input.organizationName, slug: createOrganizationSlug(input.organizationName) } }) : null;
+      if (organization) await tx.organizationMembership.create({ data: { userId: user.id, organizationId: organization.id, role: "OWNER" } });
       return { user, organization };
     });
 
-    await createUserSession(result.user.id, result.organization.id);
+    await createUserSession(result.user.id, result.organization?.id);
     return NextResponse.json(
-      { user: { id: result.user.id, email: result.user.email }, organization: result.organization },
+      { user: { id: result.user.id, email: result.user.email }, organization: result.organization, redirectTo: result.organization ? "/app" : "/app/personal" },
       { status: 201 },
     );
   } catch (error) {

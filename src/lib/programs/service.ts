@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
-import { assertSameOrganization } from "@/lib/domain-invariants";
+import { assertProgramStatusTransition, assertSameOrganization } from "@/lib/domain-invariants";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 import { db } from "@/lib/db";
 import type { CreateFundingProgramInput, UpdateFundingProgramInput } from "@/lib/programs/schemas";
@@ -146,6 +146,7 @@ export async function updateFundingProgram(
     if (current.status === "ARCHIVED" && input.status !== undefined && input.status !== "ARCHIVED") {
       throw new DomainConflictError("FUNDING_PROGRAM_ARCHIVED");
     }
+    if (input.status !== undefined) assertProgramStatusTransition(current.status, input.status);
 
     await tx.fundingProgram.updateMany({
       where: { id: programId, organizationId },

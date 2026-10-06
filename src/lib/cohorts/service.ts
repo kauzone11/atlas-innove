@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
-import { assertProgramCanReceiveCohort, assertSameOrganization } from "@/lib/domain-invariants";
+import { assertCohortStatusTransition, assertProgramCanReceiveCohort, assertSameOrganization } from "@/lib/domain-invariants";
 import { db } from "@/lib/db";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 import type { CreateCohortInput, UpdateCohortInput } from "@/lib/cohorts/schemas";
@@ -135,6 +135,7 @@ export async function updateCohort(
     const current = await transaction.cohort.findFirst({ where: { id: cohortId, organizationId }, select: cohortSummarySelect });
     if (!current) throw new ResourceNotFoundError("COHORT_NOT_FOUND");
     if (current.status === "ARCHIVED") throw new DomainConflictError("COHORT_ARCHIVED");
+    if (input.status !== undefined) assertCohortStatusTransition(current.status, input.status);
     const startsAt = input.startsAt !== undefined ? input.startsAt : current.startsAt;
     const endsAt = input.endsAt !== undefined ? input.endsAt : current.endsAt;
     if (startsAt && endsAt && endsAt < startsAt) throw new DomainConflictError("COHORT_DATE_RANGE_INVALID");

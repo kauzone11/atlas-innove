@@ -15,6 +15,8 @@ import { createVentureMilestone } from "@/lib/milestones/service";
 import { enrollVenture, withdrawEnrollment } from "@/lib/ventures/service";
 import { updateFundingProgram } from "@/lib/programs/service";
 
+if (process.env.REQUIRE_DOMAIN_DATABASE === "true" && !process.env.DATABASE_URL) throw new Error("DATABASE_URL is required for domain integration tests in CI");
+
 test("operational core preserves tenant, frozen methodology, values, concurrency and history", async (context) => {
   if (!process.env.DATABASE_URL) { context.skip("DATABASE_URL is required for PostgreSQL proof"); return; }
   const suffix = randomUUID().slice(0, 8);

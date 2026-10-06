@@ -42,9 +42,34 @@ export function assertCohortCanReceiveEnrollment(status: string): void {
 }
 
 export function assertCohortCanReceiveWave(status: string): void {
-  if (status === "ARCHIVED") {
-    throw new DomainConflictError("COHORT_ARCHIVED_FOR_WAVE");
+  if (status !== "PLANNED" && status !== "ACTIVE") {
+    throw new DomainConflictError("COHORT_NOT_ELIGIBLE_FOR_WAVE");
   }
+}
+
+const programTransitions: Record<string, string[]> = {
+  DRAFT: ["ACTIVE", "CLOSED", "ARCHIVED"], ACTIVE: ["CLOSED", "ARCHIVED"], CLOSED: ["ARCHIVED"], ARCHIVED: [],
+};
+const cohortTransitions: Record<string, string[]> = {
+  PLANNED: ["ACTIVE", "CLOSED", "ARCHIVED"], ACTIVE: ["CLOSED", "ARCHIVED"], CLOSED: ["ARCHIVED"], ARCHIVED: [],
+};
+const callTransitions: Record<string, string[]> = {
+  DRAFT: ["OPEN", "CLOSED", "ARCHIVED"], OPEN: ["IN_REVIEW", "CLOSED", "ARCHIVED"],
+  IN_REVIEW: ["RESULT_PUBLISHED", "CLOSED", "ARCHIVED"], RESULT_PUBLISHED: ["CLOSED", "ARCHIVED"], CLOSED: ["ARCHIVED"], ARCHIVED: [],
+};
+
+function assertLifecycleTransition(transitions: Record<string, string[]>, current: string, next: string, code: string) {
+  if (current !== next && !transitions[current]?.includes(next)) throw new DomainConflictError(code);
+}
+
+export function assertProgramStatusTransition(current: string, next: string) {
+  assertLifecycleTransition(programTransitions, current, next, "PROGRAM_STATUS_TRANSITION_INVALID");
+}
+export function assertCohortStatusTransition(current: string, next: string) {
+  assertLifecycleTransition(cohortTransitions, current, next, "COHORT_STATUS_TRANSITION_INVALID");
+}
+export function assertCallStatusTransition(current: string, next: string) {
+  assertLifecycleTransition(callTransitions, current, next, "CALL_STATUS_TRANSITION_INVALID");
 }
 
 export function assertEnrollmentIsUnique(existingEnrollmentId: string | null): void {

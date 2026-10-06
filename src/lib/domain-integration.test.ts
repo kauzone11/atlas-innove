@@ -10,6 +10,7 @@ import { createProtocolVersion } from "@/lib/tracking-protocols/service";
 import { enrollVenture, getOrganizationVenture, withdrawEnrollment } from "@/lib/ventures/service";
 
 const databaseAvailable = Boolean(process.env.DATABASE_URL);
+if (process.env.REQUIRE_DOMAIN_DATABASE === "true" && !databaseAvailable) throw new Error("DATABASE_URL is required for domain integration tests in CI");
 
 test("services and database preserve tenant, lifecycle and longitudinal invariants", async (context) => {
   if (!databaseAvailable) {
