@@ -94,11 +94,11 @@ test("participant services preserve private identities, secure invitations and d
       assert.equal(await db.projectMembership.count({ where: { projectId: project.id, userId: lead.id } }), 0);
       await assert.rejects(() => updateProject(lead.id, project.id, { primaryTeamId: null }), /PARTICIPANT_ROLE_FORBIDDEN/);
       await addProjectMember(owner.id, project.id, { userId: member.id, role: "LEAD" });
-      const leadMembership = await db.teamMembership.findUniqueOrThrow({ where: { teamId_userId: { teamId: team.id, userId: lead.id } } });
+      const leadMembership = await db.teamMembership.findFirstOrThrow({ where: { teamId: team.id, userId: lead.id, status: "ACTIVE", leftAt: null } });
       await updateTeamMember(owner.id, team.id, leadMembership.id, { action: "remove" });
       assert.equal(await getProject(lead.id, project.id), null);
       await assert.rejects(() => requireProjectAccess(lead.id, project.id, true), /PROJECT_NOT_FOUND/);
-      const memberMembership = await db.teamMembership.findUniqueOrThrow({ where: { teamId_userId: { teamId: team.id, userId: member.id } } });
+      const memberMembership = await db.teamMembership.findFirstOrThrow({ where: { teamId: team.id, userId: member.id, status: "ACTIVE", leftAt: null } });
       await updateTeamMember(owner.id, team.id, memberMembership.id, { action: "remove" });
       assert.equal((await getProject(member.id, project.id))?.canManage, true);
       await updateProject(member.id, project.id, { name: "Explicit participant project" });
@@ -109,8 +109,8 @@ test("participant services preserve private identities, secure invitations and d
     });
 
     await context.test("owner hierarchy and concurrent removals retain one active project owner", async () => {
-      const ownerMembership = await db.projectMembership.findUniqueOrThrow({ where: { projectId_userId: { projectId: project.id, userId: owner.id } } });
-      const memberMembership = await db.projectMembership.findUniqueOrThrow({ where: { projectId_userId: { projectId: project.id, userId: member.id } } });
+      const ownerMembership = await db.projectMembership.findFirstOrThrow({ where: { projectId: project.id, userId: owner.id, leftAt: null } });
+      const memberMembership = await db.projectMembership.findFirstOrThrow({ where: { projectId: project.id, userId: member.id, leftAt: null } });
       await assert.rejects(() => updateProjectMember(owner.id, project.id, ownerMembership.id, { action: "leave" }), /PARTICIPANT_LAST_OWNER_REQUIRED/);
       await assert.rejects(() => updateProjectMember(member.id, project.id, memberMembership.id, { role: "OWNER" }), /PARTICIPANT_ROLE_FORBIDDEN/);
       await updateProjectMember(owner.id, project.id, memberMembership.id, { role: "OWNER" });
@@ -123,7 +123,7 @@ test("participant services preserve private identities, secure invitations and d
     });
 
     await context.test("owner hierarchy and concurrent demotions retain one active team owner", async () => {
-      const ownerMembership = await db.teamMembership.findUniqueOrThrow({ where: { teamId_userId: { teamId: team.id, userId: owner.id } } });
+      const ownerMembership = await db.teamMembership.findFirstOrThrow({ where: { teamId: team.id, userId: owner.id, status: "ACTIVE", leftAt: null } });
       await assert.rejects(() => updateTeamMember(owner.id, team.id, ownerMembership.id, { action: "leave" }), /PARTICIPANT_LAST_OWNER_REQUIRED/);
       const candidate = await db.teamMembership.findFirstOrThrow({ where: { teamId: team.id, userId: { in: [raceA.id, raceB.id] }, status: "ACTIVE" } });
       await assert.rejects(() => updateTeamMember(candidate.userId, team.id, candidate.id, { role: "OWNER" }), /PARTICIPANT_ROLE_FORBIDDEN/);

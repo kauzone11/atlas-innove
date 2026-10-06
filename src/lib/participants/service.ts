@@ -10,7 +10,7 @@ import { db } from "@/lib/db";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 import {
   acceptTeamInviteSchema, createProjectSchema, createTeamSchema, teamInviteSchema,
-  updateParticipantMemberSchema, updateProjectSchema, updateTeamSchema,
+  updateParticipantMemberSchema, updateProjectSchema, updateTeamSchema, projectPublicationSchema,
 } from "@/lib/participants/schemas";
 import { createOpaqueToken, hashToken, normalizeEmail } from "@/lib/security";
 
@@ -23,6 +23,7 @@ const teamSelect = {
 const projectSelect = {
   id: true, name: true, summary: true, description: true, status: true, primaryTeamId: true,
   archivedAt: true, createdAt: true, updatedAt: true,
+  publicSlug: true, visibility: true, publishedAt: true, thematicAreas: true, websiteUrl: true, repositoryUrl: true, demoUrl: true,
   memberships: { where: { leftAt: null }, select: { userId: true, role: true } },
   primaryTeam: { select: { name: true, archivedAt: true, memberships: { where: { status: "ACTIVE" as const, leftAt: null }, select: { userId: true, role: true } } } },
 } as const;
@@ -39,6 +40,8 @@ export type ProjectDto = {
   status: "IDEA" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED";
   primaryTeamId: string | null; teamName: string | null; archivedAt: string | null;
   createdAt: string; updatedAt: string; callerRole: ParticipantRole; canManage: boolean; canChangeTeam: boolean; memberCount: number;
+  visibility: "PUBLIC" | "PLATFORM" | "TEAM" | "PRIVATE"; publicSlug: string | null; publishedAt: string | null;
+  thematicAreas: string[]; websiteUrl: string | null; repositoryUrl: string | null; demoUrl: string | null; canPublish: boolean;
 };
 export type ParticipantMemberDto = {
   id: string; userId: string; role: ParticipantRole; joinedAt: string; leftAt: string | null;
@@ -75,6 +78,9 @@ function serializeProject(record: ProjectRecord, userId: string): ProjectDto {
   return {
     id: record.id, name: record.name, summary: record.summary, description: record.description, status: record.status,
     primaryTeamId: record.primaryTeamId, teamName: record.primaryTeam?.name ?? null,
+    visibility: record.visibility, publicSlug: record.publicSlug, publishedAt: record.publishedAt?.toISOString() ?? null,
+    thematicAreas: record.thematicAreas, websiteUrl: record.websiteUrl, repositoryUrl: record.repositoryUrl, demoUrl: record.demoUrl,
+    canPublish: directRole === "OWNER",
     archivedAt: record.archivedAt?.toISOString() ?? null, createdAt: record.createdAt.toISOString(), updatedAt: record.updatedAt.toISOString(),
     callerRole, canManage: !record.archivedAt && record.status !== "ARCHIVED" && callerRole !== "MEMBER",
     canChangeTeam: !record.archivedAt && record.status !== "ARCHIVED" && directRole === "OWNER", memberCount: record.memberships.length,
@@ -217,13 +223,10 @@ export async function acceptTeamInvite(userId: string, value: unknown): Promise<
     const user = await transaction.user.findUnique({ where: { id: userId }, select: { email: true } });
     if (!user) throw new AuthorizationError("AUTHENTICATION_REQUIRED");
     if (invite.email && normalizeEmail(user.email) !== normalizeEmail(invite.email)) throw new AuthorizationError("TEAM_INVITE_EMAIL_MISMATCH");
-    const existing = await transaction.teamMembership.findUnique({ where: { teamId_userId: { teamId: invite.teamId, userId } } });
-    if (existing?.status === "ACTIVE" && !existing.leftAt) throw new DomainConflictError("TEAM_ALREADY_MEMBER");
-    if (existing) {
-      await transaction.teamMembership.update({ where: { id: existing.id }, data: { role: invite.role, status: "ACTIVE", leftAt: null, joinedAt: new Date() } });
-    } else {
-      await transaction.teamMembership.create({ data: { teamId: invite.teamId, userId, role: invite.role, status: "ACTIVE" } });
-    }
+    const existing = await transaction.teamMembership.findFirst({ where: { teamId: invite.teamId, userId, status: "ACTIVE", leftAt: null }, select: { id: true } });
+    if (existing) throw new DomainConflictError("TEAM_ALREADY_MEMBER");
+    // A row is one participation period; the parent lock and partial unique index serialize current membership.
+    await transaction.teamMembership.create({ data: { teamId: invite.teamId, userId, role: invite.role, status: "ACTIVE" } });
     await transaction.teamInvite.update({ where: { id: invite.id }, data: { acceptedAt: new Date(), acceptedByUserId: userId } });
     return invite.teamId;
   });
@@ -293,6 +296,26 @@ export async function updateProject(userId: string, projectId: string, value: un
   return project;
 }
 
+export async function updateProjectPublication(userId: string, projectId: string, value: unknown): Promise<ProjectDetailsDto> {
+  const input = projectPublicationSchema.parse(value);
+  await db.$transaction(async (transaction) => {
+    await lockProject(transaction, projectId);
+    const current = await requireProjectAccess(userId, projectId, false, transaction);
+    if (current.directRole !== "OWNER") throw new AuthorizationError("PARTICIPANT_ROLE_FORBIDDEN");
+    const publication = await transaction.project.findUniqueOrThrow({ where: { id: projectId }, select: { publicSlug: true, publishedAt: true, name: true, summary: true, archivedAt: true } });
+    if (publication.archivedAt && input.visibility === "PUBLIC") throw new DomainConflictError("PROJECT_ARCHIVED");
+    const publicSlug = input.publicSlug ?? publication.publicSlug;
+    if (input.visibility === "PUBLIC" && (!publicSlug || !publication.name.trim() || publication.summary.trim().length < 10)) throw new DomainConflictError("PROJECT_PUBLICATION_INCOMPLETE");
+    await transaction.project.update({ where: { id: projectId }, data: {
+      visibility: input.visibility, publicSlug,
+      publishedAt: input.visibility === "PUBLIC" ? publication.publishedAt ?? new Date() : null,
+    } });
+  });
+  const project = await getProject(userId, projectId);
+  if (!project) throw new ResourceNotFoundError("PROJECT_NOT_FOUND");
+  return project;
+}
+
 const addProjectMemberSchema = z.object({ userId: z.string().min(1).max(128), role: z.enum(["LEAD", "MEMBER"]).default("MEMBER") }).strict();
 
 export async function addProjectMember(userId: string, projectId: string, value: unknown): Promise<void> {
@@ -307,13 +330,10 @@ export async function addProjectMember(userId: string, projectId: string, value:
     if (!project.primaryTeamId) throw new DomainConflictError("PROJECT_TEAM_REQUIRED");
     const team = await requireTeamAccess(input.userId, project.primaryTeamId, false, transaction);
     if (team.archivedAt) throw new DomainConflictError("TEAM_ARCHIVED");
-    const existing = await transaction.projectMembership.findUnique({ where: { projectId_userId: { projectId, userId: input.userId } } });
-    if (existing && !existing.leftAt) throw new DomainConflictError("PROJECT_ALREADY_MEMBER");
-    await transaction.projectMembership.upsert({
-      where: { projectId_userId: { projectId, userId: input.userId } },
-      create: { projectId, userId: input.userId, role: input.role },
-      update: { role: input.role, leftAt: null, joinedAt: new Date() },
-    });
+    const existing = await transaction.projectMembership.findFirst({ where: { projectId, userId: input.userId, leftAt: null }, select: { id: true } });
+    if (existing) throw new DomainConflictError("PROJECT_ALREADY_MEMBER");
+    // Ended periods remain immutable when the same person rejoins.
+    await transaction.projectMembership.create({ data: { projectId, userId: input.userId, role: input.role } });
   });
 }
 

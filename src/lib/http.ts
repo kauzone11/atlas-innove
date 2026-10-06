@@ -5,6 +5,14 @@ import { AuthorizationError } from "@/lib/auth/authorization";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 
 const errorMessages: Record<string, string> = {
+  PROFILE_HANDLE_UNAVAILABLE: "Este endereço de perfil já está em uso. Escolha outro.",
+  PROFILE_PUBLICATION_INCOMPLETE: "Informe seu nome na conta, um endereço válido e uma apresentação antes de publicar.",
+  PROFILE_PUBLISHED_IDENTITY_REQUIRED: "Um perfil publicado precisa manter endereço e apresentação. Retire a publicação para removê-los.",
+  PROFILE_RECORD_LIMIT: "O limite de registros desta seção foi atingido.",
+  PROJECT_PUBLICATION_INCOMPLETE: "Informe um endereço público válido, nome e resumo antes de publicar o projeto.",
+  OPPORTUNITY_PUBLICATION_CONFIRMATION_REQUIRED: "Confirme que estas informações poderão ser vistas publicamente antes de publicar.",
+  DOCUMENT_PUBLICATION_DATE_REQUIRED: "Informe uma data de publicação antes de disponibilizar o documento publicamente.",
+  FUNDING_CALL_PUBLICATION_REQUIRES_VISIBLE_STATUS: "Prepare o edital e confira seu estado antes de disponibilizá-lo publicamente.",
   PROGRAM_STATUS_TRANSITION_INVALID: "Este programa não pode mudar para o estado escolhido. Programas arquivados permanecem no histórico.",
   CALL_STATUS_TRANSITION_INVALID: "Este edital não pode mudar para o estado escolhido. Confira a etapa atual da chamada.",
   COHORT_STATUS_TRANSITION_INVALID: "Esta coorte não pode mudar para o estado escolhido. Coortes encerradas e arquivadas preservam seu histórico.",

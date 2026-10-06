@@ -166,29 +166,73 @@ enum EvaluationStatus {
   SUBMITTED
 }
 
+enum VisibilityScope {
+  PUBLIC
+  PLATFORM
+  TEAM
+  PRIVATE
+}
+
+enum ProfileTopicType {
+  SKILL
+  INTEREST
+}
+
+enum ProfileLinkType {
+  WEBSITE
+  LINKEDIN
+  GITHUB
+  ORCID
+  PORTFOLIO
+  OTHER
+}
+
+enum OpportunitySupportType {
+  SUBVENTION
+  SCHOLARSHIP
+  CREDIT
+  RESIDENCY
+  ACCELERATION
+  PRIZE
+  SERVICES
+  OTHER
+}
+
+enum OpportunityTerritoryScope {
+  MUNICIPAL
+  STATE
+  REGIONAL
+  NATIONAL
+  INTERNATIONAL
+  UNSPECIFIED
+}
+
 model User {
-  id                     String                   @id @default(cuid())
-  email                  String                   @unique
-  passwordHash           String
-  platformRole           PlatformRole             @default(USER)
-  sessionVersion         Int                      @default(0)
-  createdAt              DateTime                 @default(now())
-  updatedAt              DateTime                 @updatedAt
-  profile                UserProfile?
-  memberships            OrganizationMembership[]
-  invitationsSent        OrganizationInvite[]     @relation("InvitedBy")
-  sessions               Session[]
-  passwordResetTokens    PasswordResetToken[]
-  fundingProgramsCreated FundingProgram[]         @relation("FundingProgramCreatedBy")
-  teamsCreated           Team[]                   @relation("TeamCreatedBy")
-  teamMemberships        TeamMembership[]
-  teamInvitesSent        TeamInvite[]             @relation("TeamInvitedBy")
-  teamInvitesAccepted    TeamInvite[]             @relation("TeamInviteAcceptedBy")
-  projectsCreated        Project[]                @relation("ProjectCreatedBy")
-  projectMemberships     ProjectMembership[]
-  applicationsSubmitted  Application[]            @relation("ApplicationSubmittedBy")
-  applicationDecisions   Application[]            @relation("ApplicationDecidedBy")
-  applicationEvaluations ApplicationEvaluation[]
+  id                         String                     @id @default(cuid())
+  email                      String                     @unique
+  passwordHash               String
+  platformRole               PlatformRole               @default(USER)
+  sessionVersion             Int                        @default(0)
+  createdAt                  DateTime                   @default(now())
+  updatedAt                  DateTime                   @updatedAt
+  profile                    UserProfile?
+  memberships                OrganizationMembership[]
+  invitationsSent            OrganizationInvite[]       @relation("InvitedBy")
+  sessions                   Session[]
+  passwordResetTokens        PasswordResetToken[]
+  fundingProgramsCreated     FundingProgram[]           @relation("FundingProgramCreatedBy")
+  teamsCreated               Team[]                     @relation("TeamCreatedBy")
+  teamMemberships            TeamMembership[]
+  teamInvitesSent            TeamInvite[]               @relation("TeamInvitedBy")
+  teamInvitesAccepted        TeamInvite[]               @relation("TeamInviteAcceptedBy")
+  projectsCreated            Project[]                  @relation("ProjectCreatedBy")
+  projectMemberships         ProjectMembership[]
+  applicationsSubmitted      Application[]              @relation("ApplicationSubmittedBy")
+  applicationDecisions       Application[]              @relation("ApplicationDecidedBy")
+  applicationEvaluations     ApplicationEvaluation[]
+  innovationProfile          InnovationProfile?
+  savedFundingCalls          SavedFundingCall[]
+  savedExternalOpportunities SavedExternalOpportunity[]
 }
 
 model UserProfile {
@@ -200,6 +244,90 @@ model UserProfile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model InnovationProfile {
+  id                              String              @id @default(cuid())
+  userId                          String              @unique
+  handle                          String?             @unique @db.VarChar(64)
+  headline                        String?
+  bio                             String?
+  city                            String?
+  state                           String?
+  country                         String?
+  profileVisibility               VisibilityScope     @default(PRIVATE)
+  skillsVisibility                VisibilityScope     @default(PRIVATE)
+  experienceVisibility            VisibilityScope     @default(PRIVATE)
+  educationVisibility             VisibilityScope     @default(PRIVATE)
+  linksVisibility                 VisibilityScope     @default(PRIVATE)
+  verifiedParticipationVisibility VisibilityScope     @default(PRIVATE)
+  projectsVisibility              VisibilityScope     @default(PRIVATE)
+  publishedAt                     DateTime?
+  createdAt                       DateTime            @default(now())
+  updatedAt                       DateTime            @updatedAt
+  user                            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topics                          ProfileTopic[]
+  education                       ProfileEducation[]
+  experience                      ProfileExperience[]
+  links                           ProfileLink[]
+}
+
+model ProfileTopic {
+  id            String            @id @default(cuid())
+  profileId     String
+  type          ProfileTopicType
+  label         String
+  normalizedKey String
+  position      Int               @default(0)
+  profile       InnovationProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, type, normalizedKey])
+  @@index([profileId, type, position])
+}
+
+model ProfileEducation {
+  id          String            @id @default(cuid())
+  profileId   String
+  institution String
+  course      String
+  degree      String?
+  startsAt    DateTime?         @db.Date
+  endsAt      DateTime?         @db.Date
+  description String?
+  visibility  VisibilityScope   @default(PRIVATE)
+  position    Int               @default(0)
+  profile     InnovationProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, position])
+}
+
+model ProfileExperience {
+  id               String            @id @default(cuid())
+  profileId        String
+  organizationName String
+  title            String
+  startsAt         DateTime          @db.Date
+  endsAt           DateTime?         @db.Date
+  current          Boolean           @default(false)
+  description      String?
+  visibility       VisibilityScope   @default(PRIVATE)
+  position         Int               @default(0)
+  profile          InnovationProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, position])
+}
+
+model ProfileLink {
+  id         String            @id @default(cuid())
+  profileId  String
+  label      String
+  url        String
+  type       ProfileLinkType   @default(OTHER)
+  visibility VisibilityScope   @default(PRIVATE)
+  position   Int               @default(0)
+  profile    InnovationProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, position])
 }
 
 model Organization {
@@ -316,53 +444,63 @@ model FundingProgram {
 }
 
 model FundingCall {
-  id                  String                  @id @default(cuid())
-  organizationId      String
-  fundingProgramId    String
-  title               String
-  shortTitle          String?
-  callNumber          String
-  objective           String?
-  status              FundingCallStatus       @default(DRAFT)
-  publishedAt         DateTime?
-  applicationStartsAt DateTime?
-  applicationEndsAt   DateTime?
-  totalBudget         Decimal?                @db.Decimal(14, 2)
-  maximumSupport      Decimal?                @db.Decimal(14, 2)
-  targetProjects      Int?
-  executionMonths     Int?
-  sourceUrl           String?
-  sourceCheckedAt     DateTime?
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
-  organization        Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  fundingProgram      FundingProgram          @relation(fields: [organizationId, fundingProgramId], references: [organizationId, id], onDelete: Cascade)
-  cohorts             Cohort[]
-  documents           FundingCallDocument[]
-  applicationsEnabled Boolean                 @default(false)
-  evaluationStartedAt DateTime?
-  resultsPublishedAt  DateTime?
-  applications        Application[]
-  evaluationCriteria  EvaluationCriterion[]
-  evaluations         ApplicationEvaluation[]
+  id                   String                    @id @default(cuid())
+  organizationId       String
+  fundingProgramId     String
+  title                String
+  shortTitle           String?
+  callNumber           String
+  objective            String?
+  status               FundingCallStatus         @default(DRAFT)
+  publishedAt          DateTime?
+  applicationStartsAt  DateTime?
+  applicationEndsAt    DateTime?
+  totalBudget          Decimal?                  @db.Decimal(14, 2)
+  maximumSupport       Decimal?                  @db.Decimal(14, 2)
+  targetProjects       Int?
+  executionMonths      Int?
+  sourceUrl            String?
+  sourceCheckedAt      DateTime?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  organization         Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fundingProgram       FundingProgram            @relation(fields: [organizationId, fundingProgramId], references: [organizationId, id], onDelete: Cascade)
+  cohorts              Cohort[]
+  documents            FundingCallDocument[]
+  applicationsEnabled  Boolean                   @default(false)
+  evaluationStartedAt  DateTime?
+  resultsPublishedAt   DateTime?
+  applications         Application[]
+  evaluationCriteria   EvaluationCriterion[]
+  evaluations          ApplicationEvaluation[]
+  publicListingEnabled Boolean                   @default(false)
+  supportType          OpportunitySupportType    @default(OTHER)
+  territoryScope       OpportunityTerritoryScope @default(UNSPECIFIED)
+  territoryLabel       String?
+  eligibleStates       String[]                  @default([])
+  audienceTags         String[]                  @default([])
+  thematicAreas        String[]                  @default([])
+  savedBy              SavedFundingCall[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, id, fundingProgramId])
   @@unique([organizationId, callNumber])
   @@index([organizationId, status])
+  @@index([publicListingEnabled, status, applicationEndsAt])
 }
 
 model FundingCallDocument {
-  id             String                  @id @default(cuid())
-  organizationId String
-  fundingCallId  String
-  type           FundingCallDocumentType
-  title          String
-  externalUrl    String
-  publishedAt    DateTime?
-  createdAt      DateTime                @default(now())
-  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  fundingCall    FundingCall             @relation(fields: [organizationId, fundingCallId], references: [organizationId, id], onDelete: Cascade)
+  id                   String                  @id @default(cuid())
+  organizationId       String
+  fundingCallId        String
+  type                 FundingCallDocumentType
+  title                String
+  externalUrl          String
+  publishedAt          DateTime?
+  publicListingEnabled Boolean                 @default(false)
+  createdAt            DateTime                @default(now())
+  organization         Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fundingCall          FundingCall             @relation(fields: [organizationId, fundingCallId], references: [organizationId, id], onDelete: Cascade)
 
   @@unique([organizationId, fundingCallId, title])
   @@index([organizationId, fundingCallId])
@@ -579,25 +717,58 @@ model Milestone {
 }
 
 model Opportunity {
-  id                String            @id @default(cuid())
-  organizationId    String
-  institution       String
-  callNumber        String
-  title             String
-  objective         String
-  territory         String
-  audience          String?
-  status            OpportunityStatus
-  publishedAt       DateTime?
-  applicationEndsAt DateTime?
-  sourceUrl         String
-  sourceCheckedAt   DateTime
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id                   String                     @id @default(cuid())
+  organizationId       String
+  institution          String
+  callNumber           String
+  title                String
+  objective            String
+  territory            String
+  audience             String?
+  status               OpportunityStatus
+  publishedAt          DateTime?
+  applicationEndsAt    DateTime?
+  sourceUrl            String
+  sourceCheckedAt      DateTime
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  organization         Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  publicListingEnabled Boolean                    @default(false)
+  supportType          OpportunitySupportType     @default(OTHER)
+  territoryScope       OpportunityTerritoryScope  @default(UNSPECIFIED)
+  territoryLabel       String?
+  eligibleStates       String[]                   @default([])
+  audienceTags         String[]                   @default([])
+  thematicAreas        String[]                   @default([])
+  savedBy              SavedExternalOpportunity[]
 
   @@unique([organizationId, callNumber])
   @@index([organizationId, status])
+  @@index([publicListingEnabled, status, applicationEndsAt])
+}
+
+model SavedFundingCall {
+  id            String      @id @default(cuid())
+  userId        String
+  fundingCallId String
+  createdAt     DateTime    @default(now())
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fundingCall   FundingCall @relation(fields: [fundingCallId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, fundingCallId])
+  @@index([userId, createdAt])
+}
+
+model SavedExternalOpportunity {
+  id            String      @id @default(cuid())
+  userId        String
+  opportunityId String
+  createdAt     DateTime    @default(now())
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, opportunityId])
+  @@index([userId, createdAt])
 }
 
 model Team {
@@ -628,7 +799,7 @@ model TeamMembership {
   team      Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
   user      User             @relation(fields: [userId], references: [id], onDelete: Restrict)
 
-  @@unique([teamId, userId])
+  @@index([teamId, userId])
   @@index([userId, status, leftAt])
 }
 
@@ -667,6 +838,13 @@ model Project {
   memberships     ProjectMembership[]
   applications    Application[]
   ventures        Venture[]
+  publicSlug      String?             @unique @db.VarChar(64)
+  visibility      VisibilityScope     @default(PRIVATE)
+  thematicAreas   String[]            @default([])
+  websiteUrl      String?
+  repositoryUrl   String?
+  demoUrl         String?
+  publishedAt     DateTime?
 
   @@index([primaryTeamId, archivedAt])
 }
@@ -681,7 +859,7 @@ model ProjectMembership {
   project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user      User        @relation(fields: [userId], references: [id], onDelete: Restrict)
 
-  @@unique([projectId, userId])
+  @@index([projectId, userId])
   @@index([userId, leftAt])
 }
 

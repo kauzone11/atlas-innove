@@ -3,16 +3,17 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { assertCallStatusTransition } from "@/lib/domain-invariants";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
-import { createFundingCallSchema, updateFundingCallSchema, type CreateFundingCallDocumentInput, type CreateFundingCallInput, type UpdateFundingCallInput } from "@/lib/funding-calls/schemas";
+import { createFundingCallDocumentSchema, createFundingCallSchema, updateFundingCallSchema, type CreateFundingCallDocumentInput, type CreateFundingCallInput, type UpdateFundingCallInput } from "@/lib/funding-calls/schemas";
 
 const callSelect = {
   id: true, organizationId: true, fundingProgramId: true, title: true, shortTitle: true, callNumber: true,
   objective: true, status: true, publishedAt: true, applicationStartsAt: true, applicationEndsAt: true,
   applicationsEnabled: true, evaluationStartedAt: true, resultsPublishedAt: true,
+  publicListingEnabled: true, supportType: true, territoryScope: true, territoryLabel: true, eligibleStates: true, audienceTags: true, thematicAreas: true,
   totalBudget: true, maximumSupport: true, targetProjects: true, executionMonths: true, sourceUrl: true,
   sourceCheckedAt: true, createdAt: true, updatedAt: true,
   fundingProgram: { select: { id: true, name: true } },
-  documents: { select: { id: true, type: true, title: true, externalUrl: true, publishedAt: true }, orderBy: { createdAt: "asc" } },
+  documents: { select: { id: true, type: true, title: true, externalUrl: true, publishedAt: true, publicListingEnabled: true }, orderBy: { createdAt: "asc" } },
   _count: { select: { cohorts: true } },
 } as const satisfies Prisma.FundingCallSelect;
 
@@ -21,10 +22,11 @@ export type FundingCallDto = {
   id: string; organizationId: string; fundingProgramId: string; fundingProgram: { id: string; name: string };
   title: string; shortTitle: string | null; callNumber: string; objective: string | null; status: string;
   applicationsEnabled: boolean; evaluationStartedAt: string | null; resultsPublishedAt: string | null;
+  publicListingEnabled: boolean; supportType: string; territoryScope: string; territoryLabel: string | null; eligibleStates: string[]; audienceTags: string[]; thematicAreas: string[];
   publishedAt: string | null; applicationStartsAt: string | null; applicationEndsAt: string | null;
   totalBudget: string | null; maximumSupport: string | null; targetProjects: number | null; executionMonths: number | null;
   sourceUrl: string | null; sourceCheckedAt: string | null; createdAt: string; updatedAt: string; cohortCount: number;
-  documents: Array<{ id: string; type: string; title: string; externalUrl: string; publishedAt: string | null }>;
+  documents: Array<{ id: string; type: string; title: string; externalUrl: string; publishedAt: string | null; publicListingEnabled: boolean }>;
 };
 
 function serializeCall(record: CallRecord): FundingCallDto {
@@ -33,6 +35,7 @@ function serializeCall(record: CallRecord): FundingCallDto {
     fundingProgram: record.fundingProgram, title: record.title, shortTitle: record.shortTitle, callNumber: record.callNumber,
     objective: record.objective, status: record.status, publishedAt: record.publishedAt?.toISOString() ?? null,
     applicationsEnabled: record.applicationsEnabled, evaluationStartedAt: record.evaluationStartedAt?.toISOString() ?? null, resultsPublishedAt: record.resultsPublishedAt?.toISOString() ?? null,
+    publicListingEnabled: record.publicListingEnabled, supportType: record.supportType, territoryScope: record.territoryScope, territoryLabel: record.territoryLabel, eligibleStates: record.eligibleStates, audienceTags: record.audienceTags, thematicAreas: record.thematicAreas,
     applicationStartsAt: record.applicationStartsAt?.toISOString() ?? null, applicationEndsAt: record.applicationEndsAt?.toISOString() ?? null,
     totalBudget: record.totalBudget?.toFixed(2) ?? null, maximumSupport: record.maximumSupport?.toFixed(2) ?? null,
     targetProjects: record.targetProjects, executionMonths: record.executionMonths, sourceUrl: record.sourceUrl,
@@ -87,7 +90,8 @@ export async function updateFundingCall(organizationId: string, fundingProgramId
   });
 }
 
-export async function addFundingCallDocument(organizationId: string, fundingProgramId: string, callId: string, input: CreateFundingCallDocumentInput): Promise<FundingCallDto> {
+export async function addFundingCallDocument(organizationId: string, fundingProgramId: string, callId: string, rawInput: CreateFundingCallDocumentInput): Promise<FundingCallDto> {
+  const input = createFundingCallDocumentSchema.parse(rawInput);
   return db.$transaction(async (transaction) => {
     await lockCall(transaction, organizationId, fundingProgramId, callId);
     const current = await transaction.fundingCall.findFirst({ where: { organizationId, fundingProgramId, id: callId }, select: { status: true } });

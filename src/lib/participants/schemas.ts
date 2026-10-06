@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { publicHandleSchema, tagListSchema } from "@/lib/identity/normalization";
 
 export const participantRoleSchema = z.enum(["OWNER", "LEAD", "MEMBER"]);
 export const projectStatusSchema = z.enum(["IDEA", "ACTIVE", "PAUSED", "COMPLETED", "ARCHIVED"]);
 const optionalText = (max: number) => z.string().trim().max(max).nullable().optional();
+const projectUrl = z.preprocess((value) => value === "" ? null : value, z.string().trim().max(2048).url("Informe um endereço válido.").refine((value) => /^https:\/\//i.test(value), "Use um endereço HTTPS.").nullable().optional());
 
 export const createTeamSchema = z.object({
   name: z.string().trim().min(2).max(160),
@@ -30,10 +32,20 @@ export const createProjectSchema = z.object({
   description: optionalText(12000),
   status: projectStatusSchema.default("IDEA"),
   primaryTeamId: z.string().min(1).max(128).nullable().optional(),
+  thematicAreas: tagListSchema.optional(),
+  websiteUrl: projectUrl,
+  repositoryUrl: projectUrl,
+  demoUrl: projectUrl,
 }).strict();
 
 export const updateProjectSchema = createProjectSchema.partial().strict()
   .refine((input) => Object.keys(input).length > 0, { message: "Informe ao menos uma alteração." });
+
+export const projectPublicationSchema = z.object({
+  visibility: z.enum(["PUBLIC", "PLATFORM", "TEAM", "PRIVATE"]),
+  publicSlug: publicHandleSchema.optional(),
+  confirmed: z.boolean().optional(),
+}).strict().refine((input) => input.visibility !== "PUBLIC" || input.confirmed === true, { message: "Confirme a publicação das informações do projeto.", path: ["confirmed"] });
 
 export type CreateTeamInput = z.input<typeof createTeamSchema>;
 export type UpdateTeamInput = z.input<typeof updateTeamSchema>;

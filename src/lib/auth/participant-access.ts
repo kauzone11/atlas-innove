@@ -19,6 +19,25 @@ export function projectAccessWhere(userId: string): Prisma.ProjectWhereInput {
   };
 }
 
+export async function participantApplicationAccessWhere(userId: string, client: Prisma.TransactionClient = db): Promise<Prisma.ApplicationWhereInput> {
+  const historical = await historicalParticipantApplicationIds(userId, client);
+  return { OR: [{ id: { in: historical } }, { project: projectAccessWhere(userId) }] };
+}
+
+export async function historicalParticipantApplicationIds(userId: string, client: Prisma.TransactionClient = db): Promise<string[]> {
+  // Submission time and the frozen team govern history; an ended period's current status cannot revoke that evidence.
+  const records = await client.$queryRaw<Array<{ id: string }>>`
+    SELECT a."id" FROM "Application" a
+    WHERE a."submittedAt" IS NOT NULL AND (
+      a."submittedByUserId" = ${userId}
+      OR EXISTS (SELECT 1 FROM "ProjectMembership" m WHERE m."projectId" = a."projectId" AND m."userId" = ${userId}
+        AND m."joinedAt" <= a."submittedAt" AND (m."leftAt" IS NULL OR m."leftAt" > a."submittedAt"))
+      OR EXISTS (SELECT 1 FROM "TeamMembership" m WHERE m."teamId" = a."teamId" AND m."userId" = ${userId}
+        AND m."joinedAt" <= a."submittedAt" AND (m."leftAt" IS NULL OR m."leftAt" > a."submittedAt"))
+    )`;
+  return records.map((record) => record.id);
+}
+
 export function canManageParticipantRole(role: ParticipantRole): boolean {
   return role === "OWNER" || role === "LEAD";
 }
@@ -94,7 +113,7 @@ export async function requireProjectAccess(
     && canManageParticipantRole(callerRole);
   if (manage && (project.archivedAt || project.status === "ARCHIVED")) throw new DomainConflictError("PROJECT_ARCHIVED");
   if (manage && !canManage) throw new AuthorizationError("PARTICIPANT_ROLE_FORBIDDEN");
-  return { id: project.id, name: project.name, summary: project.summary, description: project.description, status: project.status, createdByUserId: project.createdByUserId, primaryTeamId: project.primaryTeamId, archivedAt: project.archivedAt, createdAt: project.createdAt, updatedAt: project.updatedAt, callerRole, canManage, directRole: directRole ?? null };
+  return { id: project.id, name: project.name, summary: project.summary, description: project.description, status: project.status, createdByUserId: project.createdByUserId, primaryTeamId: project.primaryTeamId, archivedAt: project.archivedAt, createdAt: project.createdAt, updatedAt: project.updatedAt, visibility: project.visibility, publicSlug: project.publicSlug, publishedAt: project.publishedAt, thematicAreas: project.thematicAreas, websiteUrl: project.websiteUrl, repositoryUrl: project.repositoryUrl, demoUrl: project.demoUrl, callerRole, canManage, directRole: directRole ?? null };
 }
 
 export async function requireProjectRole(userId: string, projectId: string, minimumRole: "OWNER" | "LEAD", transaction?: Prisma.TransactionClient) {

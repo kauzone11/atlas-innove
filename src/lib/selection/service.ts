@@ -1,7 +1,7 @@
 import { Prisma, type FundingCall, type Application } from "@prisma/client";
 
 import { AuthorizationError, assertActiveOrganizationAccess, hasAtLeastRole } from "@/lib/auth/authorization";
-import { projectAccessWhere, requireProjectAccess, requireTeamAccess } from "@/lib/auth/participant-access";
+import { participantApplicationAccessWhere, projectAccessWhere, requireProjectAccess, requireTeamAccess } from "@/lib/auth/participant-access";
 import { db } from "@/lib/db";
 import { assertCohortCanReceiveEnrollment } from "@/lib/domain-invariants";
 import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
@@ -20,12 +20,8 @@ function personalDto(record: ParticipantRecord, canManage: boolean) {
   return { id: record.id, projectId: record.projectId, teamId: record.teamId, revision: record.revision, status: record.status, projectNameSnapshot: record.projectNameSnapshot, projectSummarySnapshot: record.projectSummarySnapshot, projectDescriptionSnapshot: record.projectDescriptionSnapshot, teamNameSnapshot: record.teamNameSnapshot, submittedAt: record.submittedAt?.toISOString() ?? null, withdrawnAt: record.withdrawnAt?.toISOString() ?? null, createdAt: record.createdAt.toISOString(), updatedAt: record.updatedAt.toISOString(), decision: record.fundingCall.resultsPublishedAt ? record.decision : null, canManage, enrollment: record.enrollments[0] ?? null, fundingCall: { ...record.fundingCall, applicationStartsAt: record.fundingCall.applicationStartsAt?.toISOString() ?? null, applicationEndsAt: record.fundingCall.applicationEndsAt?.toISOString() ?? null, resultsPublishedAt: record.fundingCall.resultsPublishedAt?.toISOString() ?? null } };
 }
 
-function participantApplicationWhere(userId: string): Prisma.ApplicationWhereInput {
-  return { OR: [{ submittedByUserId: userId, submittedAt: { not: null } }, { project: projectAccessWhere(userId) }] };
-}
-
 export async function requireApplicationParticipantAccess(userId: string, applicationId: string, manage = false, transaction: Client = db) {
-  const record = await transaction.application.findFirst({ where: { id: applicationId, ...participantApplicationWhere(userId) } });
+  const record = await transaction.application.findFirst({ where: { id: applicationId, ...await participantApplicationAccessWhere(userId, transaction) } });
   if (!record) throw new ResourceNotFoundError("APPLICATION_NOT_FOUND");
   if (manage && !await canManageApplication(userId, record, transaction)) throw new AuthorizationError("APPLICATION_MANAGEMENT_FORBIDDEN");
   return record;
@@ -48,7 +44,7 @@ async function canManageApplication(userId: string, record: Pick<Application, "p
 }
 
 export async function listPersonalApplications(userId: string): Promise<PersonalApplicationDto[]> {
-  const records = await db.application.findMany({ where: participantApplicationWhere(userId), select: participantSelect, orderBy: { createdAt: "desc" } });
+  const records = await db.application.findMany({ where: await participantApplicationAccessWhere(userId), select: participantSelect, orderBy: { createdAt: "desc" } });
   const [projects, teams] = await Promise.all([
     db.project.findMany({ where: { id: { in: [...new Set(records.map((record) => record.projectId))] }, ...projectAccessWhere(userId) }, select: { id: true, archivedAt: true, status: true, memberships: { where: { userId, leftAt: null }, select: { role: true } }, primaryTeam: { select: { archivedAt: true, memberships: { where: { userId, status: "ACTIVE", leftAt: null }, select: { role: true } } } } } }),
     db.team.findMany({ where: { id: { in: records.map((record) => record.teamId).filter((id): id is string => Boolean(id)) }, archivedAt: null, memberships: { some: { userId, status: "ACTIVE", leftAt: null, role: { in: ["OWNER", "LEAD"] } } } }, select: { id: true } }),
@@ -59,7 +55,7 @@ export async function listPersonalApplications(userId: string): Promise<Personal
 }
 
 export async function getPersonalApplication(userId: string, applicationId: string): Promise<PersonalApplicationDto | null> {
-  const record = await db.application.findFirst({ where: { id: applicationId, ...participantApplicationWhere(userId) }, select: participantSelect });
+  const record = await db.application.findFirst({ where: { id: applicationId, ...await participantApplicationAccessWhere(userId) }, select: participantSelect });
   return record ? personalDto(record, await canManageApplication(userId, record)) : null;
 }
 
@@ -118,6 +114,7 @@ export async function createPersonalApplication(userId: string, rawInput: Create
     await lockCall(transaction, scopedCall.organizationId, null, input.fundingCallId);
     const call = await transaction.fundingCall.findFirst({ where: { organizationId: scopedCall.organizationId, id: input.fundingCallId, organization: { status: "ACTIVE" } } });
     if (!call) throw new ResourceNotFoundError("FUNDING_CALL_NOT_FOUND");
+    if (!call.publicListingEnabled && !await transaction.application.findFirst({ where: { fundingCallId: call.id, organizationId: call.organizationId, ...await participantApplicationAccessWhere(userId, transaction) }, select: { id: true } })) throw new ResourceNotFoundError("FUNDING_CALL_NOT_FOUND");
     assertCallAcceptsApplications(call);
     const project = await requireProjectAccess(userId, input.projectId, true, transaction);
     const teamId = input.teamId === undefined ? project.primaryTeamId : input.teamId;
@@ -130,7 +127,7 @@ export async function createPersonalApplication(userId: string, rawInput: Create
 }
 
 async function participantMutation(transaction: Client, userId: string, id: string, revision: number) {
-  const initial = await transaction.application.findFirst({ where: { id, ...participantApplicationWhere(userId) }, select: { organizationId: true, fundingCallId: true } });
+  const initial = await transaction.application.findFirst({ where: { id, ...await participantApplicationAccessWhere(userId, transaction) }, select: { organizationId: true, fundingCallId: true } });
   if (!initial) throw new ResourceNotFoundError("APPLICATION_NOT_FOUND");
   await transaction.$queryRaw`SELECT "id" FROM "Organization" WHERE "id" = ${initial.organizationId} FOR SHARE`;
   await lockCall(transaction, initial.organizationId, null, initial.fundingCallId);
@@ -183,23 +180,7 @@ export async function withdrawPersonalApplication(userId: string, id: string, re
   return (await getPersonalApplication(userId, id))!;
 }
 
-export async function listPersonalOpportunities(_userId: string, search = "") {
-  const query = search.trim().slice(0, 200);
-  const [calls, external] = await Promise.all([
-    db.fundingCall.findMany({ where: { organization: { status: "ACTIVE" }, status: { in: ["OPEN", "IN_REVIEW", "RESULT_PUBLISHED"] }, ...(query ? { OR: [{ title: { contains: query, mode: "insensitive" } }, { callNumber: { contains: query, mode: "insensitive" } }, { organization: { name: { contains: query, mode: "insensitive" } } }] } : {}) }, select: { ...callSelect, organizationId: true, fundingProgramId: true }, orderBy: { applicationEndsAt: "asc" }, take: 100 }),
-    db.opportunity.findMany({ where: { organization: { status: "ACTIVE" }, status: { in: ["OPEN", "UPCOMING"] }, ...(query ? { OR: [{ title: { contains: query, mode: "insensitive" } }, { institution: { contains: query, mode: "insensitive" } }] } : {}) }, orderBy: { applicationEndsAt: "asc" }, take: 100 }),
-  ]);
-  return [...calls.map((call) => { let canApply = false; try { assertCallAcceptsApplications(call); canApply = true; } catch {} return { id: call.id, kind: "INTERNAL" as const, title: call.title, callNumber: call.callNumber, objective: call.objective, institution: call.organization.name, status: call.status, applicationStartsAt: call.applicationStartsAt?.toISOString() ?? null, applicationEndsAt: call.applicationEndsAt?.toISOString() ?? null, sourceUrl: call.sourceUrl, canApply, organizationId: call.organizationId, fundingProgramId: call.fundingProgramId, fundingCallId: call.id }; }), ...external.map((entry) => ({ id: entry.id, kind: "EXTERNAL" as const, title: entry.title, callNumber: entry.callNumber, objective: entry.objective, institution: entry.institution, status: entry.status, applicationStartsAt: null, applicationEndsAt: entry.applicationEndsAt?.toISOString() ?? null, sourceUrl: entry.sourceUrl, canApply: false, organizationId: entry.organizationId, fundingProgramId: null, fundingCallId: null }))];
-}
-export type PersonalOpportunityDto = Awaited<ReturnType<typeof listPersonalOpportunities>>[number];
-export type OpportunityDto = PersonalOpportunityDto;
-
-export async function getPersonalOpportunity(userId: string, callId: string) {
-  const call = await db.fundingCall.findFirst({ where: { id: callId, organization: { status: "ACTIVE" }, OR: [{ status: { in: ["OPEN", "IN_REVIEW", "RESULT_PUBLISHED"] } }, { status: "CLOSED", OR: [{ publishedAt: { not: null } }, { resultsPublishedAt: { not: null } }, { applications: { some: participantApplicationWhere(userId) } }] }] }, select: { ...callSelect, organizationId: true, fundingProgramId: true, documents: { select: { id: true, title: true, type: true, externalUrl: true, publishedAt: true }, orderBy: { createdAt: "asc" } } } });
-  if (!call) return null;
-  let canApply = false; try { assertCallAcceptsApplications(call); canApply = true; } catch {}
-  return { id: call.id, kind: "INTERNAL" as const, title: call.title, callNumber: call.callNumber, objective: call.objective, institution: call.organization.name, organization: call.organization, fundingProgram: call.fundingProgram, status: call.status, applicationsEnabled: call.applicationsEnabled, applicationStartsAt: call.applicationStartsAt?.toISOString() ?? null, applicationEndsAt: call.applicationEndsAt?.toISOString() ?? null, sourceUrl: call.sourceUrl, canApply, organizationId: call.organizationId, fundingProgramId: call.fundingProgramId, fundingCallId: call.id, documents: call.documents.map((document) => ({ ...document, publishedAt: document.publishedAt?.toISOString() ?? null })) };
-}
+export { listPersonalOpportunities, getPersonalOpportunity, type PersonalOpportunityDto, type PersonalOpportunityDto as OpportunityDto } from "@/lib/opportunities/service";
 
 function criterionDto(record: Prisma.EvaluationCriterionGetPayload<object>) { return { id: record.id, name: record.name, description: record.description, weight: record.weight.toString(), maxScore: record.maxScore.toString(), position: record.position }; }
 export type CriterionDto = ReturnType<typeof criterionDto>;

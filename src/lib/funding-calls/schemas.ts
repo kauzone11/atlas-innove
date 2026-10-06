@@ -42,8 +42,9 @@ export const createFundingCallDocumentSchema = z.object({
   title: z.string().trim().min(2, "O título deve ter ao menos 2 caracteres.").max(200, "O título deve ter até 200 caracteres."),
   externalUrl,
   publishedAt: optionalDate,
+  publicListingEnabled: z.boolean().default(false),
 });
 
 export type CreateFundingCallInput = z.infer<typeof createFundingCallSchema>;
 export type UpdateFundingCallInput = z.infer<typeof updateFundingCallSchema>;
-export type CreateFundingCallDocumentInput = z.infer<typeof createFundingCallDocumentSchema>;
+export type CreateFundingCallDocumentInput = z.input<typeof createFundingCallDocumentSchema>;

@@ -46,12 +46,12 @@ test("selection connects private participants to tenant-scoped frozen evaluation
       { organizationId: organizationA.id, userId: analystOne.id, role: "ANALYST" },
       { organizationId: organizationA.id, userId: analystTwo.id, role: "ANALYST" },
     ] });
-    const callA = await db.fundingCall.create({ data: { organizationId: organizationA.id, fundingProgramId: programA.id, title: "Selection call A", callNumber: "A", status: "OPEN", applicationsEnabled: true } });
-    const callA2 = await db.fundingCall.create({ data: { organizationId: organizationA.id, fundingProgramId: programA.id, title: "Second cycle", callNumber: "A2", status: "OPEN", applicationsEnabled: true } });
-    const callB = await db.fundingCall.create({ data: { organizationId: organizationB.id, fundingProgramId: programB.id, title: "Selection call B", callNumber: "B", status: "OPEN", applicationsEnabled: true } });
-    const disabled = await db.fundingCall.create({ data: { organizationId: organizationA.id, fundingProgramId: programA.id, title: "Externally tracked call", callNumber: "disabled", status: "OPEN" } });
-    const expired = await db.fundingCall.create({ data: { organizationId: organizationA.id, fundingProgramId: programA.id, title: "Expired applications", callNumber: "expired", status: "OPEN", applicationsEnabled: true, applicationEndsAt: new Date(Date.now() - 3 * 86400000) } });
-    const future = await db.fundingCall.create({ data: { organizationId: organizationA.id, fundingProgramId: programA.id, title: "Future applications", callNumber: "future", status: "OPEN", applicationsEnabled: true, applicationStartsAt: new Date(Date.now() + 3 * 86400000) } });
+    const callA = await db.fundingCall.create({ data: { organizationId: organizationA.id, fundingProgramId: programA.id, title: "Selection call A", callNumber: "A", status: "OPEN", publicListingEnabled: true, applicationsEnabled: true } });
+    const callA2 = await db.fundingCall.create({ data: { organizationId: organizationA.id, fundingProgramId: programA.id, title: "Second cycle", callNumber: "A2", status: "OPEN", publicListingEnabled: true, applicationsEnabled: true } });
+    const callB = await db.fundingCall.create({ data: { organizationId: organizationB.id, fundingProgramId: programB.id, title: "Selection call B", callNumber: "B", status: "OPEN", publicListingEnabled: true, applicationsEnabled: true } });
+    const disabled = await db.fundingCall.create({ data: { organizationId: organizationA.id, fundingProgramId: programA.id, title: "Externally tracked call", callNumber: "disabled", status: "OPEN", publicListingEnabled: true } });
+    const expired = await db.fundingCall.create({ data: { organizationId: organizationA.id, fundingProgramId: programA.id, title: "Expired applications", callNumber: "expired", status: "OPEN", publicListingEnabled: true, applicationsEnabled: true, applicationEndsAt: new Date(Date.now() - 3 * 86400000) } });
+    const future = await db.fundingCall.create({ data: { organizationId: organizationA.id, fundingProgramId: programA.id, title: "Future applications", callNumber: "future", status: "OPEN", publicListingEnabled: true, applicationsEnabled: true, applicationStartsAt: new Date(Date.now() + 3 * 86400000) } });
     const team = await createTeam(participant.id, { name: "Persistent participants" });
     teamIds.push(team.id);
     const projects = [];
@@ -287,8 +287,8 @@ test("selection connects private participants to tenant-scoped frozen evaluation
     });
 
     await context.test("manual venture mapping validates tenant and origin, preserves identity and rolls back mixed batches", async () => {
-      const mappingCall = await db.fundingCall.create({ data: { organizationId: organizationA.id, fundingProgramId: programA.id, title: "Explicit mapping cycle", callNumber: "mapping", status: "OPEN", applicationsEnabled: true } });
-      const repeatCall = await db.fundingCall.create({ data: { organizationId: organizationA.id, fundingProgramId: programA.id, title: "Concurrent mapping cycle", callNumber: "mapping-repeat", status: "OPEN", applicationsEnabled: true } });
+      const mappingCall = await db.fundingCall.create({ data: { organizationId: organizationA.id, fundingProgramId: programA.id, title: "Explicit mapping cycle", callNumber: "mapping", status: "OPEN", publicListingEnabled: true, applicationsEnabled: true } });
+      const repeatCall = await db.fundingCall.create({ data: { organizationId: organizationA.id, fundingProgramId: programA.id, title: "Concurrent mapping cycle", callNumber: "mapping-repeat", status: "OPEN", publicListingEnabled: true, applicationsEnabled: true } });
       const mappingProjects: Awaited<ReturnType<typeof createProject>>[] = [];
       for (const name of ["Mapped identity", "New chosen kind", "Concurrent source one", "Concurrent source two"]) {
         const project = await createProject(participant.id, { name, summary: `${name} is a persistent participant identity.`, primaryTeamId: team.id });

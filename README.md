@@ -90,3 +90,11 @@ Equipes e projetos são privados por padrão. Convites permitem ingressar em uma
 A avaliação humana utiliza critérios e pesos definidos por edital. A classificação reúne apenas avaliações enviadas e informa a decisão institucional. O resultado é publicado de forma intencional; participantes consultam seu próprio resultado. Projetos selecionados podem ingressar em uma coorte com vínculo à candidatura de origem.
 
 Os protocolos de acompanhamento preservam versões imutáveis de seus indicadores. Cada coorte utiliza uma versão definida, e as observações de cada onda mantêm o histórico, distinguindo valores observados de informações ausentes.
+
+## Identidade e descoberta
+
+O perfil de inovação reúne apresentação, competências, interesses, formação e experiência declarada. A pessoa escolhe a visibilidade de cada seção e pode publicar ou retirar seu perfil sem apagar os dados. Projetos também mantêm uma identidade pública opcional, administrada por seus responsáveis.
+
+A trajetória preserva os períodos de participação em equipes e projetos, inclusive quando uma pessoa sai e depois retorna. Participações verificadas derivam de candidaturas enviadas, resultados publicados e vínculos vigentes na data da submissão; não substituem as informações históricas usadas na avaliação.
+
+Editais e oportunidades externas entram na descoberta somente após publicação explícita. Participantes podem filtrar e salvar oportunidades, consultar suas fontes oficiais e entender a relação com os temas de seu perfil ou projeto. A compatibilidade utiliza regras transparentes e não constitui uma confirmação de elegibilidade.
