@@ -1,4 +1,4 @@
-import { test, expect, type Page, type BrowserContext, type TestInfo } from "@playwright/test";
+import { test, expect, request, type APIRequestContext, type Page, type BrowserContext, type TestInfo } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { hash } from "bcryptjs";
 import { db } from "@/lib/db";
@@ -38,6 +38,16 @@ async function login(page: Page, email: string) {
   await expect(page).toHaveURL(/\/app\/personal\/feed$/);
 }
 
+async function authenticatedApi(context: BrowserContext) {
+  const session = (await context.cookies()).find((cookie) => cookie.name === "atlas_innove_session");
+  expect(session?.httpOnly).toBe(true);
+  expect(session?.secure).toBe(true);
+  expect(session?.sameSite).toBe("Lax");
+  if (!session) throw new Error("The browser login did not establish a session");
+  // APIRequestContext does not send a secure cookie over the disposable HTTP runtime.
+  return request.newContext({ baseURL, extraHTTPHeaders: { Cookie: `${session.name}=${session.value}`, Origin: baseURL } });
+}
+
 function recordErrors(page: Page, errors: string[]) {
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => { if (message.type() === "error" && !message.text().includes("net::ERR_FAILED") && !/Failed to load resource: the server responded with a status of 4\d\d/.test(message.text())) errors.push(message.text()); });
@@ -65,11 +75,11 @@ test("professional social journey preserves audiences, notifications, keyboard i
     await screenshot(page, info, "empty-feed", [1440, 390]);
     await page.goto("/app/personal/profile"); await screenshot(page, info, "profile-no-activity", [1440, 390]);
     await page.goto("/app/personal/profile/edit");
-    await page.getByLabel("Quem pode seguir você", { exact: true }).selectOption("EVERYONE");
-    await page.getByLabel("Ação principal no perfil", { exact: true }).selectOption("FOLLOW");
+    await page.getByRole("combobox", { name: /^Quem pode seguir você/ }).selectOption("EVERYONE");
+    await page.getByRole("combobox", { name: /^Ação principal no perfil/ }).selectOption("FOLLOW");
     await page.getByRole("button", { name: "Salvar preferências", exact: true }).click();
     await expect(page.getByRole("status")).toContainText("Preferências salvas.");
-    await page.reload(); await expect(page.getByLabel("Ação principal no perfil", { exact: true })).toHaveValue("FOLLOW");
+    await page.reload(); await expect(page.getByRole("combobox", { name: /^Ação principal no perfil/ })).toHaveValue("FOLLOW");
     await page.goto("/app/personal/feed");
     const trigger = page.getByRole("button", { name: "Compartilhe uma atualização…", exact: true });
     await trigger.focus(); await page.keyboard.press("Enter");
@@ -77,8 +87,8 @@ test("professional social journey preserves audiences, notifications, keyboard i
     await expect(composer).toBeVisible();
     await page.keyboard.press("Escape"); await expect(composer).not.toBeVisible(); await expect(trigger).toBeFocused();
     await trigger.click();
-    await composer.getByLabel("Publicação", { exact: true }).fill("Nova pesquisa aplicada com parceiros do ecossistema. Compartilhamos aprendizados e evidências desta etapa.");
-    await composer.getByLabel("Visibilidade", { exact: true }).selectOption("PUBLIC");
+    await composer.getByRole("textbox", { name: /^Publicação/ }).fill("Nova pesquisa aplicada com parceiros do ecossistema. Compartilhamos aprendizados e evidências desta etapa.");
+    await composer.getByRole("combobox", { name: /^Visibilidade/ }).selectOption("PUBLIC");
     await composer.getByLabel("Link externo (opcional)", { exact: true }).fill("https://example.test/pesquisa");
     await screenshot(page, info, "composer", [1440, 390, 320]);
     await composer.getByRole("button", { name: "Publicar", exact: true }).focus();
@@ -92,18 +102,18 @@ test("professional social journey preserves audiences, notifications, keyboard i
     await expect(ownCard.getByRole("button", { name: "Retirar do destaque", exact: true })).toBeVisible();
     await ownCard.getByRole("button", { name: "Editar publicação", exact: true }).click();
     const editor = page.getByRole("dialog", { name: "Editar publicação", exact: true });
-    await editor.getByLabel("Publicação", { exact: true }).fill("Nova pesquisa aplicada com parceiros do ecossistema. Síntese atualizada com aprendizados e evidências desta etapa.");
+    await editor.getByRole("textbox", { name: /^Publicação/ }).fill("Nova pesquisa aplicada com parceiros do ecossistema. Síntese atualizada com aprendizados e evidências desta etapa.");
     await editor.getByRole("button", { name: "Salvar alterações", exact: true }).click(); await expect(editor).not.toBeVisible();
     await expect(ownCard).toContainText("Síntese atualizada"); await expect(ownCard.getByText("Editado", { exact: true })).toBeVisible();
     expect((await db.socialPost.findUniqueOrThrow({ where: { id: created.id } })).externalUrl).toBe("https://example.test/pesquisa");
     await ownCard.getByRole("button", { name: "Editar publicação", exact: true }).click();
-    await expect(editor.getByLabel("Publicação", { exact: true })).toHaveValue(/Síntese atualizada/);
+    await expect(editor.getByRole("textbox", { name: /^Publicação/ })).toHaveValue(/Síntese atualizada/);
     await expect(editor.getByLabel("Link externo (opcional)", { exact: true })).toHaveValue("https://example.test/pesquisa");
-    await editor.getByLabel("Publicação", { exact: true }).fill("Nova pesquisa aplicada com parceiros do ecossistema. Síntese atualizada e revisada com aprendizados e evidências desta etapa.");
+    await editor.getByRole("textbox", { name: /^Publicação/ }).fill("Nova pesquisa aplicada com parceiros do ecossistema. Síntese atualizada e revisada com aprendizados e evidências desta etapa.");
     await editor.getByRole("button", { name: "Salvar alterações", exact: true }).click(); await expect(editor).not.toBeVisible();
     await expect(ownCard).toContainText("Síntese atualizada e revisada");
     await ownCard.getByRole("button", { name: "Editar publicação", exact: true }).click();
-    await expect(editor.getByLabel("Publicação", { exact: true })).toHaveValue(/Síntese atualizada e revisada/);
+    await expect(editor.getByRole("textbox", { name: /^Publicação/ })).toHaveValue(/Síntese atualizada e revisada/);
     await expect(editor.getByLabel("Link externo (opcional)", { exact: true })).toHaveValue("https://example.test/pesquisa");
     await editor.getByRole("button", { name: "Cancelar", exact: true }).click(); await expect(editor).not.toBeVisible();
     await login(bPage, f.b.email);
@@ -133,11 +143,11 @@ test("professional social journey preserves audiences, notifications, keyboard i
     const comments = card.getByRole("region", { name: "Comentários da publicação", exact: true });
     await comments.getByLabel("Comentário", { exact: true }).fill("Quais aprendizados poderão ser compartilhados com outras equipes?");
     await comments.getByRole("button", { name: "Comentar", exact: true }).click();
-    await expect(comments).toContainText("Quais aprendizados");
+    await expect(comments).toContainText("Quais aprendizados"); await expect(card.getByRole("button", { name: "1 comentário", exact: true })).toBeVisible();
     await screenshot(bPage, info, "feed-comments");
     await card.getByRole("button", { name: "Repostar", exact: true }).click();
     const repost = bPage.getByRole("dialog", { name: "Repostar publicação", exact: true });
-    await repost.getByLabel("Seu comentário (opcional)", { exact: true }).fill("Uma contribuição para nossa colaboração profissional.");
+    await repost.getByRole("textbox", { name: /^Seu comentário \(opcional\)/ }).fill("Uma contribuição para nossa colaboração profissional.");
     await repost.getByRole("button", { name: "Repostar", exact: true }).click(); await expect(repost).not.toBeVisible();
     await expect(bPage.getByRole("article", { name: "Publicação de Bruno Pesquisa", exact: true })).toContainText("Repostagem de");
     await screenshot(bPage, info, "repost", [1440, 390]);
@@ -160,7 +170,7 @@ test("professional social journey preserves audiences, notifications, keyboard i
     await expect(publicPage.getByRole("link", { name: "Entrar para interagir", exact: true })).toBeVisible();
     await publicPage.getByRole("link", { name: "Ver respostas", exact: true }).click();
     await expect(publicPage).toHaveURL(/parentCommentId=/); await expect(publicPage.getByText("Vamos publicar a síntese desta etapa para compartilhar o aprendizado.", { exact: true })).toBeVisible();
-    await page.emulateMedia({ reducedMotion: "reduce" }); await page.setViewportSize({ width: 1280, height: 900 });
+    await publicPage.getByRole("link", { name: "Voltar aos comentários", exact: true }).click(); await expect(publicPage.getByText("Quais aprendizados poderão ser compartilhados com outras equipes?", { exact: true })).toBeVisible(); await page.emulateMedia({ reducedMotion: "reduce" }); await page.setViewportSize({ width: 1280, height: 900 });
     await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     await page.screenshot({ path: info.outputPath("profile-text-200-percent.png"), fullPage: true });
@@ -169,18 +179,21 @@ test("professional social journey preserves audiences, notifications, keyboard i
     await page.getByRole("dialog", { name: "Bloquear pessoa", exact: true }).getByRole("button", { name: "Confirmar", exact: true }).click();
     await expect.poll(() => db.userBlock.count({ where: { blockerUserId: f.a.id, blockedUserId: f.b.id } })).toBe(1);
     await bPage.goto("/app/personal/feed"); await expect(bPage.getByRole("article", { name: "Publicação de Ana Pesquisa", exact: true })).toHaveCount(0);
-    const denied = await bContext.request.post(`/api/personal/social/posts/${created.id}/reaction`, { data: { type: "LIKE" }, headers: { Origin: baseURL } });
-    expect(denied.status()).toBe(404);
+    const apiB = await authenticatedApi(bContext);
+    try {
+      const denied = await apiB.post(`/api/personal/social/posts/${created.id}/reaction`, { data: { type: "LIKE" } });
+      expect(denied.status()).toBe(404);
+    } finally { await apiB.dispose(); }
     expect(errors).toEqual([]);
   } finally { await bContext.close(); await publicContext.close(); await f.cleanup(); }
 });
 
 test("social HTTP rejects forged ownership, restricted public content, foreign origins and invalid targets", async ({ page, browser }) => {
-  const f = await fixture(); let other: BrowserContext | undefined;
+  const f = await fixture(); let other: BrowserContext | undefined; let apiA: APIRequestContext | undefined; let apiB: APIRequestContext | undefined;
   try {
     await login(page, f.a.email);
     other = await browser.newContext({ baseURL }); const bPage = await other.newPage(); await login(bPage, f.b.email);
-    const apiA = page.context().request; const apiB = other.request; const headers = { Origin: baseURL };
+    apiA = await authenticatedApi(page.context()); apiB = await authenticatedApi(other); const headers = { Origin: baseURL };
     const created = await apiA.post("/api/personal/social/posts", { headers, data: { body: "Private-social-content-marker", visibility: "CONNECTIONS" } });
     expect(created.status()).toBe(200); const post = await created.json() as { id: string };
     const authGet = await apiB.get(`/api/personal/social/posts/${post.id}`); expect(authGet.status()).toBe(404); expect(await authGet.text()).not.toContain("Private-social-content-marker");
@@ -193,5 +206,5 @@ test("social HTTP rejects forged ownership, restricted public content, foreign o
     const deleted = await apiA.delete(`/api/personal/social/posts/${post.id}`, { headers }); expect(deleted.status()).toBe(200);
     expect((await apiA.get(`/api/personal/social/posts/${post.id}`)).status()).toBe(404);
     expect((await apiB.post("/api/personal/social/reports", { headers, data: { postId: "foreign-target", reason: "SPAM" } })).status()).toBe(404);
-  } finally { await other?.close(); await f.cleanup(); }
+  } finally { await apiA?.dispose(); await apiB?.dispose(); await other?.close(); await f.cleanup(); }
 });
