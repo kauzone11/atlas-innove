@@ -22,7 +22,12 @@ export function assertImportOrigin(request: Request) {
   const origin = request.headers.get("origin");
   if (origin) {
     let allowed = false;
-    try { allowed = new URL(origin).host === new URL(request.url).host; } catch { allowed = false; }
+    try {
+      const source = new URL(origin);
+      // Next may normalize request.url to an internal hostname; Host retains the browser-facing authority.
+      const destination = new URL(`${source.protocol}//${request.headers.get("host") ?? new URL(request.url).host}`);
+      allowed = ["http:", "https:"].includes(source.protocol) && !source.username && !source.password && source.pathname === "/" && !source.search && !source.hash && source.host === destination.host;
+    } catch { allowed = false; }
     if (!allowed) throw new ImportInputError("IMPORT_ORIGIN_REJECTED");
   }
 }

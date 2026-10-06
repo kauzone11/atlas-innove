@@ -2,6 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readImportForm, readImportJson } from "@/lib/imports/body";
 import { IMPORT_LIMITS } from "@/lib/imports/limits";
+import { assertImportOrigin } from "@/lib/imports/api";
+
+test("import origin checks use the incoming host preserved by Next and reject foreign origins", () => {
+  assert.doesNotThrow(() => assertImportOrigin(new Request("http://localhost:3000/upload", { headers: { host: "127.0.0.1:3000", origin: "http://127.0.0.1:3000" } })));
+  assert.doesNotThrow(() => assertImportOrigin(new Request("http://localhost:3000/upload", { headers: { host: "innove.example.test", origin: "https://innove.example.test" } })));
+  for (const origin of ["https://foreign.example.test", "null", "file://innove.example.test", "https://innove.example.test.attacker.test"]) {
+    assert.throws(() => assertImportOrigin(new Request("http://localhost:3000/upload", { headers: { host: "innove.example.test", origin } })), /IMPORT_ORIGIN_REJECTED/);
+  }
+});
 
 test("import HTTP bodies enforce actual streamed size and unambiguous form fields", async () => {
   const form = new FormData(); form.set("type", "VENTURES"); form.set("namespace", "history"); form.set("file", new File(["external_id,name,kind\nv1,Example,COMPANY"], "ventures.csv"));
