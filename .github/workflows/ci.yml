@@ -48,10 +48,23 @@ jobs:
       - run: npm run test:domain
       - run: npm run test:imports
       - run: npm run test:demo
+      - run: npx playwright install --with-deps chromium
       - run: npm run build
-      - name: Verify production server routing
+      - name: Verify production routing and institutional browser journeys
+        env:
+          INNOVE_BROWSER_OUTPUT: ${{ runner.temp }}/innove-browser-results
         run: |
           node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3000 > "$RUNNER_TEMP/innove-runtime.log" 2>&1 &
           innove_runtime_pid=$!
           trap 'kill "$innove_runtime_pid" 2>/dev/null || true' EXIT
           npm run test:runtime || { cat "$RUNNER_TEMP/innove-runtime.log"; exit 1; }
+          npm run test:browser || { cat "$RUNNER_TEMP/innove-runtime.log"; exit 1; }
+      - name: Preserve runtime and browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: institutional-runtime-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/innove-runtime.log
+            ${{ runner.temp }}/innove-browser-results
+          retention-days: 14

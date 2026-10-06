@@ -53,5 +53,10 @@ export const IMPORT_TEMPLATES: Record<ImportEntityType, ImportTemplate> = {
 };
 
 export function importTemplateCsv(type: ImportEntityType) {
-  return `${IMPORT_TEMPLATES[type].fields.map((item) => item.key).join(",")}\r\n`;
+  const fields = IMPORT_TEMPLATES[type].fields.filter((item) => {
+    if (item.key.endsWith("_id") && item.key !== "external_id" && !item.key.endsWith("_external_id") && item.key !== "tracking_protocol_version_id") return false;
+    if (type === "OBSERVATIONS" && ["venture_external_id", "cohort_external_id", "wave_offset_months"].includes(item.key)) return false;
+    return true;
+  });
+  return `${fields.map((item) => item.key).join(",")}\r\n`;
 }

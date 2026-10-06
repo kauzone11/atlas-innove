@@ -8,7 +8,9 @@ test("all eight versioned templates expose durable identity and explicitly revie
   for (const [type, template] of Object.entries(IMPORT_TEMPLATES)) {
     assert.equal(template.fields[0].key, "external_id");
     assert.equal(new Set(template.fields.map((field) => field.key)).size, template.fields.length);
-    assert.equal(importTemplateCsv(type as keyof typeof IMPORT_TEMPLATES), `${template.fields.map((field) => field.key).join(",")}\r\n`);
+    const headers = importTemplateCsv(type as keyof typeof IMPORT_TEMPLATES).trim().split(",");
+    assert.ok(headers.every((header) => template.fields.some((field) => field.key === header)));
+    assert.doesNotThrow(() => validateImportMapping(type as keyof typeof IMPORT_TEMPLATES, headers, proposeImportMapping(type as keyof typeof IMPORT_TEMPLATES, headers)));
   }
   const proposed = proposeImportMapping("VENTURES", ["external_id", "name", "kind", "unknown", "Name"]);
   assert.deepEqual(proposed, { external_id: "external_id", name: "name", kind: "kind" });

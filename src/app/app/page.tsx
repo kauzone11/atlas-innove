@@ -10,6 +10,7 @@ import { MonitoringWaves } from "@/components/monitoring-waves";
 import { getLatestCohortResults, getOrganizationMonitoring } from "@/lib/monitoring/read-model";
 import { formatIndicatorValue } from "@/lib/monitoring/format";
 import { getInstitutionExecutionAttention } from "@/lib/action-center/institution";
+import { hasAtLeastRole } from "@/lib/auth/authorization";
 
 export default async function AppHomePage() {
   const auth = await getAuthenticatedSession();
@@ -34,6 +35,7 @@ export default async function AppHomePage() {
   return (
     <div className="min-w-0 space-y-6">
       <PageHeader title="Visão geral" description={context.organization.name} />
+      {hasAtLeastRole(context.membership.role, "MANAGER") && (!programs.length || (!ventures.length && !waves.length)) ? <p className="text-sm leading-6 text-slate">Preparando o acompanhamento? <Link href="/app/settings/onboarding" className="font-semibold text-accent-hover underline">Consultar o roteiro institucional</Link> ou <Link href="/app/imports" className="font-semibold text-accent-hover underline">importar dados históricos</Link>.</p> : null}
       <section className="flex flex-wrap items-center justify-between gap-4 border-y border-line py-4" aria-labelledby="portfolio-destination"><div><h2 id="portfolio-destination" className="text-sm font-semibold">Leitura institucional do portfólio</h2><p className="mt-1 text-sm text-slate">Compare coortes, confira a qualidade das evidências e preserve resultados em relatórios.</p></div><Link href="/app/analytics" className="button-secondary">Abrir análises <ArrowRight size={16} aria-hidden="true" /></Link></section>
 
       <dl className="grid overflow-hidden rounded-[0.875rem] border border-line bg-white sm:grid-cols-2 lg:grid-cols-4">

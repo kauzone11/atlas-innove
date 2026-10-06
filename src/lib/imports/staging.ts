@@ -57,7 +57,10 @@ export async function getImportBatch(userId: string, organizationId: string, bat
       ...(filter === "INVALID" ? { status: "INVALID" } : {}), ...(filter === "WARNINGS" ? { NOT: { warnings: { equals: [] } } } : {}),
     }, orderBy: { rowNumber: "asc" }, skip: (page - 1) * IMPORT_LIMITS.pageSize, take: IMPORT_LIMITS.pageSize + 1 });
     const mapping = batch.mapping as ImportMapping;
+    const actorIds = [batch.createdByUserId, batch.appliedByUserId, batch.rolledBackByUserId].filter((id): id is string => Boolean(id));
+    const actors = await client.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, profile: { select: { fullName: true } } } });
     return { batch, rows: rows.slice(0, IMPORT_LIMITS.pageSize), page, filter, hasNext: rows.length > IMPORT_LIMITS.pageSize,
+      actors: actors.map((actor) => ({ id: actor.id, name: actor.profile?.fullName ?? "Integrante da instituição" })),
       ignoredHeaders: (batch.headers as string[]).filter((header) => !Object.values(mapping).includes(header)),
     };
   });

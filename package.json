@@ -13,7 +13,8 @@
     "build": "next build",
     "start": "next start",
     "test:runtime": "node scripts/runtime-smoke.mjs",
-    "test:imports": "tsx --test src/lib/imports/*.test.ts",
+    "test:imports": "tsx --test src/lib/imports/*.test.ts src/lib/onboarding/*.test.ts",
+    "test:browser": "playwright test",
     "typecheck": "tsc --noEmit",
     "db:format": "prisma format",
     "db:validate": "prisma validate",
@@ -37,6 +38,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
+    "@playwright/test": "1.63.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",

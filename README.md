@@ -45,6 +45,18 @@ A plataforma também preserva a diferença entre ausência de resposta e valor z
 
 O acompanhamento organiza e descreve evidências. Ele não transforma, por si só, uma associação observada em atribuição causal ao programa de fomento.
 
+## Adoção institucional e importações históricas
+
+Em **Configurações → Preparação institucional**, gestores podem consultar um roteiro opcional derivado dos registros atuais: identificação, programa, edital quando aplicável, protocolo, coorte, participação, onda e observação enviada. O roteiro não persiste uma pontuação nem exige divulgação pública.
+
+Em **Configurações → Importar dados históricos**, a sequência é carregar CSV → revisar o mapeamento → validar → conferir as linhas e avisos → confirmar a aplicação. Há modelos para programas, editais, coortes, empreendimentos, participações, ondas, observações e marcos. O processamento é síncrono e limitado a UTF-8, 2 MiB, 1.000 linhas, 64 colunas e 4.000 caracteres por célula; um lote pode afetar até 5.000 registros, incluindo observações previstas. Prévia, auditoria e erros são paginados em 20 itens. O CSV de erros e avisos neutraliza fórmulas de planilha.
+
+Cada identidade usa uma referência externa única por instituição, origem e tipo. Os vínculos aceitam essa referência ou um ID institucional explícito, sem correspondência aproximada por nome. O padrão cria apenas novos registros. A atualização opcional limita-se aos campos descritivos de programas e empreendimentos já identificados. Contas, protocolos, candidaturas, apoios e mensagens não são importados. Editais históricos permanecem com divulgação pública e inscrições desativadas.
+
+Observações usam uma linha por indicador, a versão real do protocolo e as regras canônicas de validação. Ausência permanece ausência, zero continua valor, e datas históricas não são substituídas pela data da importação. Rascunhos e evidências existentes não são sobrescritos. Apenas observações previstas ainda vazias podem ser preenchidas com registro do estado anterior.
+
+`src/lib/imports` concentra preparação, referências, validação, aplicação, auditoria e reversão. As permissões de gestor, administrador ou proprietário são verificadas novamente no servidor. Aplicação e reversão são transações atômicas com controle de revisão. O banco preserva a origem bruta e a auditoria. A reversão só prossegue se todas as alterações permanecerem intactas e sem dependências manuais, de outros lotes ou de relatórios preservados; o histórico de importação é mantido.
+
 ## Demonstração
 
 A demonstração pública apresenta um recorte funcional do modelo longitudinal do Atlas Innove.
