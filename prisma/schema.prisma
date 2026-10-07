@@ -245,6 +245,8 @@ model User {
   sessions                     Session[]
   passwordResetTokens          PasswordResetToken[]
   fundingProgramsCreated       FundingProgram[]                @relation("FundingProgramCreatedBy")
+  organizationPostsCreated     SocialPost[]                    @relation("SocialPostCreatedBy")
+  organizationPostRevisions    OrganizationPostRevision[]      @relation("OrganizationPostRevisionActor")
   teamsCreated                 Team[]                          @relation("TeamCreatedBy")
   teamMemberships              TeamMembership[]
   teamInvitesSent              TeamInvite[]                    @relation("TeamInvitedBy")
@@ -304,9 +306,11 @@ model User {
   importsRolledBack            ImportBatch[]                   @relation("ImportRolledBackBy")
   followings                   UserFollow[]                    @relation("FollowFollower")
   followers                    UserFollow[]                    @relation("FollowFollowed")
-  socialPosts                  SocialPost[]
+  socialPosts                  SocialPost[]                    @relation("SocialPostAuthorUser")
+  organizationFollows          OrganizationFollow[]
   postReactions                PostReaction[]
   postComments                 PostComment[]
+  hiddenPostComments           PostComment[]                   @relation("PostCommentHiddenBy")
   commentReactions             CommentReaction[]
   savedPosts                   SavedPost[]
   featuredPosts                FeaturedPost[]
@@ -421,40 +425,81 @@ model ProfileLink {
 }
 
 model Organization {
-  id                   String                         @id @default(cuid())
-  name                 String
-  slug                 String                         @unique
-  status               OrganizationStatus             @default(ACTIVE)
-  createdAt            DateTime                       @default(now())
-  updatedAt            DateTime                       @updatedAt
-  memberships          OrganizationMembership[]
-  invites              OrganizationInvite[]
-  activeSessions       Session[]                      @relation("SessionActiveOrganization")
-  fundingPrograms      FundingProgram[]
-  fundingCalls         FundingCall[]
-  fundingCallDocuments FundingCallDocument[]
-  cohorts              Cohort[]
-  ventures             Venture[]
-  enrollments          VentureEnrollment[]
-  followUpWaves        FollowUpWave[]
-  observations         VentureObservation[]
-  trackingProtocols    TrackingProtocol[]
-  protocolVersions     TrackingProtocolVersion[]
-  indicatorDefinitions IndicatorDefinition[]
-  observationValues    ObservationValue[]
-  milestones           Milestone[]
-  opportunities        Opportunity[]
-  applications         Application[]
-  evaluationCriteria   EvaluationCriterion[]
-  evaluations          ApplicationEvaluation[]
-  awards               Award[]
-  metricDefinitions    MetricDefinition[]
-  analyticsReports     AnalyticsReportSnapshot[]
-  dataExports          DataExportAudit[]
-  analyticsSettings    OrganizationAnalyticsSettings?
-  resultPublications   PublicResultPublication[]
-  importBatches        ImportBatch[]
-  externalReferences   ExternalReference[]
+  id                      String                         @id @default(cuid())
+  name                    String
+  slug                    String                         @unique
+  status                  OrganizationStatus             @default(ACTIVE)
+  createdAt               DateTime                       @default(now())
+  updatedAt               DateTime                       @updatedAt
+  memberships             OrganizationMembership[]
+  invites                 OrganizationInvite[]
+  activeSessions          Session[]                      @relation("SessionActiveOrganization")
+  fundingPrograms         FundingProgram[]
+  fundingCalls            FundingCall[]
+  fundingCallDocuments    FundingCallDocument[]
+  cohorts                 Cohort[]
+  ventures                Venture[]
+  enrollments             VentureEnrollment[]
+  followUpWaves           FollowUpWave[]
+  observations            VentureObservation[]
+  trackingProtocols       TrackingProtocol[]
+  protocolVersions        TrackingProtocolVersion[]
+  indicatorDefinitions    IndicatorDefinition[]
+  observationValues       ObservationValue[]
+  milestones              Milestone[]
+  opportunities           Opportunity[]
+  applications            Application[]
+  evaluationCriteria      EvaluationCriterion[]
+  evaluations             ApplicationEvaluation[]
+  awards                  Award[]
+  metricDefinitions       MetricDefinition[]
+  analyticsReports        AnalyticsReportSnapshot[]
+  dataExports             DataExportAudit[]
+  analyticsSettings       OrganizationAnalyticsSettings?
+  resultPublications      PublicResultPublication[]
+  publicProfile           OrganizationProfile?
+  organizationFollows     OrganizationFollow[]
+  authoredSocialPosts     SocialPost[]                   @relation("SocialPostAuthorOrganization")
+  postRevisions           OrganizationPostRevision[]
+  safetyReports           SafetyReport[]                 @relation("SafetyReportedOrganization")
+  organizationMediaAssets MediaAsset[]                   @relation("MediaAssetOrganizationOwner")
+  importBatches           ImportBatch[]
+  externalReferences      ExternalReference[]
+}
+
+model OrganizationProfile {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  headline       String?      @db.VarChar(180)
+  description    String?      @db.Text
+  city           String?      @db.VarChar(100)
+  state          String?      @db.VarChar(100)
+  country        String?      @db.VarChar(100)
+  websiteUrl     String?      @db.VarChar(2000)
+  focusAreas     String[]     @default([])
+  logoMediaId    String?      @unique
+  coverMediaId   String?      @unique
+  publishedAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  logoMedia      MediaAsset?  @relation("OrganizationProfileLogo", fields: [logoMediaId], references: [id], onDelete: Restrict)
+  coverMedia     MediaAsset?  @relation("OrganizationProfileCover", fields: [coverMediaId], references: [id], onDelete: Restrict)
+
+  @@index([publishedAt, organizationId])
+}
+
+model OrganizationFollow {
+  id             String       @id @default(cuid())
+  followerUserId String
+  organizationId String
+  createdAt      DateTime     @default(now())
+  endedAt        DateTime?
+  follower       User         @relation(fields: [followerUserId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([followerUserId, endedAt, createdAt, id])
+  @@index([organizationId, endedAt, createdAt, id])
 }
 
 model OrganizationMembership {
@@ -521,26 +566,30 @@ model PasswordResetToken {
 }
 
 model FundingProgram {
-  id               String                    @id @default(cuid())
-  organizationId   String
-  name             String
-  slug             String
-  description      String?
-  code             String?
-  status           FundingProgramStatus      @default(DRAFT)
-  createdByUserId  String
-  createdAt        DateTime                  @default(now())
-  updatedAt        DateTime                  @updatedAt
-  organization     Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdBy        User                      @relation("FundingProgramCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  cohorts          Cohort[]
-  fundingCalls     FundingCall[]
-  analyticsReports AnalyticsReportSnapshot[]
-  dataExports      DataExportAudit[]
+  id                 String                    @id @default(cuid())
+  organizationId     String
+  name               String
+  slug               String
+  description        String?
+  code               String?
+  status             FundingProgramStatus      @default(DRAFT)
+  publicPageEnabled  Boolean                   @default(false)
+  publishedAt        DateTime?
+  createdByUserId    String
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  organization       Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy          User                      @relation("FundingProgramCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  cohorts            Cohort[]
+  fundingCalls       FundingCall[]
+  analyticsReports   AnalyticsReportSnapshot[]
+  dataExports        DataExportAudit[]
+  institutionalPosts SocialPost[]              @relation("InstitutionPostProgram")
 
   @@unique([organizationId, id])
   @@unique([organizationId, slug])
   @@index([organizationId, status])
+  @@index([organizationId, publicPageEnabled, publishedAt, status])
 }
 
 model FundingCall {
@@ -1731,26 +1780,28 @@ model ProjectDiscussionSubscription {
 }
 
 model SafetyReport {
-  id               String             @id @default(cuid())
-  reporterUserId   String
-  reportedUserId   String
-  conversationId   String?
-  messageId        String?
-  postId           String?
-  commentId        String?
-  reason           SafetyReportReason
-  details          String?
-  status           SafetyReportStatus @default(OPEN)
-  createdAt        DateTime           @default(now())
-  reviewedAt       DateTime?
-  reviewedByUserId String?
-  reporter         User               @relation("SafetyReporter", fields: [reporterUserId], references: [id], onDelete: Restrict)
-  reported         User               @relation("SafetyReported", fields: [reportedUserId], references: [id], onDelete: Restrict)
-  conversation     Conversation?      @relation(fields: [conversationId], references: [id], onDelete: Restrict)
-  message          DirectMessage?     @relation(fields: [messageId], references: [id], onDelete: Restrict)
-  reviewedBy       User?              @relation("SafetyReviewer", fields: [reviewedByUserId], references: [id], onDelete: Restrict)
-  post             SocialPost?        @relation(fields: [postId], references: [id], onDelete: Restrict)
-  comment          PostComment?       @relation(fields: [commentId], references: [id], onDelete: Restrict)
+  id                     String             @id @default(cuid())
+  reporterUserId         String
+  reportedUserId         String?
+  reportedOrganizationId String?
+  conversationId         String?
+  messageId              String?
+  postId                 String?
+  commentId              String?
+  reason                 SafetyReportReason
+  details                String?
+  status                 SafetyReportStatus @default(OPEN)
+  createdAt              DateTime           @default(now())
+  reviewedAt             DateTime?
+  reviewedByUserId       String?
+  reporter               User               @relation("SafetyReporter", fields: [reporterUserId], references: [id], onDelete: Restrict)
+  reported               User?              @relation("SafetyReported", fields: [reportedUserId], references: [id], onDelete: Restrict)
+  reportedOrganization   Organization?      @relation("SafetyReportedOrganization", fields: [reportedOrganizationId], references: [id], onDelete: Restrict)
+  conversation           Conversation?      @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  message                DirectMessage?     @relation(fields: [messageId], references: [id], onDelete: Restrict)
+  reviewedBy             User?              @relation("SafetyReviewer", fields: [reviewedByUserId], references: [id], onDelete: Restrict)
+  post                   SocialPost?        @relation(fields: [postId], references: [id], onDelete: Restrict)
+  comment                PostComment?       @relation(fields: [commentId], references: [id], onDelete: Restrict)
 
   @@index([status, createdAt, id])
   @@index([reporterUserId, createdAt])
@@ -1801,31 +1852,57 @@ model UserFollow {
 }
 
 model SocialPost {
-  id             String            @id @default(cuid())
-  authorUserId   String
-  body           String?
-  visibility     PostVisibility    @default(PLATFORM)
-  commentPolicy  PostCommentPolicy @default(EVERYONE)
-  allowReposts   Boolean           @default(true)
-  externalUrl    String?
-  repostOfPostId String?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  editedAt       DateTime?
-  deletedAt      DateTime?
-  author         User              @relation(fields: [authorUserId], references: [id], onDelete: Restrict)
-  repostOf       SocialPost?       @relation("PostRepost", fields: [repostOfPostId], references: [id], onDelete: Restrict)
-  reposts        SocialPost[]      @relation("PostRepost")
-  media          SocialPostMedia[]
-  reactions      PostReaction[]
-  comments       PostComment[]
-  saves          SavedPost[]
-  featured       FeaturedPost[]
-  safetyReports  SafetyReport[]
+  id                   String                     @id @default(cuid())
+  authorUserId         String?
+  authorOrganizationId String?
+  createdByUserId      String
+  fundingProgramId     String?
+  revision             Int                        @default(0)
+  body                 String?
+  visibility           PostVisibility             @default(PLATFORM)
+  commentPolicy        PostCommentPolicy          @default(EVERYONE)
+  allowReposts         Boolean                    @default(true)
+  externalUrl          String?
+  repostOfPostId       String?
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  editedAt             DateTime?
+  deletedAt            DateTime?
+  author               User?                      @relation("SocialPostAuthorUser", fields: [authorUserId], references: [id], onDelete: Restrict)
+  authorOrganization   Organization?              @relation("SocialPostAuthorOrganization", fields: [authorOrganizationId], references: [id], onDelete: Restrict)
+  createdBy            User                       @relation("SocialPostCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  fundingProgram       FundingProgram?            @relation("InstitutionPostProgram", fields: [authorOrganizationId, fundingProgramId], references: [organizationId, id], onDelete: Restrict)
+  repostOf             SocialPost?                @relation("PostRepost", fields: [repostOfPostId], references: [id], onDelete: Restrict)
+  reposts              SocialPost[]               @relation("PostRepost")
+  media                SocialPostMedia[]
+  reactions            PostReaction[]
+  comments             PostComment[]
+  saves                SavedPost[]
+  featured             FeaturedPost[]
+  safetyReports        SafetyReport[]
+  revisions            OrganizationPostRevision[]
 
   @@index([authorUserId, deletedAt, createdAt, id])
+  @@index([authorOrganizationId, deletedAt, createdAt, id])
   @@index([visibility, deletedAt, createdAt, id])
   @@index([repostOfPostId, deletedAt])
+}
+
+model OrganizationPostRevision {
+  id              String       @id @default(cuid())
+  organizationId  String
+  postId          String
+  revision        Int
+  action          String       @db.VarChar(16)
+  changedByUserId String
+  snapshot        Json
+  changedAt       DateTime     @default(now())
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  post            SocialPost   @relation(fields: [postId], references: [id], onDelete: Restrict)
+  changedBy       User         @relation("OrganizationPostRevisionActor", fields: [changedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([postId, revision])
+  @@index([organizationId, changedAt, id])
 }
 
 model PostReaction {
@@ -1852,8 +1929,10 @@ model PostComment {
   editedAt             DateTime?
   deletedAt            DateTime?
   hiddenByPostAuthorAt DateTime?
+  hiddenByUserId       String?
   post                 SocialPost        @relation(fields: [postId], references: [id], onDelete: Cascade)
   author               User              @relation(fields: [authorUserId], references: [id], onDelete: Restrict)
+  hiddenBy             User?             @relation("PostCommentHiddenBy", fields: [hiddenByUserId], references: [id], onDelete: Restrict)
   parentComment        PostComment?      @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Restrict)
   replies              PostComment[]     @relation("CommentReplies")
   reactions            CommentReaction[]
@@ -1914,6 +1993,8 @@ enum MediaKind {
   PROFILE_AVATAR
   PROFILE_COVER
   POST_IMAGE
+  ORGANIZATION_LOGO
+  ORGANIZATION_COVER
 }
 
 enum MediaStatus {
@@ -1923,25 +2004,30 @@ enum MediaStatus {
 }
 
 model MediaAsset {
-  id                String             @id @default(cuid())
-  ownerUserId       String
-  kind              MediaKind
-  storageKey        String             @unique
-  mimeType          String             @default("image/webp")
-  sizeBytes         Int
-  width             Int
-  height            Int
-  derivatives       Json
-  status            MediaStatus        @default(PENDING)
-  createdAt         DateTime           @default(now())
-  deletedAt         DateTime?
-  physicalDeletedAt DateTime?
-  owner             User               @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
-  avatarOf          InnovationProfile? @relation("ProfileAvatar")
-  coverOf           InnovationProfile? @relation("ProfileCover")
-  postMedia         SocialPostMedia?
+  id                  String               @id @default(cuid())
+  ownerUserId         String?
+  ownerOrganizationId String?
+  kind                MediaKind
+  storageKey          String               @unique
+  mimeType            String               @default("image/webp")
+  sizeBytes           Int
+  width               Int
+  height              Int
+  derivatives         Json
+  status              MediaStatus          @default(PENDING)
+  createdAt           DateTime             @default(now())
+  deletedAt           DateTime?
+  physicalDeletedAt   DateTime?
+  owner               User?                @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
+  ownerOrganization   Organization?        @relation("MediaAssetOrganizationOwner", fields: [ownerOrganizationId], references: [id], onDelete: Restrict)
+  avatarOf            InnovationProfile?   @relation("ProfileAvatar")
+  coverOf             InnovationProfile?   @relation("ProfileCover")
+  organizationLogoOf  OrganizationProfile? @relation("OrganizationProfileLogo")
+  organizationCoverOf OrganizationProfile? @relation("OrganizationProfileCover")
+  postMedia           SocialPostMedia?
 
   @@index([ownerUserId, status, createdAt])
+  @@index([ownerOrganizationId, status, createdAt])
   @@index([status, createdAt, physicalDeletedAt])
 }
 

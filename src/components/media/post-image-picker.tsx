@@ -8,7 +8,7 @@ import type { MediaDto } from "@/lib/media/types";
 
 export type PostImageDraft = { mediaId: string; altText: string; media: MediaDto };
 
-export function PostImagePicker({ value, onChange, disabled = false, onUploadingChange }: { value: PostImageDraft[]; onChange: (images: PostImageDraft[]) => void; disabled?: boolean; onUploadingChange?: (uploading: boolean) => void }) {
+export function PostImagePicker({ value, onChange, disabled = false, onUploadingChange, organizationId }: { value: PostImageDraft[]; onChange: (images: PostImageDraft[]) => void; disabled?: boolean; onUploadingChange?: (uploading: boolean) => void; organizationId?: string }) {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,8 +31,8 @@ export function PostImagePicker({ value, onChange, disabled = false, onUploading
     const abort = new AbortController(); controller.current = abort;
     try {
       for (const file of files) {
-        const media = await uploadImage(file, "POST_IMAGE", { signal: abort.signal });
-        if (abort.signal.aborted) { void discardImage(media.id); break; }
+        const media = await uploadImage(file, "POST_IMAGE", { signal: abort.signal, organizationId });
+        if (abort.signal.aborted) { void discardImage(media.id, organizationId); break; }
         const next = [...current.current, { mediaId: media.id, altText: "", media }];
         current.current = next; changeRef.current(next);
       }
@@ -43,7 +43,7 @@ export function PostImagePicker({ value, onChange, disabled = false, onUploading
   function remove(index: number) {
     const removed = value[index]; onChange(value.filter((_, itemIndex) => itemIndex !== index));
     // Attached media is removed only with the post transaction; this endpoint accepts unattached drafts only.
-    void discardImage(removed.mediaId);
+    void discardImage(removed.mediaId, organizationId);
   }
   function cancelUpload() {
     controller.current?.abort(); setUploading(false); busyRef.current?.(false);

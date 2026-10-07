@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const mediaKindSchema = z.enum(["PROFILE_AVATAR", "PROFILE_COVER", "POST_IMAGE"]);
+export const mediaKindSchema = z.enum(["PROFILE_AVATAR", "PROFILE_COVER", "POST_IMAGE", "ORGANIZATION_LOGO", "ORGANIZATION_COVER"]);
 export const mediaIdentifierSchema = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/, "Esta imagem não está disponível.");
 export const cropSchema = z.object({ x: z.number().finite().min(0).max(1), y: z.number().finite().min(0).max(1), width: z.number().finite().gt(0).max(1), height: z.number().finite().gt(0).max(1) }).strict().refine((value) => value.x + value.width <= 1.000001 && value.y + value.height <= 1.000001, "Ajuste o recorte dentro da imagem.");
 export type ImageCrop = z.infer<typeof cropSchema>;

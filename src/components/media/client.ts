@@ -2,15 +2,16 @@ import type { MediaDto } from "@/lib/media/types";
 
 export type ImageCrop = { x: number; y: number; width: number; height: number };
 export type ProfileMediaKind = "PROFILE_AVATAR" | "PROFILE_COVER";
+export type UploadMediaKind = ProfileMediaKind | "POST_IMAGE" | "ORGANIZATION_LOGO" | "ORGANIZATION_COVER";
 
-export function imageSelectionError(file: File, kind: ProfileMediaKind | "POST_IMAGE"): string | null {
-  const maxMb = kind === "PROFILE_AVATAR" ? 5 : kind === "PROFILE_COVER" ? 8 : 10;
+export function imageSelectionError(file: File, kind: UploadMediaKind): string | null {
+  const maxMb = kind === "PROFILE_AVATAR" || kind === "ORGANIZATION_LOGO" ? 5 : kind === "PROFILE_COVER" || kind === "ORGANIZATION_COVER" ? 8 : 10;
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) return "Escolha uma imagem JPEG, PNG ou WebP.";
   if (!file.size || file.size > maxMb * 1024 * 1024) return `A imagem deve ter até ${maxMb} MB e não pode estar vazia.`;
   return null;
 }
 
-export async function uploadImage(file: File, kind: ProfileMediaKind | "POST_IMAGE", options: { crop?: ImageCrop; signal?: AbortSignal } = {}): Promise<MediaDto> {
+export async function uploadImage(file: File, kind: UploadMediaKind, options: { crop?: ImageCrop; signal?: AbortSignal; organizationId?: string } = {}): Promise<MediaDto> {
   const data = new FormData(); data.set("file", file); data.set("kind", kind);
   if (options.crop) data.set("crop", JSON.stringify(options.crop));
   const controller = new AbortController();
@@ -21,7 +22,8 @@ export async function uploadImage(file: File, kind: ProfileMediaKind | "POST_IMA
   const timer = window.setTimeout(() => { timedOut = true; controller.abort(); }, 120_000);
   try {
     let response: Response;
-    try { response = await fetch("/api/personal/media", { method: "POST", body: data, signal: controller.signal }); }
+    const endpoint = options.organizationId ? `/api/organizations/${encodeURIComponent(options.organizationId)}/media` : "/api/personal/media";
+    try { response = await fetch(endpoint, { method: "POST", body: data, signal: controller.signal }); }
     catch (error) {
       if (timedOut) throw new Error("O envio demorou mais que o esperado. Confira sua conexão e tente novamente.");
       if (error instanceof Error && error.name === "AbortError") throw error;
@@ -36,6 +38,7 @@ export async function uploadImage(file: File, kind: ProfileMediaKind | "POST_IMA
   }
 }
 
-export async function discardImage(mediaId: string): Promise<void> {
-  await fetch(`/api/personal/media/${encodeURIComponent(mediaId)}`, { method: "DELETE" }).catch(() => undefined);
+export async function discardImage(mediaId: string, organizationId?: string): Promise<void> {
+  const base = organizationId ? `/api/organizations/${encodeURIComponent(organizationId)}/media` : "/api/personal/media";
+  await fetch(`${base}/${encodeURIComponent(mediaId)}`, { method: "DELETE" }).catch(() => undefined);
 }

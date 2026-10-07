@@ -21,7 +21,7 @@ test("one versus twenty image posts and distinct avatars retain bounded query fa
       return { id, ownerUserId, kind: kind as "PROFILE_AVATAR" | "POST_IMAGE", storageKey: `media/${id}/large.webp`, status: "READY" as const, width: 20, height: 20, sizeBytes: 300, derivatives: derivative(id) };
     })) });
     await client.innovationProfile.createMany({ data: userIds.map((userId) => ({ userId, handle: userId, headline: "Research", profileVisibility: "PUBLIC", publishedAt: new Date(), avatarMediaId: `PROFILE_AVATAR-${userId}` })) });
-    await client.socialPost.createMany({ data: userIds.map((authorUserId, index) => ({ id: postIds[index], authorUserId, visibility: "PUBLIC", body: "Evidence" })) });
+    await client.socialPost.createMany({ data: userIds.map((authorUserId, index) => ({ id: postIds[index], authorUserId, createdByUserId: authorUserId, visibility: "PUBLIC", body: "Evidence" })) });
     await client.socialPostMedia.createMany({ data: userIds.map((id, index) => ({ postId: postIds[index], mediaId: `POST_IMAGE-${id}`, position: 0 })) });
     queries = 0; const one = await loadPosts({ id: postIds[0] }, undefined, { take: 1 }); const oneCount = queries;
     queries = 0; const twenty = await loadPosts({ id: { in: postIds } }, undefined, { take: 20 }); const twentyCount = queries;

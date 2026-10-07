@@ -4,8 +4,8 @@ import { MediaError } from "@/lib/media/errors";
 import { cropSchema, type ImageCrop } from "@/lib/media/schemas";
 import type { MediaVariant } from "@/lib/media/types";
 
-export const MEDIA_SIZE_LIMITS = { PROFILE_AVATAR: 5 * 1024 * 1024, PROFILE_COVER: 8 * 1024 * 1024, POST_IMAGE: 10 * 1024 * 1024 } as const;
-const sizes = { PROFILE_AVATAR: [96, 192, 384], PROFILE_COVER: [640, 1280, 1920], POST_IMAGE: [480, 960, 1920] } as const;
+export const MEDIA_SIZE_LIMITS = { PROFILE_AVATAR: 5 * 1024 * 1024, PROFILE_COVER: 8 * 1024 * 1024, POST_IMAGE: 10 * 1024 * 1024, ORGANIZATION_LOGO: 5 * 1024 * 1024, ORGANIZATION_COVER: 8 * 1024 * 1024 } as const;
+const sizes = { PROFILE_AVATAR: [96, 192, 384], PROFILE_COVER: [640, 1280, 1920], POST_IMAGE: [480, 960, 1920], ORGANIZATION_LOGO: [96, 192, 384], ORGANIZATION_COVER: [640, 1280, 1920] } as const;
 const variants = ["small", "medium", "large"] as const;
 const invalid = () => new MediaError("MEDIA_INVALID_IMAGE", 400, "Escolha uma imagem JPEG, PNG ou WebP válida, sem animação.");
 export function detectImageType(bytes: Uint8Array): "image/jpeg" | "image/png" | "image/webp" | null {
@@ -47,14 +47,14 @@ export async function processImage(bytes: Uint8Array, kind: MediaKind, suppliedM
       rectangle = { left: Math.floor(crop.x * width), top: Math.floor(crop.y * height), width: Math.max(1, Math.floor(crop.width * width)), height: Math.max(1, Math.floor(crop.height * height)) };
       rectangle.width = Math.min(rectangle.width, width - rectangle.left); rectangle.height = Math.min(rectangle.height, height - rectangle.top);
       if (kind === "PROFILE_AVATAR" && Math.abs(rectangle.width - rectangle.height) > 2) throw new MediaError("MEDIA_AVATAR_CROP", 400, "Escolha um recorte quadrado para a foto de perfil.");
-    } else if (kind === "PROFILE_AVATAR") {
+    } else if (kind === "PROFILE_AVATAR" || kind === "ORGANIZATION_LOGO") {
       const side = Math.min(width, height);
       rectangle = { left: Math.floor((width - side) / 2), top: Math.floor((height - side) / 2), width: side, height: side };
     }
     const result = {} as Record<MediaVariant, { bytes: Buffer; width: number; height: number }>;
     for (let index = 0; index < variants.length; index++) {
       const output = await sharp(oriented.data, { raw: { width, height, channels: oriented.info.channels } }).extract(rectangle)
-        .resize({ width: sizes[kind][index], height: kind === "PROFILE_AVATAR" ? sizes[kind][index] : undefined, fit: "inside", withoutEnlargement: true })
+        .resize({ width: sizes[kind][index], height: kind === "PROFILE_AVATAR" || kind === "ORGANIZATION_LOGO" ? sizes[kind][index] : undefined, fit: "inside", withoutEnlargement: true })
         .webp({ quality: 84, effort: 4 }).toBuffer({ resolveWithObject: true });
       result[variants[index]] = { bytes: output.data, width: output.info.width, height: output.info.height };
     }

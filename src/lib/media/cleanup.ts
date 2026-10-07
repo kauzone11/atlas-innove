@@ -21,14 +21,14 @@ export async function cleanupMedia(options: { now?: Date; limit?: number; storag
   const where: Prisma.MediaAssetWhereInput = { ...(options.ownerUserId ? { ownerUserId: options.ownerUserId } : {}), OR: [
     { status: "DELETED", physicalDeletedAt: null },
     { status: "PENDING", createdAt: { lt: new Date(now.getTime() - 3600000) } },
-    { status: "READY", createdAt: { lt: new Date(now.getTime() - 86400000) }, avatarOf: null, coverOf: null, postMedia: null },
+    { status: "READY", createdAt: { lt: new Date(now.getTime() - 86400000) }, avatarOf: null, coverOf: null, organizationLogoOf: null, organizationCoverOf: null, postMedia: null },
   ] };
   const candidates = await db.mediaAsset.findMany({ where, select: { id: true, ownerUserId: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: Math.max(1, Math.min(options.limit ?? 50, 100)) });
   let deleted = 0; let failed = 0;
   for (const candidate of candidates) {
     try {
       const claimed = await db.$transaction(async (client) => {
-        await lockNetworkUsers(client, [candidate.ownerUserId]);
+        if (candidate.ownerUserId) await lockNetworkUsers(client, [candidate.ownerUserId]);
         await client.$queryRaw`SELECT "id" FROM "MediaAsset" WHERE "id" = ${candidate.id} FOR UPDATE`;
         const asset = await client.mediaAsset.findFirst({ where: { AND: [where, { id: candidate.id }] }, select: { status: true } });
         if (!asset) return false;

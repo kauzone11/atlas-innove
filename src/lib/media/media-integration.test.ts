@@ -103,7 +103,7 @@ test("attachment transactions reject foreign, deleted, duplicate and fifth image
     await updatePost(f.author.id, post.id, { body: "Texto preservado", media: [] });
     assert.equal((await getPost(post.id, f.author.id))?.media.length, 0);
     await assert.rejects(() => createPost(f.author.id, { media: [{ mediaId: asset.id }] }));
-    await assert.rejects(() => db.socialPost.create({ data: { authorUserId: f.author.id } }));
+    await assert.rejects(() => db.socialPost.create({ data: { authorUserId: f.author.id, createdByUserId: f.author.id } }));
   } finally { await f.cleanup(); }
 });
 

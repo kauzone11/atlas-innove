@@ -9,7 +9,7 @@ export const createDiscussionSchema = z.object({ title: z.string().trim().min(2,
 export const discussionStatusSchema = z.object({ status: z.enum(["OPEN", "CLOSED"]) }).strict();
 export const discussionSubscriptionSchema = z.object({ subscribed: z.boolean() }).strict();
 export const safetyReportSchema = z.object({
-  reportedUserId: identifier,
+  reportedUserId: identifier.optional(),
   conversationId: identifier.optional(),
   messageId: identifier.optional(),
   postId: identifier.optional(),
@@ -17,7 +17,8 @@ export const safetyReportSchema = z.object({
   reason: z.enum(["SPAM", "HARASSMENT", "IMPERSONATION", "INAPPROPRIATE_CONTENT", "OTHER"]),
   details: z.string().trim().max(2000).optional().transform((value) => value || null),
 }).strict().refine((value) => !value.messageId || Boolean(value.conversationId), "Informe a conversa desta mensagem.")
-  .refine((value) => !(value.conversationId && (value.postId || value.commentId)), "Escolha um único contexto para a denúncia.");
+  .refine((value) => !(value.conversationId && (value.postId || value.commentId)), "Escolha um único contexto para a denúncia.")
+  .refine((value) => Boolean(value.postId || value.commentId || value.reportedUserId), "Escolha a pessoa ou o conteúdo que deseja denunciar.");
 export const reviewSafetyReportSchema = z.object({ status: z.enum(["REVIEWED", "DISMISSED", "ACTIONED"]) }).strict();
 
 export function boundedPage(value: unknown): number {
