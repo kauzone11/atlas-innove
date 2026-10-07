@@ -20,6 +20,12 @@ test("profile owner controls publication and serialized section privacy", async 
     const identity = { handle, headline: "Research and innovation", city: "Aracaju", state: "Sergipe", country: "Brasil" };
     const publicPrivacy = { profileVisibility: "PUBLIC", skillsVisibility: "PUBLIC", experienceVisibility: "PUBLIC", educationVisibility: "PUBLIC", linksVisibility: "PUBLIC", verifiedParticipationVisibility: "PUBLIC", projectsVisibility: "PUBLIC" };
 
+    await context.test("concurrent first profile reads initialize one stable profile", async () => {
+      const profiles = await Promise.all(Array.from({ length: 8 }, () => getOwnProfile(visitor.id)));
+      assert.equal(new Set(profiles.map((profile) => profile.id)).size, 1);
+      assert.equal(await db.innovationProfile.count({ where: { userId: visitor.id } }), 1);
+    });
+
     await context.test("defaults are private and publication needs complete identity plus consent", async () => {
       const initial = await getOwnProfile(owner.id); assert.equal(initial.profileVisibility, "PRIVATE"); assert.equal(initial.publishedAt, null); assert.equal(initial.skillsVisibility, "PRIVATE");
       await assert.rejects(() => updateProfile(owner.id, { section: "publish", confirmed: true }), /PROFILE_PUBLICATION_INCOMPLETE/);

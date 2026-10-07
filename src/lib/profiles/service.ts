@@ -35,7 +35,8 @@ function sortedEducation<T extends { startsAt: Date | null; endsAt: Date | null;
 async function ensureProfile(userId: string) {
   const user = await db.user.findUnique({ where: { id: userId }, select: { id: true } });
   if (!user) throw new ResourceNotFoundError("PROFILE_NOT_FOUND");
-  return db.innovationProfile.upsert({ where: { userId }, create: { userId }, update: {}, select: { id: true } });
+  await db.innovationProfile.createMany({ data: [{ userId }], skipDuplicates: true });
+  return db.innovationProfile.findUniqueOrThrow({ where: { userId }, select: { id: true } });
 }
 
 export async function hasCurrentProfileCollaboration(profileUserId: string, viewerUserId: string): Promise<boolean> {
