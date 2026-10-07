@@ -98,7 +98,7 @@ test("institution publication, discovery, program page and followed official fee
     await page.getByRole("button", { name: "Criar publicação oficial", exact: true }).click();
     const restrictedComposer = page.getByRole("form", { name: "Criar publicação institucional", exact: true });
     await restrictedComposer.getByPlaceholder("Compartilhe uma atualização institucional.", { exact: true }).fill(platformText);
-    await restrictedComposer.getByLabel("Visibilidade", { exact: true }).selectOption("PLATFORM");
+    await restrictedComposer.getByRole("combobox", { name: /^Visibilidade/ }).selectOption("PLATFORM");
     await restrictedComposer.getByRole("button", { name: "Publicar", exact: true }).click();
     await expect(page.getByText(platformText, { exact: true })).toBeVisible();
     const auditedPost = await db.socialPost.findFirstOrThrow({ where: { authorOrganizationId: f.organization.id, body: publicText }, select: { id: true, createdByUserId: true, revision: true } });
