@@ -80,7 +80,10 @@ test("institution publication, discovery, program page and followed official fee
     await page.getByPlaceholder("Tecnologia, empreendedorismo, pesquisa", { exact: true }).fill("Pesquisa, Tecnologia");
     await page.getByRole("button", { name: "Salvar informações", exact: true }).click();
     await expect(page.getByRole("status")).toContainText("Informações institucionais salvas.");
-    await expect(page.getByText("O armazenamento de imagens não está configurado.", { exact: false })).toBeVisible();
+    const logoUpload = page.getByRole("button", { name: "Adicionar logotipo", exact: true });
+    const storageNotice = page.getByText("O armazenamento de imagens não está configurado.", { exact: false });
+    if (await logoUpload.isDisabled()) await expect(storageNotice).toBeVisible();
+    else await expect(storageNotice).toHaveCount(0);
     await page.getByRole("button", { name: "Publicar página", exact: true }).click();
     await expect(page.getByRole("status")).toContainText("Página institucional publicada.");
     await page.getByRole("button", { name: "Publicar programa", exact: true }).click();
