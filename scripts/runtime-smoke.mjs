@@ -26,7 +26,7 @@ for (const [route, payload] of [["/api/health", { status: "ok" }], ["/api/ready"
 await check("/", async () => {
   const response = await request("/"); assert.equal(response.status, 307); assert.equal(new URL(response.headers.get("location"), base).pathname, "/login"); await response.arrayBuffer();
 });
-for (const route of ["/login", "/signup", "/recover", "/opportunities", "/results"]) {
+for (const route of ["/login", "/signup", "/recover", "/opportunities", "/institutions", "/results"]) {
   await check(route, async () => {
     const response = await request(route); assert.equal(response.status, 200, route); assert.match(response.headers.get("content-type") ?? "", /text\/html/); assert.equal(response.headers.get("x-content-type-options"), "nosniff"); await response.arrayBuffer();
   });
@@ -36,7 +36,7 @@ for (const route of ["/demo", "/demo/programas", "/demo/oportunidades", "/demo/a
     const response = await request(route); assert.equal(response.status, process.env.DEMO_ENABLED === "true" ? 200 : 404, route); await response.arrayBuffer();
   });
 }
-for (const route of ["/opportunities/calls/runtime-missing", "/results/runtime-missing", "/people/runtime-missing", "/projects/runtime-missing", "/posts/nonexistent-safe-id"]) {
+for (const route of ["/opportunities/calls/runtime-missing", "/institutions/runtime-missing", "/institutions/runtime-missing/programs/runtime-missing", "/results/runtime-missing", "/people/runtime-missing", "/projects/runtime-missing", "/posts/nonexistent-safe-id"]) {
   await check(route, async () => { const response = await request(route); assert.equal(response.status, 404, route); await response.arrayBuffer(); });
 }
 for (const route of ["/api/media/runtime-missing", "/api/media/runtime-missing?variant=large", "/api/media/runtime-missing?variant=original"]) {
@@ -48,7 +48,7 @@ for (const route of ["/api/media/runtime-missing", "/api/media/runtime-missing?v
     assert.ok(!/Prisma|storageKey|accessKey|secret|bucket|stack trace/i.test(body), `${route}: internal details in response`);
   });
 }
-for (const route of ["/app", "/app/personal", "/app/personal/feed", "/app/analytics/quality", "/app/personal/network/requests", "/app/messages", "/app/programs/runtime-missing/cohorts/runtime-missing"]) {
+for (const route of ["/app", "/app/personal", "/app/personal/feed", "/app/personal/institutions", "/app/personal/network/institutions", "/app/settings/public-page", "/app/analytics/quality", "/app/personal/network/requests", "/app/messages", "/app/programs/runtime-missing/cohorts/runtime-missing"]) {
   await check(route, async () => {
     const response = await request(route); assert.ok([302, 303, 307, 308].includes(response.status), `${route}: ${response.status}`);
     const location = new URL(response.headers.get("location"), base); assert.equal(location.pathname, "/login"); assert.equal(location.searchParams.get("next"), route); await response.arrayBuffer();
