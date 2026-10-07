@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Bell, House, Network, MessageSquare, BriefcaseBusiness, Building2, ChevronDown, FolderKanban, Menu, Settings, Users, Workflow, Compass, X, Route, Layers3, UsersRound, UserRound, ClipboardCheck, ChartNoAxesCombined } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { LogoutButton } from "@/components/logout-button";
 import { Avatar } from "@/components/media/avatar";
@@ -18,7 +18,7 @@ const primaryNavigation = [
   { href: "/app/follow-ups", label: "Acompanhamentos", icon: Workflow },
   { href: "/app/analytics", label: "Análises", icon: ChartNoAxesCombined },
   { href: "/app/ventures", label: "Empreendimentos", icon: BriefcaseBusiness },
-  { href: "/app/opportunities", label: "Oportunidades", icon: Compass },
+  { href: "/app/opportunities", label: "Oportunidades externas", icon: Compass },
 ];
 
 const administrationNavigation = [
@@ -35,6 +35,7 @@ const personalNavigation = [
   { href: "/app/personal/teams", label: "Equipes", icon: UsersRound },
   { href: "/app/personal/opportunities", label: "Oportunidades", icon: Compass },
   { href: "/app/personal/network", label: "Rede", icon: Network },
+  { href: "/app/personal/institutions", label: "Instituições seguidas", icon: Building2 },
   { href: "/app/personal/profile", label: "Perfil", icon: UserRound },
 ];
 
@@ -45,6 +46,10 @@ export function AppShell({ children, organizationName, userName, avatarMedia, ha
   const personal = isPersonalPath(pathname);
   const [mobileOpen, setMobileOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const closeMobileNavigation = useCallback(() => {
+    setMobileOpen(false);
+    menuButtonRef.current?.focus();
+  }, []);
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
@@ -82,7 +87,7 @@ export function AppShell({ children, organizationName, userName, avatarMedia, ha
         </div>
       </div>
 
-      {mobileOpen ? <MobileNavigation pathname={pathname} organizationName={organizationName} hasOrganization={hasOrganization} userName={userName} avatarMedia={avatarMedia} onClose={() => { setMobileOpen(false); menuButtonRef.current?.focus(); }} /> : null}
+      {mobileOpen ? <MobileNavigation pathname={pathname} organizationName={organizationName} hasOrganization={hasOrganization} userName={userName} avatarMedia={avatarMedia} onClose={closeMobileNavigation} /> : null}
     </div>
   );
 }
@@ -93,7 +98,7 @@ function ShellBrand({ organizationName }: { organizationName?: string }) {
 
 function ShellNavigation({ pathname, hasOrganization }: { pathname: string; hasOrganization: boolean }) {
   const personal = isPersonalPath(pathname);
-  return <nav aria-label={personal ? "Navegação do participante" : "Navegação da organização"} className="space-y-7"><div><p className="px-3 pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-slate">Perspectiva</p><div className="grid grid-cols-2 gap-1 rounded-lg bg-surface-subtle p-1"><Link className={`flex min-h-11 items-center justify-center rounded-md text-xs font-medium ${!personal ? "bg-white text-ink shadow-sm" : "text-slate"}`} href={hasOrganization ? "/app" : "/app/organizations"} aria-current={!personal ? "page" : undefined}>Instituição</Link><Link className={`flex min-h-11 items-center justify-center rounded-md text-xs font-medium ${personal ? "bg-white text-ink shadow-sm" : "text-slate"}`} href="/app/personal" aria-current={personal ? "page" : undefined}>Participante</Link></div></div><NavGroup label={personal ? "Meu espaço" : "Espaço"} items={personal ? personalNavigation : hasOrganization ? primaryNavigation : [primaryNavigation[0]]} pathname={pathname} />{!personal ? <NavGroup label="Administração" items={administrationNavigation.filter((item) => item.href === "/app/organizations" || hasOrganization)} pathname={pathname} /> : null}</nav>;
+  return <nav aria-label={personal ? "Navegação do participante" : "Navegação da organização"} className="space-y-7"><div><p className="px-3 pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-slate">Perspectiva</p><div className="grid grid-cols-2 gap-1 rounded-lg bg-surface-subtle p-1"><Link className={`flex min-h-11 items-center justify-center rounded-md text-xs font-medium ${!personal ? "bg-white text-ink shadow-sm" : "text-slate"}`} href={hasOrganization ? "/app" : "/app/organizations"} aria-current={!personal ? "page" : undefined}>Instituição</Link><Link className={`flex min-h-11 items-center justify-center rounded-md text-xs font-medium ${personal ? "bg-white text-ink shadow-sm" : "text-slate"}`} href="/app/personal/feed" aria-current={personal ? "page" : undefined}>Participante</Link></div></div><NavGroup label={personal ? "Meu espaço" : "Espaço"} items={personal ? personalNavigation : hasOrganization ? primaryNavigation : [primaryNavigation[0]]} pathname={pathname} />{!personal ? <NavGroup label="Administração" items={administrationNavigation.filter((item) => item.href === "/app/organizations" || hasOrganization)} pathname={pathname} /> : null}</nav>;
 }
 
 function NavGroup({ label, items, pathname }: { label: string; items: typeof primaryNavigation; pathname: string }) {
@@ -112,6 +117,7 @@ function AccountControl({ userName, avatarMedia, organizationName, placement = "
   const personal = isPersonalPath(pathname);
   const [open, setOpen] = useState(false);
   const controlRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -119,7 +125,12 @@ function AccountControl({ userName, avatarMedia, organizationName, placement = "
       if (!controlRef.current?.contains(event.target as Node)) setOpen(false);
     }
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+      if (event.key === "Tab") setOpen(false);
     }
     document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
@@ -127,7 +138,7 @@ function AccountControl({ userName, avatarMedia, organizationName, placement = "
   }, [open]);
 
   return <div ref={controlRef} className={`account-menu ${placement === "top" ? "ml-2" : ""}`}>
-    <button type="button" className="flex min-h-11 max-w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-surface-subtle" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-haspopup="menu" aria-label={`Abrir menu de ${userName}`}>
+    <button ref={triggerRef} type="button" className="flex min-h-11 max-w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-surface-subtle" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-haspopup="menu" aria-label={`Abrir menu de ${userName}`}>
       <Avatar name={userName} media={avatarMedia} size="small" />
       <span className="hidden max-w-36 truncate text-sm font-medium text-ink sm:block">{userName}</span>
       <ChevronDown size={16} className="shrink-0 text-slate" aria-hidden="true" />
