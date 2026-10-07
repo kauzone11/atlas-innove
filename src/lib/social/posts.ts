@@ -14,7 +14,7 @@ export async function createPost(userId: string, value: unknown) {
     await requireSocialIdentity(client, userId, input.visibility === "PUBLIC");
     await consumeSocialRate(client, userId, "POST");
     const { media, ...data } = input;
-    const post = await client.socialPost.create({ data: { ...data, authorUserId: userId }, select: { id: true } });
+    const post = await client.socialPost.create({ data: { ...data, authorUserId: userId, createdByUserId: userId }, select: { id: true } });
     if (media.length) await attachPostMedia(client, userId, post.id, media);
     return post;
   });

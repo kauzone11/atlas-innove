@@ -23,7 +23,7 @@ export async function requireSocialIdentity(client: Prisma.TransactionClient, us
 export async function lockPost(client: Prisma.TransactionClient, userId: string, postId: string, otherUserIds: string[] = []): Promise<SocialPost> {
   const initial = await client.socialPost.findUnique({ where: { id: postId }, select: { authorUserId: true } });
   if (!initial) throw new ResourceNotFoundError("SOCIAL_POST_NOT_FOUND");
-  await lockNetworkUsers(client, [userId, initial.authorUserId, ...otherUserIds]);
+  await lockNetworkUsers(client, [userId, ...(initial.authorUserId ? [initial.authorUserId] : []), ...otherUserIds]);
   await client.$queryRaw`SELECT "id" FROM "SocialPost" WHERE "id" = ${postId} FOR UPDATE`;
   return requireVisiblePost(client, postId, userId);
 }

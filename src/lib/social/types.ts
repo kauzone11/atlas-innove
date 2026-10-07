@@ -2,9 +2,30 @@ import type { PostCommentPolicy, PostVisibility, ReactionType } from "@prisma/cl
 import type { MediaDto, SocialPostMediaDto } from "@/lib/media/types";
 export type { SocialPostMediaDto } from "@/lib/media/types";
 
-export type SocialIdentity = { userId: string; fullName: string; handle: string | null; headline: string | null; avatarMedia: MediaDto | null };
+export type SocialIdentity = SocialPersonIdentity | SocialOrganizationIdentity;
+export type SocialPersonIdentity = {
+  kind: "PERSON";
+  userId: string;
+  organizationId: null;
+  slug: null;
+  fullName: string;
+  handle: string | null;
+  headline: string | null;
+  avatarMedia: MediaDto | null;
+};
+export type SocialOrganizationIdentity = {
+  kind: "ORGANIZATION";
+  userId: null;
+  organizationId: string;
+  slug: string;
+  fullName: string;
+  handle: null;
+  headline: string | null;
+  avatarMedia: MediaDto | null;
+};
 export type SocialPostDto = {
   id: string; author: SocialIdentity; body: string | null; externalUrl: string | null;
+  revision: number; fundingProgramId: string | null;
   media: SocialPostMediaDto[];
   visibility: PostVisibility; commentPolicy: PostCommentPolicy; allowReposts: boolean;
   createdAt: string; editedAt: string | null; repostOfPostId: string | null;
@@ -14,7 +35,7 @@ export type SocialPostDto = {
   activityComment?: { id: string; body: string; createdAt: string };
 };
 export type SocialCommentDto = {
-  id: string; postId: string; parentCommentId: string | null; author: SocialIdentity;
+  id: string; postId: string; parentCommentId: string | null; author: SocialPersonIdentity;
   body: string | null; createdAt: string; editedAt: string | null; deleted: boolean; hidden: boolean;
   reactionCount: number; viewerReaction: ReactionType | null;
   canEdit: boolean; canHide: boolean; isPostAuthor: boolean;

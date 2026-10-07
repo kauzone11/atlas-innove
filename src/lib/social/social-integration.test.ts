@@ -283,7 +283,7 @@ test("highlights snapshot prevents engagement churn from duplicating pages and r
   try {
     await followUser(f.follower.id, f.author.id); await followUser(f.follower.id, f.connection.id);
     const stamp = randomUUID().slice(0, 8); const at = Date.now() - 60_000;
-    const rows = Array.from({ length: 45 }, (_, index) => ({ id: `snapshot-${String(index).padStart(2, "0")}-${stamp}`, authorUserId: index % 2 ? f.author.id : f.connection.id, body: `Snapshot ${index}`, visibility: "PLATFORM" as const, createdAt: new Date(at + index * 1000) }));
+    const rows = Array.from({ length: 45 }, (_, index) => ({ id: `snapshot-${String(index).padStart(2, "0")}-${stamp}`, authorUserId: index % 2 ? f.author.id : f.connection.id, createdByUserId: index % 2 ? f.author.id : f.connection.id, body: `Snapshot ${index}`, visibility: "PLATFORM" as const, createdAt: new Date(at + index * 1000) }));
     await db.socialPost.createMany({ data: rows });
     const comment = await db.postComment.create({ data: { postId: rows[44].id, authorUserId: f.stranger.id, body: "A changing contribution" } });
     const first = await getFeed(f.follower.id, { mode: "HIGHLIGHTS" }); assert.ok(first.nextCursor);

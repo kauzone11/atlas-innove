@@ -12,7 +12,7 @@ export async function reactToPost(userId: string, postId: string, value: unknown
     await consumeSocialRate(client, userId, "REACTION");
     if (!type) { await client.postReaction.deleteMany({ where: { postId, userId } }); return; }
     await client.postReaction.upsert({ where: { postId_userId: { postId, userId } }, create: { postId, userId, type }, update: { type } });
-    await notifySocial(client, { actorUserId: userId, recipientUserId: post.authorUserId, kind: "POST_REACTION", postId, title: "Sua publicação recebeu uma reação", dedupeKey: `social-reaction:${postId}:${userId}` });
+    if (post.authorUserId) await notifySocial(client, { actorUserId: userId, recipientUserId: post.authorUserId, kind: "POST_REACTION", postId, title: "Sua publicação recebeu uma reação", dedupeKey: `social-reaction:${postId}:${userId}` });
   });
 }
 

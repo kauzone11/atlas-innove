@@ -39,6 +39,7 @@ export async function getFeed(userId: string, value: unknown = {}): Promise<Feed
   const at = new Date(cursor?.at ?? new Date());
   const source: Prisma.SocialPostWhereInput = { OR: [
     { authorUserId: userId }, { author: { followers: { some: { followerUserId: userId, endedAt: null } } } },
+    { authorOrganization: { status: "ACTIVE", publicProfile: { is: { publishedAt: { not: null } } }, organizationFollows: { some: { followerUserId: userId, endedAt: null } } } },
   ] };
   const audience = visiblePostWhere(userId);
   const snapshot = input.mode === "HIGHLIGHTS" ? decodeSnapshot(userId, input.cursor) : null;
@@ -72,11 +73,12 @@ export async function getFeed(userId: string, value: unknown = {}): Promise<Feed
         OR: [{ parentCommentId: null }, { parentComment: { hiddenByPostAuthorAt: null, author: unblockedUserWhere(userId) } }] } },
       reposts: { where: { AND: [audience, { createdAt: { lte: at } }] } },
     } } }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: FEED_CANDIDATE_LIMIT });
-  const connections = await db.user.findMany({ where: { id: { in: [...new Set(candidates.map((post) => post.authorUserId))] }, ...connectedUserWhere(userId) }, select: { id: true } });
+  const authorIds = [...new Set(candidates.flatMap((post) => post.authorUserId ? [post.authorUserId] : []))];
+  const connections = authorIds.length ? await db.user.findMany({ where: { id: { in: authorIds }, ...connectedUserWhere(userId) }, select: { id: true } }) : [];
   const connected = new Set(connections.map((user) => user.id));
   const score = (post: typeof candidates[number]) => {
     const ageDays = Math.max(0, (at.getTime() - post.createdAt.getTime()) / 86400000);
-    return (connected.has(post.authorUserId) ? 3 : 0) + 12 / (1 + ageDays)
+    return (post.authorUserId && connected.has(post.authorUserId) ? 3 : 0) + 12 / (1 + ageDays)
       + Math.min(post._count.reactions, 20) * .2 + Math.min(post._count.comments, 10) * .5 + Math.min(post._count.reposts, 10) * .5;
   };
   candidates.sort((a, b) => score(b) - score(a) || b.createdAt.getTime() - a.createdAt.getTime() || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));

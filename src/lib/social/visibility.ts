@@ -16,18 +16,27 @@ export function connectedUserWhere(viewerUserId: string): Prisma.UserWhereInput 
 }
 
 // Every social read and mutation uses current audience and bilateral blocks; organization roles confer no social access.
-export function visiblePostWhere(viewerUserId?: string | null, publicOnly = false): Prisma.SocialPostWhereInput {
+export function visiblePostWhere(viewerUserId?: string | null, publicOnly = false, managementOrganizationId?: string): Prisma.SocialPostWhereInput {
   if (!viewerUserId || publicOnly) return {
     deletedAt: null, visibility: "PUBLIC",
-    author: { ...unblockedUserWhere(viewerUserId), innovationProfile: { is: { profileVisibility: "PUBLIC", publishedAt: { not: null } } } },
-  };
-  return {
-    deletedAt: null, author: unblockedUserWhere(viewerUserId),
     OR: [
-      { authorUserId: viewerUserId }, { visibility: { in: ["PUBLIC", "PLATFORM"] } },
-      { visibility: "CONNECTIONS", author: connectedUserWhere(viewerUserId) },
+      { authorUserId: { not: null }, author: { ...unblockedUserWhere(viewerUserId), innovationProfile: { is: { profileVisibility: "PUBLIC", publishedAt: { not: null } } } } },
+      { authorOrganizationId: { not: null }, authorOrganization: { status: "ACTIVE", publicProfile: { is: { publishedAt: { not: null } } } },
+        OR: [{ fundingProgramId: null }, { fundingProgram: { publicPageEnabled: true, publishedAt: { not: null }, status: { not: "DRAFT" } } }] },
     ],
   };
+  return { deletedAt: null, OR: [
+    { authorUserId: { not: null }, author: unblockedUserWhere(viewerUserId), OR: [
+      { authorUserId: viewerUserId }, { visibility: { in: ["PUBLIC", "PLATFORM"] } },
+      { visibility: "CONNECTIONS", author: connectedUserWhere(viewerUserId) },
+    ] },
+    { authorOrganizationId: { not: null }, authorOrganization: { status: "ACTIVE" }, OR: [
+      { visibility: "PLATFORM" },
+      { visibility: "PUBLIC", authorOrganization: { publicProfile: { is: { publishedAt: { not: null } } } },
+        OR: [{ fundingProgramId: null }, { fundingProgram: { publicPageEnabled: true, publishedAt: { not: null }, status: { not: "DRAFT" } } }] },
+    ] },
+    ...(managementOrganizationId ? [{ authorOrganizationId: managementOrganizationId, authorOrganization: { status: "ACTIVE" as const, memberships: { some: { userId: viewerUserId, status: "ACTIVE" as const } } } }] : []),
+  ] };
 }
 
 export async function requireVisiblePost(client: Prisma.TransactionClient, id: string, viewerUserId: string) {

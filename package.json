@@ -14,7 +14,7 @@
     "start": "next start",
     "test:runtime": "node scripts/runtime-smoke.mjs",
     "test:imports": "tsx --test src/lib/imports/*.test.ts src/lib/onboarding/*.test.ts",
-    "test:social": "tsx --test src/lib/social/*.test.ts",
+    "test:social": "tsx --test src/lib/social/*.test.ts src/lib/institutions/*.test.ts",
     "test:media": "tsx --test src/lib/media/*.test.ts",
     "media:cleanup": "tsx scripts/media-cleanup.ts",
     "test:browser": "playwright test",

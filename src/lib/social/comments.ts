@@ -9,7 +9,7 @@ import { consumeSocialRate, lockPost, requireUnblocked } from "@/lib/social/tran
 
 export async function requireCommentAllowed(client: Prisma.TransactionClient, userId: string, post: SocialPost) {
   if (post.commentPolicy === "OFF") throw new DomainConflictError("SOCIAL_COMMENTS_OFF");
-  if (post.commentPolicy === "CONNECTIONS_ONLY" && !await isConnected(client, userId, post.authorUserId)) throw new DomainConflictError("SOCIAL_COMMENT_CONNECTION_REQUIRED");
+  if (post.commentPolicy === "CONNECTIONS_ONLY" && (!post.authorUserId || !await isConnected(client, userId, post.authorUserId))) throw new DomainConflictError("SOCIAL_COMMENT_CONNECTION_REQUIRED");
 }
 
 export async function lockSocialComment(client: Prisma.TransactionClient, userId: string, commentId: string, options: { allowHidden?: boolean; allowDeleted?: boolean } = {}) {
@@ -42,7 +42,7 @@ export async function createComment(userId: string, postId: string, value: unkno
     await consumeSocialRate(client, userId, "COMMENT");
     const comment = await client.postComment.create({ data: { postId, authorUserId: userId, body: input.body, parentCommentId: parent?.id }, select: { id: true } });
     if (parent) await notifySocial(client, { actorUserId: userId, recipientUserId: parent.authorUserId, kind: "COMMENT_REPLY", postId, title: "Seu comentário recebeu uma resposta", dedupeKey: `social-reply:${comment.id}:${parent.authorUserId}` });
-    if (!parent || parent.authorUserId !== post.authorUserId) await notifySocial(client, { actorUserId: userId, recipientUserId: post.authorUserId, kind: "POST_COMMENT", postId, title: "Sua publicação recebeu um comentário", dedupeKey: `social-comment:${comment.id}:${post.authorUserId}` });
+    if (post.authorUserId && (!parent || parent.authorUserId !== post.authorUserId)) await notifySocial(client, { actorUserId: userId, recipientUserId: post.authorUserId, kind: "POST_COMMENT", postId, title: "Sua publicação recebeu um comentário", dedupeKey: `social-comment:${comment.id}:${post.authorUserId}` });
     return comment;
   });
 }
@@ -69,7 +69,13 @@ export async function deleteComment(userId: string, commentId: string) {
 export async function hideComment(userId: string, commentId: string) {
   await db.$transaction(async (client) => {
     const { comment, post } = await lockSocialComment(client, userId, commentId, { allowHidden: true });
-    if (post.authorUserId !== userId) throw new AuthorizationError("SOCIAL_POST_AUTHOR_REQUIRED");
-    if (!comment.hiddenByPostAuthorAt) await client.postComment.update({ where: { id: commentId }, data: { hiddenByPostAuthorAt: new Date() } });
+    let allowed = post.authorUserId === userId;
+    if (!allowed && post.authorOrganizationId) {
+      await client.$queryRaw`SELECT "id" FROM "OrganizationMembership" WHERE "organizationId" = ${post.authorOrganizationId} AND "userId" = ${userId} AND "status" = 'ACTIVE' FOR SHARE`;
+      const membership = await client.organizationMembership.findFirst({ where: { organizationId: post.authorOrganizationId, userId, status: "ACTIVE", role: { in: ["OWNER", "ADMIN", "MANAGER"] }, organization: { status: "ACTIVE" } }, select: { id: true } });
+      allowed = Boolean(membership);
+    }
+    if (!allowed) throw new AuthorizationError("SOCIAL_POST_AUTHOR_REQUIRED");
+    if (!comment.hiddenByPostAuthorAt) await client.postComment.update({ where: { id: commentId }, data: { hiddenByPostAuthorAt: new Date(), hiddenByUserId: userId } });
   });
 }

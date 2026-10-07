@@ -11,7 +11,7 @@ export async function repostPost(userId: string, postId: string, value: unknown 
   return db.$transaction(async (client) => {
     const initial = await client.socialPost.findUnique({ where: { id: postId }, select: { authorUserId: true, repostOfPostId: true, repostOf: { select: { authorUserId: true } } } });
     if (!initial) throw new ResourceNotFoundError("SOCIAL_POST_NOT_FOUND");
-    await lockNetworkUsers(client, [userId, initial.authorUserId, ...(initial.repostOf ? [initial.repostOf.authorUserId] : [])]);
+    await lockNetworkUsers(client, [userId, ...(initial.authorUserId ? [initial.authorUserId] : []), ...(initial.repostOf?.authorUserId ? [initial.repostOf.authorUserId] : [])]);
     const originalId = initial.repostOfPostId ?? postId;
     for (const id of [...new Set([postId, originalId])].sort()) await client.$queryRaw`SELECT "id" FROM "SocialPost" WHERE "id" = ${id} FOR UPDATE`;
     await requireVisiblePost(client, postId, userId);
@@ -26,8 +26,8 @@ export async function repostPost(userId: string, postId: string, value: unknown 
       if (existing) return existing;
     }
     await consumeSocialRate(client, userId, "POST");
-    const repost = await client.socialPost.create({ data: { ...input, visibility, repostOfPostId: originalId, authorUserId: userId }, select: { id: true } });
-    await notifySocial(client, { actorUserId: userId, recipientUserId: original.authorUserId, kind: "POST_REPOST", postId: originalId, title: "Sua publicação foi repostada", dedupeKey: `social-repost:${originalId}:${userId}` });
+    const repost = await client.socialPost.create({ data: { ...input, visibility, repostOfPostId: originalId, authorUserId: userId, createdByUserId: userId }, select: { id: true } });
+    if (original.authorUserId) await notifySocial(client, { actorUserId: userId, recipientUserId: original.authorUserId, kind: "POST_REPOST", postId: originalId, title: "Sua publicação foi repostada", dedupeKey: `social-repost:${originalId}:${userId}` });
     return repost;
   });
 }

@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { ResourceNotFoundError } from "@/lib/errors";
 import { boundedPage } from "@/lib/communication/schemas";
 import { connectedUserWhere, unblockedUserWhere, visiblePostWhere } from "@/lib/social/visibility";
-import type { SocialCommentDto, SocialIdentity, SocialPage, SocialPostDto } from "@/lib/social/types";
+import type { SocialCommentDto, SocialIdentity, SocialPage, SocialPersonIdentity, SocialPostDto } from "@/lib/social/types";
 import { mediaDto, mediaSelect } from "@/lib/media/presentation";
 
 export const socialIdentitySelect = {
@@ -13,13 +13,22 @@ export const socialIdentitySelect = {
   } },
 } satisfies Prisma.UserSelect;
 type IdentityRow = Prisma.UserGetPayload<{ select: typeof socialIdentitySelect }>;
+const organizationSocialIdentitySelect = { id: true, name: true, slug: true, status: true, publicProfile: { select: {
+  headline: true, publishedAt: true, logoMedia: { select: mediaSelect },
+} } } satisfies Prisma.OrganizationSelect;
+type OrganizationIdentityRow = Prisma.OrganizationGetPayload<{ select: typeof organizationSocialIdentitySelect }>;
 
-export function socialIdentity(row: IdentityRow, viewerUserId?: string | null): SocialIdentity {
+export function socialIdentity(row: IdentityRow, viewerUserId?: string | null): SocialPersonIdentity {
   const profile = row.innovationProfile;
   const visible = row.id === viewerUserId || (viewerUserId && profile?.profileVisibility === "PLATFORM")
     || (profile?.profileVisibility === "PUBLIC" && Boolean(profile.publishedAt || (viewerUserId && profile.directoryEnabled)));
-  return { userId: row.id, fullName: row.profile?.fullName || "Pessoa da plataforma",
+  return { kind: "PERSON", userId: row.id, organizationId: null, slug: null, fullName: row.profile?.fullName || "Pessoa da plataforma",
     handle: visible ? profile?.handle ?? null : null, headline: visible ? profile?.headline ?? null : null, avatarMedia: visible ? mediaDto(profile?.avatarMedia) : null };
+}
+
+function organizationSocialIdentity(row: OrganizationIdentityRow): SocialIdentity {
+  return { kind: "ORGANIZATION", userId: null, organizationId: row.id, slug: row.slug, fullName: row.name,
+    handle: null, headline: row.publicProfile?.headline ?? null, avatarMedia: mediaDto(row.publicProfile?.logoMedia) };
 }
 
 export async function getSocialViewerIdentity(viewerUserId?: string | null): Promise<Pick<SocialIdentity, "fullName" | "avatarMedia"> | undefined> {
@@ -34,8 +43,8 @@ export async function getSocialViewerIdentity(viewerUserId?: string | null): Pro
 
 function postSelect(viewerUserId?: string | null, publicOnly = false) {
   return {
-    id: true, authorUserId: true, body: true, externalUrl: true, visibility: true, commentPolicy: true, allowReposts: true,
-    createdAt: true, editedAt: true, repostOfPostId: true, author: { select: socialIdentitySelect },
+    id: true, authorUserId: true, authorOrganizationId: true, fundingProgramId: true, body: true, externalUrl: true, visibility: true, commentPolicy: true, allowReposts: true,
+    createdAt: true, editedAt: true, repostOfPostId: true, revision: true, author: { select: socialIdentitySelect }, authorOrganization: { select: organizationSocialIdentitySelect },
     media: { select: { mediaId: true, position: true, altText: true, asset: { select: mediaSelect } }, orderBy: { position: "asc" }, take: 4 },
     reactions: { where: { userId: viewerUserId ?? "__anonymous__" }, select: { type: true }, take: 1 },
     saves: { where: { userId: viewerUserId ?? "__anonymous__" }, select: { userId: true }, take: 1 },
@@ -50,28 +59,32 @@ function postSelect(viewerUserId?: string | null, publicOnly = false) {
 }
 
 export async function loadPosts(where: Prisma.SocialPostWhereInput, viewerUserId?: string | null, options: {
-  take?: number; skip?: number; orderBy?: Prisma.SocialPostOrderByWithRelationInput[]; publicOnly?: boolean;
+  take?: number; skip?: number; orderBy?: Prisma.SocialPostOrderByWithRelationInput[]; publicOnly?: boolean; managementOrganizationId?: string;
 } = {}): Promise<SocialPostDto[]> {
-  const rows = await db.socialPost.findMany({ where: { AND: [visiblePostWhere(viewerUserId, options.publicOnly), where] }, select: postSelect(viewerUserId, options.publicOnly),
+  const rows = await db.socialPost.findMany({ where: { AND: [visiblePostWhere(viewerUserId, options.publicOnly, options.managementOrganizationId), where] }, select: postSelect(viewerUserId, options.publicOnly),
     orderBy: options.orderBy ?? [{ createdAt: "desc" }, { id: "desc" }], take: Math.min(options.take ?? 21, 501), skip: options.skip });
   const originalIds = [...new Set(rows.flatMap((row) => row.repostOfPostId ? [row.repostOfPostId] : []))];
   const [originals, connections] = await Promise.all([
-    originalIds.length ? db.socialPost.findMany({ where: { AND: [visiblePostWhere(viewerUserId, options.publicOnly), { id: { in: originalIds } }] }, select: postSelect(viewerUserId, options.publicOnly) }) : Promise.resolve([]),
+    originalIds.length ? db.socialPost.findMany({ where: { AND: [visiblePostWhere(viewerUserId, options.publicOnly, options.managementOrganizationId), { id: { in: originalIds } }] }, select: postSelect(viewerUserId, options.publicOnly) }) : Promise.resolve([]),
     viewerUserId ? db.networkConnection.findMany({ where: { endedAt: null, OR: [
-      { userAId: viewerUserId, userBId: { in: [...rows.map((row) => row.authorUserId)] } },
-      { userBId: viewerUserId, userAId: { in: [...rows.map((row) => row.authorUserId)] } },
+      { userAId: viewerUserId, userBId: { in: rows.flatMap((row) => row.authorUserId ? [row.authorUserId] : []) } },
+      { userBId: viewerUserId, userAId: { in: rows.flatMap((row) => row.authorUserId ? [row.authorUserId] : []) } },
     ] }, select: { userAId: true, userBId: true } }) : Promise.resolve([]),
   ]);
   const connected = new Set(connections.flatMap((row) => [row.userAId, row.userBId]));
+  const identity = (row: typeof rows[number]): SocialIdentity => row.authorOrganization
+    ? organizationSocialIdentity(row.authorOrganization)
+    : row.author ? socialIdentity(row.author, options.publicOnly ? null : viewerUserId)
+      : { kind: "PERSON", userId: "", organizationId: null, slug: null, fullName: "Pessoa da plataforma", handle: null, headline: null, avatarMedia: null };
   const dto = (row: typeof rows[number]): SocialPostDto => ({
-    id: row.id, author: socialIdentity(row.author, options.publicOnly ? null : viewerUserId), body: row.body, externalUrl: row.externalUrl,
+    id: row.id, author: identity(row), body: row.body, externalUrl: row.externalUrl, revision: row.revision, fundingProgramId: row.fundingProgramId,
     media: row.media.flatMap((item) => { const media = mediaDto(item.asset); return media ? [{ ...media, mediaId: item.mediaId, position: item.position, altText: item.altText }] : []; }),
     visibility: row.visibility, commentPolicy: row.commentPolicy, allowReposts: row.allowReposts,
     createdAt: row.createdAt.toISOString(), editedAt: row.editedAt?.toISOString() ?? null, repostOfPostId: row.repostOfPostId,
     original: null, reactionCount: row._count.reactions, commentCount: row._count.comments, repostCount: row._count.reposts,
     viewerReaction: row.reactions[0]?.type ?? null, saved: Boolean(row.saves.length), featured: Boolean(row.featured.length),
-    canEdit: row.authorUserId === viewerUserId,
-    canComment: Boolean(viewerUserId && row.commentPolicy !== "OFF" && (row.commentPolicy === "EVERYONE" || row.authorUserId === viewerUserId || connected.has(row.authorUserId))),
+    canEdit: Boolean(row.authorUserId && row.authorUserId === viewerUserId),
+    canComment: Boolean(viewerUserId && row.commentPolicy !== "OFF" && (row.commentPolicy === "EVERYONE" || (row.authorUserId && (row.authorUserId === viewerUserId || connected.has(row.authorUserId))))),
     canRepost: Boolean(viewerUserId && row.allowReposts && row.visibility !== "CONNECTIONS"),
   });
   const originalsById = new Map(originals.map((row) => [row.id, dto(row)]));
@@ -138,7 +151,7 @@ export async function getFeaturedPosts(userId: string, viewerUserId?: string | n
   return posts.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
 }
 
-export async function listFollows(userId: string, direction: "followers" | "following", rawPage: unknown = 1): Promise<SocialPage<SocialIdentity>> {
+export async function listFollows(userId: string, direction: "followers" | "following", rawPage: unknown = 1): Promise<SocialPage<SocialPersonIdentity>> {
   const page = boundedPage(rawPage);
   const rows = await db.userFollow.findMany({ where: {
     endedAt: null, ...(direction === "followers" ? { followedUserId: userId, follower: unblockedUserWhere(userId) } : { followerUserId: userId, followed: unblockedUserWhere(userId) }),
@@ -148,8 +161,11 @@ export async function listFollows(userId: string, direction: "followers" | "foll
 }
 
 export async function getComments(postId: string, viewerUserId?: string | null, options: { page?: unknown; parentCommentId?: string | null } = {}): Promise<SocialPage<SocialCommentDto>> {
-  const post = await db.socialPost.findFirst({ where: { AND: [{ id: postId }, visiblePostWhere(viewerUserId)] }, select: { authorUserId: true } });
+  const post = await db.socialPost.findFirst({ where: { AND: [{ id: postId }, visiblePostWhere(viewerUserId)] }, select: { authorUserId: true, authorOrganizationId: true } });
   if (!post) throw new ResourceNotFoundError("SOCIAL_POST_NOT_FOUND");
+  const canManageOrganization = viewerUserId && post.authorOrganizationId ? Boolean(await db.organizationMembership.findFirst({ where: {
+    organizationId: post.authorOrganizationId, userId: viewerUserId, status: "ACTIVE", role: { in: ["OWNER", "ADMIN", "MANAGER"] }, organization: { status: "ACTIVE" },
+  }, select: { id: true } })) : false;
   const page = boundedPage(options.page);
   const rows = await db.postComment.findMany({ where: {
     postId, post: visiblePostWhere(viewerUserId), parentCommentId: options.parentCommentId ?? null, author: unblockedUserWhere(viewerUserId),
@@ -167,12 +183,12 @@ export async function getComments(postId: string, viewerUserId?: string | null, 
     reactionCount: row.deletedAt || row.hiddenByPostAuthorAt ? 0 : row._count.reactions,
     viewerReaction: row.deletedAt || row.hiddenByPostAuthorAt ? null : row.reactions[0]?.type ?? null,
     canEdit: row.authorUserId === viewerUserId && !row.deletedAt && !row.hiddenByPostAuthorAt,
-    canHide: post.authorUserId === viewerUserId && row.authorUserId !== viewerUserId && !row.hiddenByPostAuthorAt && !row.deletedAt,
-    isPostAuthor: row.authorUserId === post.authorUserId,
+    canHide: (post.authorUserId === viewerUserId || canManageOrganization) && row.authorUserId !== viewerUserId && !row.hiddenByPostAuthorAt && !row.deletedAt,
+    isPostAuthor: Boolean(post.authorUserId && row.authorUserId === post.authorUserId),
   })) };
 }
 
-export async function getReactionList(postId: string, viewerUserId?: string | null, rawPage: unknown = 1) {
+export async function getReactionList(postId: string, viewerUserId?: string | null, rawPage: unknown = 1): Promise<SocialPage<SocialPersonIdentity & { type: import("@prisma/client").ReactionType }>> {
   if (!await getPost(postId, viewerUserId)) throw new ResourceNotFoundError("SOCIAL_POST_NOT_FOUND");
   const page = boundedPage(rawPage);
   const rows = await db.postReaction.findMany({ where: { postId, post: visiblePostWhere(viewerUserId), user: { ...unblockedUserWhere(viewerUserId),

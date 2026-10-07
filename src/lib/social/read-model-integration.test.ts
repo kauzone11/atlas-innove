@@ -28,7 +28,7 @@ test("one hundred people and five hundred posts preserve ranked pagination, priv
     await client.userProfile.createMany({ data: userIds.map((userId) => ({ userId, fullName: `Researcher ${userId}`, phone: "secret-marker" })) });
     await client.innovationProfile.createMany({ data: userIds.map((userId) => ({ userId, handle: userId, headline: "Research and development", bio: "secret-marker", profileVisibility: "PUBLIC", publishedAt: new Date(at), directoryEnabled: true })) });
     await client.userFollow.createMany({ data: authors.map((followedUserId) => ({ followerUserId: viewer, followedUserId })) });
-    await client.socialPost.createMany({ data: postIds.map((id, index) => ({ id, authorUserId: authors[index % authors.length], body: `Research update ${index}`, visibility: index === 0 ? "PLATFORM" : "PUBLIC", createdAt: new Date(at + (index >= 495 ? 499 : index) * 1000) })) });
+    await client.socialPost.createMany({ data: postIds.map((id, index) => ({ id, authorUserId: authors[index % authors.length], createdByUserId: authors[index % authors.length], body: `Research update ${index}`, visibility: index === 0 ? "PLATFORM" : "PUBLIC", createdAt: new Date(at + (index >= 495 ? 499 : index) * 1000) })) });
     await client.postReaction.createMany({ data: authors.slice(0, 25).map((userId) => ({ postId: postIds[0], userId, type: "INSIGHTFUL" })) });
     await client.postComment.createMany({ data: authors.slice(0, 40).map((authorUserId, index) => ({ id: `social-scale-comment-${index}-${suffix}`, postId: postIds[0], authorUserId, body: `Thoughtful contribution ${index}`, createdAt: new Date(at + index * 1000) })) });
     const recent = await measure("recent feed", () => getFeed(viewer), 18);
