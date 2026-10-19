@@ -32,7 +32,7 @@ export function AuthShell({ title, description, children }: { title: string; des
             <p className="mt-6 max-w-[44ch] text-[1.06rem] leading-relaxed text-[rgba(255,255,255,.9)]">Programas, equipes e empreendimentos acompanhados ao longo do tempo, com a evidência registrada em cada onda.</p>
           </div>
           <ol className="flex flex-wrap gap-2" aria-label="Como o acompanhamento se organiza">
-            {chain.map((step, index) => <li key={step} className="inline-flex items-center gap-2 rounded-full bg-[rgba(255,255,255,.18)] px-3 py-1.5 text-xs font-medium"><span className="grid h-5 w-5 place-items-center rounded-full bg-[#fff] text-[0.68rem] font-semibold text-[#111114]">{index + 1}</span>{step}</li>)}
+            {chain.map((step, index) => <li key={step} className="inline-flex items-center gap-2 rounded-full bg-[rgba(255,255,255,.18)] px-3 py-1.5 text-xs font-medium"><span className="grid h-5 w-5 place-items-center rounded-full bg-[#fff] text-xs font-semibold text-[#111114]">{index + 1}</span>{step}</li>)}
           </ol>
         </aside>
       </div>

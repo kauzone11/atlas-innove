@@ -59,7 +59,7 @@ export function PostComposer({ fullName, avatarMedia, ready = true, publicProfil
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível publicar. Seu texto e as imagens preparadas foram preservados."); }
     finally { setPending(false); }
   }
-  if (!ready) return <div className="social-composer-incomplete"><p className="text-sm leading-6 text-slate">Complete seu nome, endereço e apresentação para compartilhar sua atuação.</p><Link href="/app/personal/profile/edit" className="button-tertiary mt-2">Completar perfil</Link></div>;
+  if (!ready) return <div className="social-composer-incomplete"><p className="text-sm leading-6 text-slate">Complete seu nome, endereço e apresentação para compartilhar sua atuação.</p><Link href="/app/personal/profile/edit" className="button-tertiary -ml-5 mt-2">Completar perfil</Link></div>;
   return <>
     <button type="button" className={post ? "button-tertiary" : repost ? "social-action" : compact ? "button-primary" : "social-composer-trigger"} aria-label={!compact && !post && !repost ? "Compartilhe uma atualização…" : undefined} onClick={openComposer}>
       {!compact && !post && !repost ? <><Avatar name={fullName} media={avatarMedia} /><span>Compartilhe uma atualização, aprendizado ou conquista…</span></> : repost ? <><Repeat2 size={17} aria-hidden="true" />Repostar</> : post ? "Editar publicação" : "Criar publicação"}

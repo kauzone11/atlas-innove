@@ -21,8 +21,9 @@
 .post-image-draft { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: start; gap: .75rem; border-top: 1px solid var(--line); padding-top: .75rem; }
 .post-image-draft > img, .post-image-draft > .media-unavailable { width: 88px; height: 88px; min-height: 0; object-fit: cover; border-radius: .5rem; }
 .profile-media-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr); gap: 2rem; }
-.profile-media-cover-preview { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 3 / 1; min-height: 112px; max-height: 13rem; overflow: hidden; border-radius: .625rem; border: 1px solid var(--line); background: var(--surface-subtle); color: var(--slate); font-size: .875rem; }
+.profile-media-cover-preview { position: relative; display: flex; align-items: flex-start; justify-content: flex-end; width: 100%; aspect-ratio: 3 / 1; min-height: 112px; max-height: 13rem; overflow: hidden; border-radius: .625rem; border: 1px solid var(--line); font-size: .875rem; }
 .profile-media-cover-preview > img { width: 100%; height: 100%; object-fit: cover; }
+.profile-media-cover-preview > span:last-child { margin: .875rem 1.125rem; font-size: .8125rem; letter-spacing: .03em; }
 .profile-cover-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: .75rem; }
 .profile-cover-option { display: grid; gap: .45rem; min-width: 0; border: 0; background: transparent; padding: 0; text-align: left; color: var(--ink); border-radius: 14px; }
 .profile-cover-option:focus-visible { outline: 2px solid var(--action); outline-offset: 3px; }

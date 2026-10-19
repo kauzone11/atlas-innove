@@ -460,6 +460,7 @@ html[data-theme="dark"] .tt.h .tt-thumb { transform: translateX(40px); }
 .demo-venture-cell strong { overflow: hidden; color: var(--ink); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .demo-venture-cell small { margin-top: 2px; color: var(--muted); font-size: 12px; }
 .demo-priority-row > span:nth-child(3) { display: flex; flex-direction: column; gap: 4px; color: var(--muted); }
+.demo-priority-row small { font-size: 12px; }
 .demo-side-rail, .demo-program-rail { display: flex; min-width: 0; flex-direction: column; gap: 12px; }
 .demo-rail-card { padding: 16px; }
 .demo-rail-card h2 { margin: 7px 0 8px; color: var(--ink); font-size: 14px; font-weight: 700; letter-spacing: -.025em; line-height: 1.25; }
@@ -508,7 +509,8 @@ html[data-theme="dark"] .tt.h .tt-thumb { transform: translateX(40px); }
 .demo-wave-index { display: grid; width: 25px; height: 25px; flex: 0 0 auto; place-items: center; border-radius: 8px; background: var(--bg-sub); color: var(--muted); font-size: 12px; font-weight: 700; }
 .demo-wave-step.is-current .demo-wave-index { background: var(--wave); color: #fff; }
 .demo-wave-step div { min-width: 0; }
-.demo-wave-step strong, .demo-wave-step small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.demo-wave-step strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.demo-wave-step small { display: block; }
 .demo-wave-step strong { color: var(--ink); font-size: 12px; }
 .demo-wave-step small { margin-top: 2px; color: var(--muted); font-size: 12px; }
 .demo-wave-step b { margin-left: auto; color: var(--action); font-size: 12px; }
@@ -1248,7 +1250,7 @@ html[data-theme="dark"] .tt.h .tt-thumb { transform: translateX(40px); }
 .social-profile-cover > span:last-child { position: relative; font-size: .8125rem; letter-spacing: .03em; }
 .profile-cover-style-atlas, .profile-cover-style-contour { background: linear-gradient(135deg, var(--grad-1), var(--grad-2)); color: rgba(255,255,255,.92); }
 .profile-cover-style-signal { background-color: var(--ink); background-image: repeating-linear-gradient(to bottom, transparent 0 23px, rgba(128,128,140,.24) 23px 24px); color: var(--on-ink); box-shadow: inset 5px 0 0 var(--grad-1); }
-.profile-cover-style-grid { background-color: var(--surface-2); background-image: radial-gradient(circle, var(--line-2) 1.2px, transparent 1.6px); background-size: 18px 18px; color: var(--ink-2); }
+.profile-cover-style-grid { background-color: var(--surface-2); background-image: radial-gradient(circle, var(--line-2) 1.2px, transparent 1.6px); background-size: 18px 18px; color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--line-2); }
 .social-cover-topo { position: absolute; inset: 0; width: 100%; height: 100%; color: rgba(255,255,255,.34); }
 .social-cover-geometry { position: absolute; width: 14rem; height: 14rem; border: 1px solid rgba(255,255,255,.3); border-radius: 2rem; right: 18%; top: -9rem; transform: rotate(30deg); }
 .social-cover-geometry::after { content: ""; position: absolute; inset: 1.25rem; border: 1px solid rgba(255,255,255,.3); border-radius: 1.25rem; }
