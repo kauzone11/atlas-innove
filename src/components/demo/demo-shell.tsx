@@ -3,11 +3,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, ArrowUpRight, BookMarked, CircleUserRound, ClipboardCheck, Flag, FolderKanban, Handshake, Landmark, Menu, Route, Telescope, Trophy, UsersRound, Waypoints, Workflow, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, BookMarked, CircleUserRound, ClipboardCheck, FolderKanban, Handshake, Landmark, Menu, Route, Telescope, Trophy, UsersRound, Waypoints, Workflow, X } from "lucide-react";
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { AtlasLogo, AtlasMark } from "@/components/brand/logo";
 import { useDemoDialog } from "@/components/demo/demo-dialog";
+import { PerspectiveToggle } from "@/components/demo/perspective-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 type Perspective = "instituicao" | "participante";
@@ -70,13 +71,11 @@ function DemoShellContent({ children }: { children: ReactNode }) {
   const previews: Array<{ key: PreviewKey; label: string; icon: typeof Landmark }> = perspective === "instituicao"
     ? [{ key: "team", label: "Equipes", icon: UsersRound }, { key: "evaluation", label: "Avaliação", icon: ClipboardCheck }, { key: "ranking", label: "Classificação", icon: Trophy }]
     : [{ key: "projects", label: "Meus projetos", icon: FolderKanban }, { key: "team", label: "Minhas equipes", icon: Handshake }, { key: "profile", label: "Perfil", icon: CircleUserRound }];
-  const otherPerspective: Perspective = perspective === "instituicao" ? "participante" : "instituicao";
   const homeHref = `/demo?perspectiva=${perspective}`;
 
   return (
     <div className="demo-shell app-shell">
       <a className="skip-link" href="#demo-main-content">Ir para o conteúdo</a>
-      <div className="demo-ribbon" role="note"><Flag size={12} aria-hidden="true" />Demonstração pública · pessoas, empreendimentos e resultados são fictícios</div>
       <div className="app-grid has-rail app-boot">
         <header className="topbar">
           <div className="tb-l">
@@ -95,12 +94,10 @@ function DemoShellContent({ children }: { children: ReactNode }) {
 
         <aside className="rail hide-lt-lg" aria-label="Atalhos da demonstração">
           <ThemeToggle orientation="v" />
+          <PerspectiveToggle orientation="v" value={perspective} onChange={changePerspective} />
           <nav className="rail-nav" aria-label="Funções em prévia">
             {previews.map((item) => { const Icon = item.icon; return <button key={item.key} type="button" className="rl-btn" aria-label={`${item.label} (prévia)`} data-tip={item.label} onClick={() => setPreview(item.key)}><Icon size={20} aria-hidden="true" /></button>; })}
           </nav>
-          <div className="rail-bot">
-            <button type="button" className="rl-btn" aria-label={`Ver como ${otherPerspective === "participante" ? "participante" : "instituição"}`} data-tip={`Ver como ${otherPerspective === "participante" ? "participante" : "instituição"}`} onClick={() => changePerspective(otherPerspective)}>{otherPerspective === "participante" ? <CircleUserRound size={20} aria-hidden="true" /> : <Landmark size={20} aria-hidden="true" />}</button>
-          </div>
         </aside>
 
         <div className="app-main"><main id="demo-main-content" className="app-content demo-content" tabIndex={-1}>{children}</main></div>

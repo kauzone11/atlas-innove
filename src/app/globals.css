@@ -74,7 +74,6 @@ html.tfade, html.tfade * { transition: background-color 0.4s ease, color 0.4s ea
 @keyframes draw { to { stroke-dashoffset: 0; } }
 
 /* Floating shell. */
-.demo-ribbon { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; background: var(--wave-soft); padding: 8px 14px; color: var(--action); font: 600 12px var(--f-body); text-align: center; }
 .app-shell { position: relative; min-height: 100dvh; background: var(--bg); color: var(--ink); }
 .app-grid { display: grid; min-height: 100dvh; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
 .app-grid.has-rail { grid-template-columns: 84px minmax(0, 1fr); }
@@ -137,6 +136,11 @@ html[data-theme="dark"] .tt .sun { color: var(--muted); }
 html[data-theme="dark"] .tt .moon { color: var(--on-ink); }
 html[data-theme="dark"] .tt.v .tt-thumb { transform: translateY(40px); }
 html[data-theme="dark"] .tt.h .tt-thumb { transform: translateX(40px); }
+.tt.pv .tt-i { color: var(--muted); }
+.tt.pv .tt-i.on { color: var(--on-ink); }
+.tt.pv.v[data-value="instituicao"] .tt-thumb, .tt.pv.h[data-value="instituicao"] .tt-thumb { transform: none; }
+.tt.pv.v[data-value="participante"] .tt-thumb { transform: translateY(40px); }
+.tt.pv.h[data-value="participante"] .tt-thumb { transform: translateX(40px); }
 .tt:hover .tt-thumb { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 14%, transparent); }
 .auth-tt { position: absolute; top: 14px; right: 14px; z-index: 20; }
 
@@ -1533,7 +1537,6 @@ html[data-theme="dark"] .tt.h .tt-thumb { transform: translateX(40px); }
 @media print {
   html[data-theme="dark"] { --bg: #fff; --surface: #fff; --bg-sub: #f1f1f4; --ink: #111114; --ink-2: #3d3d45; --muted: #55555f; --line: #d9d9de; --line-2: #c4c4cc; }
 }
-.demo-shell .rail { height: calc(100dvh - 108px); }
 @media print {
   .analytics-print .analytics-summary > div, .analytics-print .analytics-summary > div:first-child { border: 1px solid #c4c4cc; border-radius: 0; background: none !important; box-shadow: none; color: #000; }
   .analytics-print .analytics-summary > div:first-child dt, .analytics-print .analytics-summary > div:first-child .analytics-summary-detail { color: #333; }
