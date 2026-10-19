@@ -17,7 +17,7 @@ test("profile owner controls publication and serialized section privacy", async 
       userIds.push(user.id); people.push(user);
     }
     const [owner, collaborator, visitor] = people; const handle = `profile-${suffix}`;
-    const identity = { handle, headline: "Research and innovation", city: "Aracaju", state: "Sergipe", country: "Brasil" };
+    const identity = { handle, headline: "Research and innovation", city: "Aracaju", state: "Sergipe" };
     const publicPrivacy = { profileVisibility: "PUBLIC", skillsVisibility: "PUBLIC", experienceVisibility: "PUBLIC", educationVisibility: "PUBLIC", linksVisibility: "PUBLIC", verifiedParticipationVisibility: "PUBLIC", projectsVisibility: "PUBLIC" };
 
     await context.test("concurrent first profile reads initialize one stable profile", async () => {

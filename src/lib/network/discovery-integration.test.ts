@@ -21,7 +21,7 @@ test("opt-in discovery enforces section privacy, owner consent, blocks and bound
       users.push(user);
     }
     const [owner, viewer, second, third] = users; const handle = `network-${suffix}`;
-    const identity = { handle, headline: "Research collaboration", city: "Fortaleza", state: "Ceará", country: "Brasil" };
+    const identity = { handle, headline: "Research collaboration", city: "Fortaleza", state: "Ceará" };
     await context.test("visibility and public links do not grant directory consent", async () => {
       const initial = await getOwnProfile(owner.id);
       assert.equal(initial.directoryEnabled, false); assert.equal(initial.collaborationStatus, "NOT_AVAILABLE");

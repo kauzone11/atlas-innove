@@ -177,7 +177,7 @@ export async function updateProfile(userId: string, input: unknown): Promise<voi
       if (parsed.section === "identity") {
         if (existing.publishedAt && (!parsed.data.handle || !parsed.data.headline)) throw new DomainConflictError("PROFILE_PUBLISHED_IDENTITY_REQUIRED");
         if (existing.directoryEnabled && (!parsed.data.handle || !parsed.data.headline)) throw new DomainConflictError("PROFILE_DIRECTORY_IDENTITY_REQUIRED");
-        await transaction.innovationProfile.update({ where: { userId }, data: parsed.data });
+        await transaction.innovationProfile.update({ where: { userId }, data: { ...parsed.data, country: "Brasil" } });
       } else if (parsed.section === "about") {
         await transaction.innovationProfile.update({ where: { userId }, data: parsed.data });
       } else if (parsed.section === "privacy") {

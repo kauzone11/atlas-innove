@@ -9,7 +9,6 @@ export const organizationProfileInputSchema = z.object({
   description: boundedText(5000),
   city: boundedText(100),
   state: boundedText(100),
-  country: boundedText(100),
   websiteUrl: z.string().trim().max(2000).nullable().optional().transform((value) => value || null).refine((value) => {
     if (!value) return true;
     try { const url = new URL(value); return url.protocol === "https:" && !url.username && !url.password; } catch { return false; }

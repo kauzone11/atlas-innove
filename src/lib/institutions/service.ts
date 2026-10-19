@@ -61,8 +61,8 @@ export async function updateOrganizationProfile(organizationId: string, userId: 
     if (!org) throw new ResourceNotFoundError("ORGANIZATION_NOT_FOUND");
     const profile = await client.organizationProfile.upsert({
       where: { organizationId },
-      create: { organizationId, ...input },
-      update: input,
+      create: { organizationId, ...input, country: "Brasil" },
+      update: { ...input, country: "Brasil" },
       select: { id: true, publishedAt: true },
     });
     return { saved: true, publishedAt: profile.publishedAt?.toISOString() ?? null };

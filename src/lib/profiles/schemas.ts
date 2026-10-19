@@ -6,7 +6,7 @@ export const visibilitySchema = z.enum(["PUBLIC", "PLATFORM", "TEAM", "PRIVATE"]
 const optionalText = (max: number) => z.string().trim().max(max, `Use até ${max} caracteres.`).nullable().transform((value) => value || null);
 export const profileIdentitySchema = z.object({
   handle: publicHandleSchema.nullable(),
-  headline: optionalText(180), city: optionalText(120), state: optionalText(120), country: optionalText(120),
+  headline: optionalText(180), city: optionalText(120), state: optionalText(120),
 }).strict();
 export const profileAboutSchema = z.object({ bio: optionalText(4000) }).strict();
 export const profileTopicsSchema = z.object({ skills: tagListSchema, interests: tagListSchema }).strict();

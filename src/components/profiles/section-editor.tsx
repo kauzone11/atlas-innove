@@ -25,7 +25,7 @@ export function ProfileSectionEditor({ section, values }: { section: keyof typeo
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = new FormData(event.currentTarget); const text = (name: string) => String(form.get(name) ?? "").trim() || null;
     const tags = (name: string) => String(form.get(name) ?? "").split(/\r?\n/).map((tag) => tag.trim()).filter(Boolean);
-    const data = section === "identity" ? { handle: text("handle"), headline: text("headline"), city: text("city"), state: text("state"), country: text("country") }
+    const data = section === "identity" ? { handle: text("handle"), headline: text("headline"), city: text("city"), state: text("state") }
       : section === "about" ? { bio: text("bio") }
         : section === "topics" ? { skills: tags("skills"), interests: tags("interests") }
           : section === "discovery" ? { directoryEnabled: form.get("directoryEnabled") === "on", collaborationStatus: form.get("collaborationStatus"), collaborationNote: text("collaborationNote") }
@@ -42,7 +42,6 @@ export function ProfileSectionEditor({ section, values }: { section: keyof typeo
           <ProfileField label="Endereço do perfil" help="Letras, números e hífens. Alterar este endereço desativa o link anterior."><div className="flex min-w-0 items-center rounded-lg border border-line bg-surface-subtle"><span className="shrink-0 px-3 text-xs text-slate">/people/</span><input name="handle" className="field-control min-w-0 border-0" placeholder="ex-maria-silva" defaultValue={values.handle ?? ""} minLength={3} maxLength={64} autoCapitalize="none" autoCorrect="off" spellCheck={false} /></div></ProfileField>
           <ProfileField label="Apresentação" help="Sua atuação em uma frase. Necessária para publicar o perfil."><input className="field-control" name="headline" defaultValue={values.headline ?? ""} maxLength={180} placeholder="Ex.: Pesquisadora em biotecnologia e inovação" /></ProfileField>
           <div className="grid gap-4 sm:grid-cols-2"><LocationFields defaultState={values.state} defaultCity={values.city} /></div>
-          <ProfileField label="País"><input className="field-control" name="country" defaultValue={values.country ?? ""} maxLength={120} autoComplete="country-name" placeholder="Ex.: Brasil" /></ProfileField>
         </> : null}
         {section === "about" ? <ProfileField label="Sobre sua trajetória" help="Descreva sua atuação, experiências e o que pretende desenvolver."><textarea className="field-control" name="bio" defaultValue={values.bio ?? ""} rows={7} maxLength={4000} placeholder="Ex.: Atuo com pesquisa em biotecnologia e transferência de tecnologia há dez anos." /></ProfileField> : null}
         {section === "topics" ? <>
