@@ -12,12 +12,12 @@ export async function consumeSocialRate(client: Prisma.TransactionClient, userId
   await client.socialRateLimitEvent.create({ data: { userId, kind, createdAt: now } });
 }
 
-export async function requireSocialIdentity(client: Prisma.TransactionClient, userId: string, publicPost = false) {
+// Publishing needs no completed profile; a PUBLIC audience still requires a published public profile.
+export async function requireSocialAudience(client: Prisma.TransactionClient, userId: string, publicPost = false) {
   await client.$queryRaw`SELECT "id" FROM "InnovationProfile" WHERE "userId" = ${userId} FOR SHARE`;
-  const person = await client.user.findUnique({ where: { id: userId }, select: { profile: { select: { fullName: true } }, innovationProfile: { select: { id: true, handle: true, headline: true, profileVisibility: true, publishedAt: true } } } });
-  if (!person?.profile?.fullName.trim() || !person.innovationProfile?.handle || !person.innovationProfile.headline?.trim()) throw new DomainConflictError("SOCIAL_PROFILE_INCOMPLETE");
-  if (publicPost && (person.innovationProfile.profileVisibility !== "PUBLIC" || !person.innovationProfile.publishedAt)) throw new DomainConflictError("SOCIAL_PUBLIC_PROFILE_REQUIRED");
-  return person.innovationProfile;
+  if (!publicPost) return;
+  const profile = await client.innovationProfile.findUnique({ where: { userId }, select: { profileVisibility: true, publishedAt: true } });
+  if (profile?.profileVisibility !== "PUBLIC" || !profile.publishedAt) throw new DomainConflictError("SOCIAL_PUBLIC_PROFILE_REQUIRED");
 }
 
 export async function lockPost(client: Prisma.TransactionClient, userId: string, postId: string, otherUserIds: string[] = []): Promise<SocialPost> {

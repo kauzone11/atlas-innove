@@ -20,7 +20,7 @@ export async function SocialProfile({ profile, viewerUserId, own = false, public
   ]);
   const activityHref = publicOnly ? `/people/${profile.handle}/activity` : own ? "/app/personal/profile/activity" : viewerUserId ? `/app/personal/network/people/${profile.handle}/activity` : `/people/${profile.handle}/activity`;
   const follow = viewerUserId && !own ? <FollowButton userId={profile.userId} following={summary.following} canFollow={summary.canFollow} primary={summary.primaryProfileAction === "FOLLOW" && connection?.state !== "INCOMING"} /> : null;
-  const composer = <PostComposer fullName={profile.fullName} avatarMedia={profile.avatarMedia} ready={Boolean(profile.fullName && profile.handle && profile.headline)} publicProfile={viewerPublished || publicProfile} compact />;
+  const composer = <PostComposer fullName={profile.fullName} avatarMedia={profile.avatarMedia} publicProfile={viewerPublished || publicProfile} compact />;
   const followerLabel = <><strong>{summary.followerCount}</strong> {summary.followerCount === 1 ? "seguidor" : "seguidores"}</>;
   const connectionLabel = <><strong>{summary.connectionCount}</strong> {summary.connectionCount === 1 ? "conexão" : "conexões"}</>;
   return <ProfileRenderer profile={profile}

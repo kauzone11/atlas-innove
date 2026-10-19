@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { DomainConflictError } from "@/lib/errors";
 import { lockNetworkUsers } from "@/lib/network/locking";
 import { createPostSchema, updatePostSchema } from "@/lib/social/schemas";
-import { consumeSocialRate, postTransaction, requireSocialIdentity } from "@/lib/social/transaction";
+import { consumeSocialRate, postTransaction, requireSocialAudience } from "@/lib/social/transaction";
 import { attachPostMedia } from "@/lib/media/attachments";
 import { lockMedia } from "@/lib/media/service";
 
@@ -11,7 +11,7 @@ export async function createPost(userId: string, value: unknown) {
   const input = createPostSchema.parse(value);
   return db.$transaction(async (client) => {
     await lockNetworkUsers(client, [userId]);
-    await requireSocialIdentity(client, userId, input.visibility === "PUBLIC");
+    await requireSocialAudience(client, userId, input.visibility === "PUBLIC");
     await consumeSocialRate(client, userId, "POST");
     const { media, ...data } = input;
     const post = await client.socialPost.create({ data: { ...data, authorUserId: userId, createdByUserId: userId }, select: { id: true } });

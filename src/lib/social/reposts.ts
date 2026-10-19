@@ -3,7 +3,7 @@ import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 import { lockNetworkUsers } from "@/lib/network/locking";
 import { notifySocial } from "@/lib/social/notifications";
 import { repostSchema } from "@/lib/social/schemas";
-import { consumeSocialRate, requireSocialIdentity } from "@/lib/social/transaction";
+import { consumeSocialRate, requireSocialAudience } from "@/lib/social/transaction";
 import { requireVisiblePost } from "@/lib/social/visibility";
 
 export async function repostPost(userId: string, postId: string, value: unknown = {}) {
@@ -19,7 +19,7 @@ export async function repostPost(userId: string, postId: string, value: unknown 
     if (original.repostOfPostId || !original.allowReposts || original.visibility === "CONNECTIONS") throw new DomainConflictError("SOCIAL_REPOST_UNAVAILABLE");
     const visibility = input.visibility ?? original.visibility;
     if (original.visibility === "PLATFORM" && visibility === "PUBLIC") throw new DomainConflictError("SOCIAL_REPOST_AUDIENCE");
-    await requireSocialIdentity(client, userId, visibility === "PUBLIC");
+    await requireSocialAudience(client, userId, visibility === "PUBLIC");
     // Retrying a simple repost keeps one active share while commentary creates an explicit new post.
     if (!input.body) {
       const existing = await client.socialPost.findFirst({ where: { authorUserId: userId, repostOfPostId: originalId, body: null, deletedAt: null }, select: { id: true } });

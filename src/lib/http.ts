@@ -8,7 +8,6 @@ import { DomainConflictError, ResourceNotFoundError } from "@/lib/errors";
 const errorMessages: Record<string, string> = {
   SOCIAL_ORIGIN_FORBIDDEN: "Recarregue a página antes de enviar esta ação.",
   SOCIAL_RATE_LIMIT: "Você atingiu o limite de ações neste período. Aguarde antes de tentar novamente.",
-  SOCIAL_PROFILE_INCOMPLETE: "Complete seu nome, identificador e apresentação no perfil antes de publicar.",
   SOCIAL_PUBLIC_PROFILE_REQUIRED: "Publique seu perfil público antes de criar uma publicação pública, ou escolha a plataforma.",
   SOCIAL_PROFILE_UNAVAILABLE: "Este perfil não está disponível para seguir.",
   SOCIAL_SELF_FOLLOW: "Você não pode seguir seu próprio perfil.",

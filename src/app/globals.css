@@ -1330,7 +1330,6 @@ html[data-theme="dark"] .tt.h .tt-thumb { transform: translateX(40px); }
 .social-composer-trigger > span:last-child { border: 1px solid var(--line); border-radius: 999px; background: var(--field); padding: .75rem 1.25rem; flex: 1; }
 .social-composer-trigger:hover { border-color: var(--line-strong); color: var(--ink); }
 .social-composer-trigger:hover > span:last-child { background: var(--surface-subtle); }
-.social-composer-incomplete { border-radius: var(--r-card); box-shadow: var(--shadow-card); padding: 1rem; background: var(--surface); }
 .social-composer-text { min-height: 8rem; line-height: 1.65; resize: none; }
 .social-action { display: inline-flex; align-items: center; justify-content: center; min-height: 2.75rem; gap: .375rem; padding: .375rem .75rem; border-radius: 999px; color: var(--slate); font-size: .875rem; font-weight: 550; cursor: pointer; }
 .social-action:hover { color: var(--ink); background: var(--bg-sub); }
