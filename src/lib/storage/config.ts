@@ -18,4 +18,10 @@ export function storageConfig(env: Readonly<Record<string, string | undefined>> 
   return { endpoint, region, bucket, accessKeyId, secretAccessKey, forcePathStyle: env.OBJECT_STORAGE_FORCE_PATH_STYLE === "true" };
 }
 
-export function isStorageConfigured(): boolean { return storageConfig() !== null; }
+/** Directory for the local disk store used when no S3-compatible bucket is configured; mount a persistent volume here in production. */
+export function localStorageDir(env: Readonly<Record<string, string | undefined>> = process.env): string {
+  return env.MEDIA_LOCAL_DIR?.trim() || "data/media";
+}
+
+/** Uploads are available through the S3 bucket when configured, otherwise through the local disk store. */
+export function isStorageConfigured(): boolean { return true; }

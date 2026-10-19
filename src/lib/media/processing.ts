@@ -55,7 +55,7 @@ export async function processImage(bytes: Uint8Array, kind: MediaKind, suppliedM
     for (let index = 0; index < variants.length; index++) {
       const output = await sharp(oriented.data, { raw: { width, height, channels: oriented.info.channels } }).extract(rectangle)
         .resize({ width: sizes[kind][index], height: kind === "PROFILE_AVATAR" || kind === "ORGANIZATION_LOGO" ? sizes[kind][index] : undefined, fit: "inside", withoutEnlargement: true })
-        .webp({ quality: 84, effort: 4 }).toBuffer({ resolveWithObject: true });
+        .webp({ quality: 82, effort: 5, smartSubsample: true }).toBuffer({ resolveWithObject: true });
       result[variants[index]] = { bytes: output.data, width: output.info.width, height: output.info.height };
     }
     return result;
