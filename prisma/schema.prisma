@@ -355,6 +355,7 @@ model InnovationProfile {
   coverMediaId                    String?              @unique
   avatarMedia                     MediaAsset?          @relation("ProfileAvatar", fields: [avatarMediaId], references: [id], onDelete: Restrict)
   coverMedia                      MediaAsset?          @relation("ProfileCover", fields: [coverMediaId], references: [id], onDelete: Restrict)
+  coverPreset                     ProfileCoverPreset   @default(ATLAS)
   createdAt                       DateTime             @default(now())
   updatedAt                       DateTime             @updatedAt
   user                            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1987,6 +1988,13 @@ model SocialRateLimitEvent {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, kind, createdAt])
+}
+
+enum ProfileCoverPreset {
+  ATLAS
+  CONTOUR
+  SIGNAL
+  GRID
 }
 
 enum MediaKind {

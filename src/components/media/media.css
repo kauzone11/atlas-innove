@@ -21,8 +21,14 @@
 .post-image-draft { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: start; gap: .75rem; border-top: 1px solid var(--line); padding-top: .75rem; }
 .post-image-draft > img, .post-image-draft > .media-unavailable { width: 88px; height: 88px; min-height: 0; object-fit: cover; border-radius: .5rem; }
 .profile-media-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr); gap: 2rem; }
-.profile-media-cover-preview { display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 3 / 1; min-height: 112px; max-height: 13rem; overflow: hidden; border-radius: .625rem; border: 1px solid var(--line); background: var(--surface-subtle); color: var(--slate); font-size: .875rem; }
+.profile-media-cover-preview { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 3 / 1; min-height: 112px; max-height: 13rem; overflow: hidden; border-radius: .625rem; border: 1px solid var(--line); background: var(--surface-subtle); color: var(--slate); font-size: .875rem; }
 .profile-media-cover-preview > img { width: 100%; height: 100%; object-fit: cover; }
+.profile-cover-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: .75rem; }
+.profile-cover-option { display: grid; gap: .45rem; min-width: 0; border: 0; background: transparent; padding: 0; text-align: left; color: var(--ink); border-radius: 14px; }
+.profile-cover-option:focus-visible { outline: 2px solid var(--action); outline-offset: 3px; }
+.profile-cover-option[aria-pressed="true"] .profile-cover-swatch { box-shadow: 0 0 0 2px var(--ink); }
+.profile-cover-swatch { position: relative; display: block; width: 100%; aspect-ratio: 3 / 1; overflow: hidden; border-radius: 12px; }
+.profile-cover-swatch .social-cover-geometry { width: 7rem; height: 7rem; top: -4.5rem; right: 12%; }
 .media-crop-preview { position: relative; overflow: hidden; width: 100%; border: 1px solid var(--line); background: var(--surface-subtle); }
 .media-crop-avatar { max-width: 280px; margin-inline: auto; aspect-ratio: 1; border-radius: 50%; }
 .media-crop-cover { aspect-ratio: 3 / 1; border-radius: .625rem; }

@@ -1244,8 +1244,12 @@ html[data-theme="dark"] .tt.h .tt-thumb { transform: translateX(40px); }
 .social-surface { --social-cream: var(--bg-sub); color: var(--ink); }
 .social-profile { overflow-wrap: anywhere; }
 .social-profile-intro { border-radius: var(--r-card); background: var(--surface); margin-bottom: 1.25rem; box-shadow: var(--shadow-card); overflow: hidden; }
-.social-profile-cover { position: relative; height: 9rem; overflow: hidden; display: flex; align-items: flex-start; justify-content: flex-end; border-radius: var(--r-card) var(--r-card) 0 0; background: linear-gradient(135deg, var(--grad-1), var(--grad-2)); padding: 1.25rem 1.75rem; }
-.social-profile-cover > span:last-child { position: relative; color: rgba(255,255,255,.92); font-size: .8125rem; letter-spacing: .03em; }
+.social-profile-cover { position: relative; height: 9rem; overflow: hidden; display: flex; align-items: flex-start; justify-content: flex-end; border-radius: var(--r-card) var(--r-card) 0 0; padding: 1.25rem 1.75rem; }
+.social-profile-cover > span:last-child { position: relative; font-size: .8125rem; letter-spacing: .03em; }
+.profile-cover-style-atlas, .profile-cover-style-contour { background: linear-gradient(135deg, var(--grad-1), var(--grad-2)); color: rgba(255,255,255,.92); }
+.profile-cover-style-signal { background-color: var(--ink); background-image: repeating-linear-gradient(to bottom, transparent 0 23px, rgba(128,128,140,.24) 23px 24px); color: var(--on-ink); box-shadow: inset 5px 0 0 var(--grad-1); }
+.profile-cover-style-grid { background-color: var(--surface-2); background-image: radial-gradient(circle, var(--line-2) 1.2px, transparent 1.6px); background-size: 18px 18px; color: var(--ink-2); }
+.social-cover-topo { position: absolute; inset: 0; width: 100%; height: 100%; color: rgba(255,255,255,.34); }
 .social-cover-geometry { position: absolute; width: 14rem; height: 14rem; border: 1px solid rgba(255,255,255,.3); border-radius: 2rem; right: 18%; top: -9rem; transform: rotate(30deg); }
 .social-cover-geometry::after { content: ""; position: absolute; inset: 1.25rem; border: 1px solid rgba(255,255,255,.3); border-radius: 1.25rem; }
 .social-profile-cover.social-profile-cover-image { padding: 0; }

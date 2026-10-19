@@ -3,6 +3,7 @@ import { ArrowUpRight, BadgeCheck, MapPin } from "lucide-react";
 import type { ReactNode } from "react";
 import { Avatar } from "@/components/media/avatar";
 import { MediaImage } from "@/components/media/media-image";
+import { ProfileCoverArt, profileCoverStyleClass } from "@/components/profiles/profile-cover";
 import type { VisibleProfile } from "@/lib/profiles/service";
 import { projectStatusLabels } from "@/lib/participants/presentation";
 export { avatarMonogram as profileMonogram } from "@/lib/media/identity";
@@ -23,7 +24,7 @@ export function ProfileRenderer({ profile, actions, counts, featured, activity }
   const currentExperience = profile.experience?.find((record) => record.current);
   return <article className="social-profile social-surface mx-auto w-full max-w-5xl break-words">
     <header className="social-profile-intro">
-      <div className={`social-profile-cover${profile.coverMedia ? " social-profile-cover-image" : ""}`} aria-hidden="true">{profile.coverMedia ? <MediaImage media={profile.coverMedia} alt="" loading="eager" sizes="(max-width: 767px) 100vw, 1024px" /> : <><span className="social-cover-geometry" /><span>Atlas Innove</span></>}</div>
+      <div className={`social-profile-cover ${profileCoverStyleClass(profile.coverPreset)}${profile.coverMedia ? " social-profile-cover-image" : ""}`} aria-hidden="true">{profile.coverMedia ? <MediaImage media={profile.coverMedia} alt="" loading="eager" sizes="(max-width: 767px) 100vw, 1024px" /> : <><ProfileCoverArt preset={profile.coverPreset} /><span>Atlas Innove</span></>}</div>
       <div className="social-profile-introduction">
         <Avatar name={profile.fullName} media={profile.avatarMedia} size="profile" className="social-profile-avatar" />
         <div className="social-profile-identity"><div className="min-w-0"><h1>{profile.fullName || "Seu perfil"}</h1>{profile.headline ? <p className="social-profile-headline">{profile.headline}</p> : null}{profile.location.length ? <p className="mt-3 flex items-start gap-2 text-sm text-slate"><MapPin size={15} className="mt-0.5 shrink-0" aria-hidden="true" />{profile.location.join(" · ")}</p> : null}</div>{currentExperience ? <p className="social-profile-context"><span className="block text-sm font-medium text-ink">{currentExperience.organizationName}</span><span className="mt-1 block text-sm text-slate">{currentExperience.title}</span></p> : null}</div>

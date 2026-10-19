@@ -11,7 +11,7 @@ import { mediaDto, mediaSelect } from "@/lib/media/presentation";
 
 const profileSelect = {
   id: true, userId: true, handle: true, headline: true, bio: true, city: true, state: true, country: true,
-  avatarMedia: { select: mediaSelect }, coverMedia: { select: mediaSelect },
+  avatarMedia: { select: mediaSelect }, coverMedia: { select: mediaSelect }, coverPreset: true,
   directoryEnabled: true, collaborationStatus: true, collaborationNote: true,
   profileVisibility: true, skillsVisibility: true, experienceVisibility: true, educationVisibility: true,
   linksVisibility: true, verifiedParticipationVisibility: true, projectsVisibility: true, publishedAt: true,
@@ -78,7 +78,7 @@ export async function getOwnProfile(userId: string) {
   const [verifiedParticipations, publicProjects] = await Promise.all([getVerifiedParticipations(userId), listPublicProfileProjects(userId)]);
   return {
     id: profile.id, fullName: profile.user.profile?.fullName ?? "", handle: profile.handle, headline: profile.headline,
-    avatarMedia: mediaDto(profile.avatarMedia), coverMedia: mediaDto(profile.coverMedia),
+    avatarMedia: mediaDto(profile.avatarMedia), coverMedia: mediaDto(profile.coverMedia), coverPreset: profile.coverPreset,
     bio: profile.bio, city: profile.city, state: profile.state, country: profile.country,
     directoryEnabled: profile.directoryEnabled, collaborationStatus: profile.collaborationStatus, collaborationNote: profile.collaborationNote,
     profileVisibility: profile.profileVisibility, skillsVisibility: profile.skillsVisibility,
@@ -101,7 +101,7 @@ async function buildVisibleProfile(profile: Prisma.InnovationProfileGetPayload<{
   const showVerification = visible(profile.verifiedParticipationVisibility);
   const showProjects = visible(profile.projectsVisibility);
   const [identity, topics, experience, education, links, verifiedParticipations, publicProjects] = await Promise.all([
-    db.innovationProfile.findUniqueOrThrow({ where: { id: profile.id }, select: { handle: true, headline: true, bio: true, city: true, state: true, country: true, avatarMedia: { select: mediaSelect }, coverMedia: { select: mediaSelect }, user: { select: { profile: { select: { fullName: true } } } } } }),
+    db.innovationProfile.findUniqueOrThrow({ where: { id: profile.id }, select: { handle: true, headline: true, bio: true, city: true, state: true, country: true, avatarMedia: { select: mediaSelect }, coverMedia: { select: mediaSelect }, coverPreset: true, user: { select: { profile: { select: { fullName: true } } } } } }),
     visible(profile.skillsVisibility) ? db.profileTopic.findMany({ where: { profileId: profile.id }, select: { type: true, label: true }, orderBy: [{ position: "asc" }, { id: "asc" }], take: 40 }) : Promise.resolve([]),
     visible(profile.experienceVisibility) ? db.profileExperience.findMany({ where: { profileId: profile.id, visibility: { in: allowedScopes } }, select: { id: true, organizationName: true, title: true, startsAt: true, endsAt: true, current: true, description: true }, orderBy: [{ current: "desc" }, { startsAt: "desc" }, { position: "asc" }, { id: "asc" }], take: 30 }) : Promise.resolve([]),
     visible(profile.educationVisibility) ? db.profileEducation.findMany({ where: { profileId: profile.id, visibility: { in: allowedScopes } }, select: { id: true, institution: true, course: true, degree: true, startsAt: true, endsAt: true, description: true, position: true }, orderBy: [{ position: "asc" }, { id: "asc" }], take: 30 }) : Promise.resolve([]),
@@ -112,7 +112,7 @@ async function buildVisibleProfile(profile: Prisma.InnovationProfileGetPayload<{
   // Public DTOs select safe identity explicitly; account contacts and source application details never enter serialization.
   return {
     userId: profile.userId, fullName: identity.user.profile?.fullName ?? "Participante", handle: identity.handle, headline: identity.headline, bio: identity.bio,
-    avatarMedia: mediaDto(identity.avatarMedia), coverMedia: mediaDto(identity.coverMedia),
+    avatarMedia: mediaDto(identity.avatarMedia), coverMedia: mediaDto(identity.coverMedia), coverPreset: identity.coverPreset,
     location: [identity.city, identity.state, identity.country].filter((value): value is string => Boolean(value)),
     ...(visible(profile.skillsVisibility) ? {
       skills: topics.filter((topic) => topic.type === "SKILL").map((topic) => topic.label),

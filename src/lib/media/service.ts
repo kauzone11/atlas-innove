@@ -9,7 +9,7 @@ import { visiblePostWhere } from "@/lib/social/visibility";
 import { createObjectStorage, type ObjectStorage } from "@/lib/storage/client";
 import { MediaError, unavailableMedia, unavailableStorage } from "@/lib/media/errors";
 import { mediaDto, mediaSelect, parseDerivatives } from "@/lib/media/presentation";
-import { mediaKindSchema, mediaIdentifierSchema, profileMediaSchema, type ImageCrop } from "@/lib/media/schemas";
+import { mediaKindSchema, mediaIdentifierSchema, profileCoverPresetSchema, profileMediaSchema, type ImageCrop } from "@/lib/media/schemas";
 import { processImage, withImageProcessingSlot } from "@/lib/media/processing";
 import type { MediaDerivatives, MediaVariant } from "@/lib/media/types";
 import { hasAtLeastRole, AuthorizationError } from "@/lib/auth/authorization";
@@ -84,6 +84,20 @@ export async function uploadMedia(userId: string, input: { kind: unknown; bytes:
 
 export async function uploadOrganizationMedia(userId: string, organizationId: string, input: { kind: unknown; bytes: Uint8Array; mimeType: string; crop?: ImageCrop }, storage: ObjectStorage = createObjectStorage()) {
   return uploadOwnedMedia(userId, organizationId, input, storage);
+}
+
+export async function setProfileCoverPreset(userId: string, value: unknown) {
+  const { preset } = profileCoverPresetSchema.parse(value);
+  return db.$transaction(async (client) => {
+    await lockNetworkUsers(client, [userId]);
+    await client.innovationProfile.upsert({ where: { userId }, create: { userId }, update: {} });
+    await client.$queryRaw`SELECT "id" FROM "InnovationProfile" WHERE "userId" = ${userId} FOR UPDATE`;
+    const profile = await client.innovationProfile.findUniqueOrThrow({ where: { userId }, select: { coverMediaId: true } });
+    await lockMedia(client, profile.coverMediaId ? [profile.coverMediaId] : []);
+    await client.innovationProfile.update({ where: { userId }, data: { coverPreset: preset, coverMediaId: null } });
+    if (profile.coverMediaId) await client.mediaAsset.update({ where: { id: profile.coverMediaId }, data: { status: "DELETED", deletedAt: new Date() } });
+    return { saved: true };
+  });
 }
 
 export async function setProfileMedia(userId: string, value: unknown) {
