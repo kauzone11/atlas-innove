@@ -47,12 +47,12 @@ export function AuthForm({ mode, redirectTo }: { mode: AuthMode; redirectTo?: st
     <form onSubmit={handleSubmit} className="space-y-5">
       {isRegister ? (
         <>
-          <Field label="Seu nome" value={fullName} onChange={setFullName} autoComplete="name" required />
-          <details><summary className="min-h-11 cursor-pointer text-sm font-medium text-ink">Criar também um espaço institucional (opcional)</summary><div className="mt-3"><Field label="Nome da organização" value={organizationName} onChange={setOrganizationName} /><p className="mt-2 text-xs leading-5 text-slate">Deixe em branco para começar como participante. A mesma conta poderá acessar instituições depois.</p></div></details>
+          <Field label="Seu nome" placeholder="Seu nome completo" value={fullName} onChange={setFullName} autoComplete="name" required />
+          <details><summary className="min-h-11 cursor-pointer text-sm font-medium text-ink">Criar também um espaço institucional (opcional)</summary><div className="mt-3"><Field label="Nome da organização" placeholder="Nome da instituição ou do espaço" value={organizationName} onChange={setOrganizationName} /><p className="mt-2 text-xs leading-5 text-slate">Deixe em branco para começar como participante. A mesma conta poderá acessar instituições depois.</p></div></details>
         </>
       ) : null}
-      <Field label="E-mail" type="email" value={email} onChange={setEmail} autoComplete="email" required />
-      <PasswordField value={password} onChange={setPassword} autoComplete={isRegister ? "new-password" : "current-password"} required minLength={isRegister ? 12 : 1} />
+      <Field label="E-mail" type="email" placeholder="voce@exemplo.com" value={email} onChange={setEmail} autoComplete="email" required />
+      <PasswordField value={password} onChange={setPassword} placeholder={isRegister ? "Mínimo de 12 caracteres" : "Sua senha"} autoComplete={isRegister ? "new-password" : "current-password"} required minLength={isRegister ? 12 : 1} />
       {!isRegister ? <div className="-mt-1 text-right"><Link href="/recover" className="text-sm font-medium text-accent-hover underline-offset-4 hover:underline">Esqueci minha senha</Link></div> : null}
       {error ? <p className="banner bad" role="alert">{error}</p> : null}
       <button type="submit" disabled={pending} className="button-primary w-full">
@@ -62,7 +62,7 @@ export function AuthForm({ mode, redirectTo }: { mode: AuthMode; redirectTo?: st
   );
 }
 
-function Field({ label, value, onChange, type = "text", autoComplete, required, minLength }: {
+function Field({ label, placeholder, value, onChange, type = "text", autoComplete, required, minLength }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
@@ -70,11 +70,12 @@ function Field({ label, value, onChange, type = "text", autoComplete, required, 
   autoComplete?: string;
   required?: boolean;
   minLength?: number;
+  placeholder?: string;
 }) {
   return (
     <label className="block space-y-2 text-sm font-medium text-ink">
       <span>{label}</span>
-      <input className="field-control" type={type} value={value} onChange={(event) => onChange(event.target.value)} autoComplete={autoComplete} required={required} minLength={minLength} />
+      <input className="field-control" type={type} placeholder={placeholder} value={value} onChange={(event) => onChange(event.target.value)} autoComplete={autoComplete} required={required} minLength={minLength} />
     </label>
   );
 }
