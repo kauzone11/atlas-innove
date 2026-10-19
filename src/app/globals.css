@@ -1571,4 +1571,46 @@ html[data-theme="dark"] .tt.h .tt-thumb { transform: translateX(40px); }
 .social-overflow-panel, .social-feed-explanation p { border: 0 !important; border-radius: 20px !important; box-shadow: var(--shadow-pop), 0 0 0 1px var(--line) !important; }
 .search-field input[type="search"]::-webkit-search-cancel-button { appearance: none; display: none; }
 /* Bare top-level sections of operational pages are rendered as cards. */
-.app-content > div > section:not(.panel):not(.sec):not(.hero):not(.public-sec):not([class*="border-y"]):not(.social-surface) { border-radius: var(--r-card); background: var(--surface); padding: 1.25rem 1.5rem 1.5rem; box-shadow: var(--shadow-card); }
+.app-content > div > section:not(.panel):not(.sec):not(.hero):not(.public-sec):not(.demo-section):not([class*="border-y"]):not(.social-surface) { border-radius: var(--r-card); background: var(--surface); padding: 1.25rem 1.5rem 1.5rem; box-shadow: var(--shadow-card); }
+
+/* Card system: a card is the only elevated surface. Blocks nested in a card are flat insets with no second border or shadow. */
+.demo-shell .demo-section { padding: 20px 22px 22px; }
+.demo-shell .demo-section > .demo-section-heading { min-height: 36px; margin-bottom: 14px; padding: 0; }
+.demo-shell .demo-section > :is(.demo-program-feature, .demo-priority-table, .demo-comparison, .demo-milestone-list, .demo-timeline, .demo-cohort-intro, .demo-venture-grid) { margin: 0; }
+.demo-shell .demo-section > :is(.demo-program-feature, .demo-priority-table, .demo-comparison, .demo-followup-section) { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.demo-shell .demo-section > .demo-comparison { padding: 0; }
+.demo-shell .demo-section > .demo-program-feature { gap: 20px; grid-template-columns: minmax(150px, 0.4fr) minmax(0, 1fr); overflow: visible; }
+.demo-shell .demo-program-feature-body { padding: 0; }
+.demo-shell .demo-program-editorial { position: relative; min-height: 168px; border-radius: 18px; background: #fff; align-self: stretch; }
+.demo-shell .demo-program-editorial img { inset: 20px !important; width: calc(100% - 40px) !important; height: calc(100% - 40px) !important; object-fit: contain !important; outline: 0; }
+.demo-shell .demo-program-facts { gap: 0; border-radius: 16px; background: var(--bg-sub); }
+.demo-shell .demo-program-facts span { padding: 12px 14px; background: transparent; }
+.demo-shell .demo-program-facts span + span { box-shadow: inset 1px 0 0 var(--line); }
+.demo-shell .demo-priority-table { overflow: visible; }
+.demo-shell .demo-priority-head { border-radius: 12px; }
+.demo-shell .demo-priority-row { padding-inline: 12px; }
+.demo-shell .demo-rail-card { padding: 20px 22px; }
+.demo-shell .demo-rail-card-accent .demo-progress { height: 6px; background: rgba(255, 255, 255, 0.32); }
+.demo-shell .demo-rail-card-accent small { display: block; line-height: 1.45; text-wrap: balance; }
+@media (max-width: 767px) {
+  .demo-shell .demo-section { padding: 16px 16px 18px; }
+  .demo-shell .demo-section > .demo-program-feature { grid-template-columns: 1fr; }
+  .demo-shell .demo-program-facts span + span { box-shadow: inset 0 1px 0 var(--line); }
+}
+
+/* Section cards: centered header actions and no stretched empty space next to taller neighbours. */
+.sec-h { align-items: center; }
+.sec-h p { margin-top: 2px; }
+.grid:has(> .sec) { align-items: start; }
+.demo-shell .demo-official-banner { padding: 22px 24px; }
+.demo-shell .demo-official-copy { flex: 1; }
+.demo-shell .demo-official-title-group { margin-top: 8px; padding-top: 0; border-top: 0; }
+.demo-shell .demo-official-objective { margin-top: 10px; padding-inline-start: 0; border-inline-start: 0; font-size: 13px; }
+.demo-shell .demo-inline-facts { margin-top: 16px; }
+@media (min-width: 640px) { .panel-header { align-items: center; } }
+/* Page-level cards share one inner padding whether they come from a bare section or a bordered legacy block. */
+.app-content > .border-y.border-line, .app-content > div > .border-y.border-line, #main-content > div > .border-y.border-line, #main-content > article > .border-y.border-line { padding-inline: 1.5rem; }
+.app-content > div > section:not(.panel):not(.sec):not(.hero):not(.public-sec):not(.demo-section):not([class*="border-y"]):not(.social-surface) { padding: 1.5rem; }
+/* Text-only actions align their label, not their hover surface, with the card's content edge. */
+:is(.panel, .sec, .public-sec, .social-profile-section, .app-content > div > section) .button-tertiary { margin-inline: -0.875rem; padding-inline: 0.875rem; }
+:is(.social-overflow-panel, [role="menu"], [role="dialog"]) .button-tertiary { margin-inline: 0; padding-inline: 20px; }
