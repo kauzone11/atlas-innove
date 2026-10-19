@@ -1,31 +1,42 @@
 import type { Config } from "tailwindcss";
 
+// Theme colors resolve through CSS variables so light and dark share utilities; alpha modifiers use color-mix.
+type ColorFn = (options: { opacityValue?: string }) => string;
+const token = (name: string): string => {
+  const resolve: ColorFn = ({ opacityValue }) =>
+    opacityValue === undefined || opacityValue === "1" || Number.isNaN(Number(opacityValue)) ? `var(${name})` : `color-mix(in srgb, var(${name}) ${Number(opacityValue) * 100}%, transparent)`;
+  return resolve as unknown as string;
+};
+
 const config: Config = {
   content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
   theme: {
     extend: {
       colors: {
-        ink: "#1c1c1a",
-        slate: "#6d6d68",
-        canvas: "#f7f7f4",
-        surface: "#ffffff",
-        "surface-subtle": "#f3f3ef",
-        line: "#e5e5df",
-        "line-strong": "#c7c7c0",
-        accent: "#f5662d",
-        "accent-hover": "#b84013",
-        "accent-soft": "#fff0e9",
-        focus: "#f3a17e",
-        success: "#167447",
-        warning: "#9a5d0a",
-        danger: "#b3261e",
-        "danger-soft": "#fff0ee",
-        "success-soft": "#edf8f2",
-        "warning-soft": "#fff7e8",
+        ink: token("--ink"),
+        slate: token("--muted"),
+        canvas: token("--bg"),
+        surface: token("--surface"),
+        "surface-subtle": token("--bg-sub"),
+        line: token("--line"),
+        "line-strong": token("--line-2"),
+        accent: token("--action"),
+        "accent-hover": token("--action-hover"),
+        "accent-soft": token("--brand-soft"),
+        focus: token("--focus"),
+        success: token("--ok"),
+        warning: token("--warn"),
+        danger: token("--bad"),
+        "danger-soft": token("--bad-soft"),
+        "success-soft": token("--ok-soft"),
+        "warning-soft": token("--warn-soft"),
+        white: token("--surface"),
       },
+      fontFamily: { sans: ["var(--f-body)"], mono: ["var(--f-mono)"] },
+      borderRadius: { md: "12px", lg: "14px", xl: "20px", "2xl": "24px" },
       boxShadow: {
-        panel: "0 1px 2px rgba(28, 28, 26, 0.03), 0 8px 24px rgba(28, 28, 26, 0.035)",
-        floating: "0 18px 48px rgba(28, 28, 26, 0.16)",
+        panel: "var(--shadow-card)",
+        floating: "var(--shadow-pop)",
       },
     },
   },

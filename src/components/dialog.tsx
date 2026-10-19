@@ -68,11 +68,11 @@ export function Dialog({ open, onClose, title, description, children, mode = "di
   return createPortal(
     <div className={backdropClassName} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div ref={surfaceRef} tabIndex={-1} className={surfaceClassName} role="dialog" aria-modal="true" aria-labelledby={headingId} aria-describedby={descriptionId}>
-        <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4 sm:px-6">
-          <div className="min-w-0"><h2 id={headingId} className="break-words text-lg font-semibold tracking-[-0.02em] text-ink">{title}</h2>{description ? <p id={descriptionId} className="mt-1 break-words text-sm leading-6 text-slate">{description}</p> : null}</div>
-          <button type="button" className="button-secondary min-h-11 shrink-0 px-3" onClick={onClose} aria-label="Fechar janela"><X size={18} aria-hidden="true" /></button>
+        <div className="flex items-start justify-between gap-4 px-5 pb-2 pt-5 sm:px-7 sm:pt-6">
+          <div className="min-w-0"><h2 id={headingId} className="break-words text-[1.3rem] font-semibold tracking-[-0.025em] text-ink">{title}</h2>{description ? <p id={descriptionId} className="mt-1 break-words text-sm leading-6 text-slate">{description}</p> : null}</div>
+          <button type="button" className="ibtn shrink-0" onClick={onClose} aria-label="Fechar janela"><X size={18} aria-hidden="true" /></button>
         </div>
-        <div className="px-5 py-5 sm:px-6">{children}</div>
+        <div className="px-5 pb-6 pt-3 sm:px-7">{children}</div>
       </div>
     </div>,
     document.body,

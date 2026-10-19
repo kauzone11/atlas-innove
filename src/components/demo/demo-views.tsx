@@ -1,7 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, BookOpen, CalendarDays, Check, ChevronRight, ExternalLink, LineChart, ShieldCheck } from "lucide-react";
+import { ArrowRight, ArrowUpRight, BookOpen, CalendarDays, Check, ChevronRight, ExternalLink, LineChart, ShieldCheck } from "lucide-react";
 
+import { Hero, HeroAction } from "@/components/ui";
 import type { DemoDataset, DemoObservationValue, DemoVenture, DemoWave } from "@/lib/demo/read-model";
 
 export function DemoPageHeader({ eyebrow, title, description, action }: { eyebrow?: string; title: string; description?: string; action?: React.ReactNode }) {
@@ -16,7 +17,8 @@ export function InstitutionOverview({ dataset }: { dataset: DemoDataset }) {
   const perspective = "instituicao";
   const priorityVentures = dataset.ventures.filter((venture) => venture.status === "ACTIVE").slice(0, 5);
   return <div>
-    <DemoPageHeader title="Visão geral" description="Programas, empreendimentos e cobertura da coorte em uma leitura rápida." action={<Link href={`/demo/acompanhamentos?perspectiva=${perspective}`} className="demo-button-primary"><LineChart size={16} aria-hidden="true" />Abrir acompanhamento</Link>} />
+    <Hero eyebrow="Demonstração pública · Visão geral" title="Programa, coorte e trajetória em uma mesma leitura" description="Programas, empreendimentos e cobertura da coorte em uma leitura rápida. Os dados de acompanhamento são fictícios." actions={<><HeroAction solid href={`/demo/acompanhamentos?perspectiva=${perspective}`}>Abrir acompanhamento <ArrowRight size={15} aria-hidden="true" /></HeroAction><HeroAction href={`/demo/programas?perspectiva=${perspective}`}>Ver programa</HeroAction></>} />
+    <div className="h-4" />
     <DemoSourceNote />
     <MetricStrip dataset={dataset} />
     <div className="demo-overview-grid">

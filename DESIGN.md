@@ -1,32 +1,40 @@
 ---
 version: alpha
 name: Atlas Innove
-description: Institutional innovation workspaces with a restrained professional social layer.
+description: Calm institutional workspace with floating pill navigation, soft cards and a restrained professional social layer.
 colors:
-  background: "#f7f7f4"
+  background: "#ececf0"
   surface: "#ffffff"
-  subtle: "#f3f3ef"
-  ink: "#1c1c1a"
-  muted: "#6d6d68"
-  border: "#e5e5df"
-  primary: "#bb4518"
-  accent: "#f5662d"
-  focus: "#f3a17e"
-  danger: "#b3261e"
+  subtle: "#f1f1f4"
+  ink: "#111114"
+  muted: "#6c6c78"
+  border: "#e6e6eb"
+  brand: "#ee5a2c"
+  action: "#c63e12"
+  focus: "#f08a63"
+  danger: "#c22c24"
 typography:
   sans:
-    fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'
+    fontFamily: 'Geist, "Segoe UI", system-ui, -apple-system, sans-serif'
+  mono:
+    fontFamily: '"Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace'
 rounded:
-  control: "0.5rem"
-  panel: "0.875rem"
+  control: "14px"
+  card: "24px"
+  tile: "20px"
+  pill: "999px"
 spacing:
-  page-max: "1640px"
-  control-height: "2.75rem"
+  page-max: "1320px"
+  control-height: "2.625rem"
 components:
   button:
     owner: src/components/ui.tsx
   dialog:
     owner: src/components/dialog.tsx
+  shell:
+    owner: src/components/app-shell.tsx
+  theme:
+    owner: src/components/theme-toggle.tsx
   profile:
     owner: src/components/profiles/profile-renderer.tsx
 ---
@@ -35,23 +43,19 @@ components:
 
 ## Overview
 
-The visual reference is an institutional research workspace: evidence, professional identity and ongoing work receive clear typography and quiet separation. Brazilian innovation program participants and institutional operators share an account but have distinct operational views. Product copy is Brazilian Portuguese; source and technical documentation are English.
-
-The participant profile places current professional activity alongside declared experience and verified trajectory. Social counts remain secondary to content. The monogram and restrained introduction surface carry identity; uploads require real media infrastructure.
-
-The existing curated `/demo` has a separately scoped visual composition and remains unchanged. Do not borrow LinkedIn branding, consumer engagement patterns, giant covers, decorative gradients or popularity scores.
+The interface is a calm light workspace: grey canvas, white rounded cards, black pills for everything active and brand orange as the only accent (primary card, observed data, small signals). Light and dark themes are first-class and switch through a sun/moon control with a circular reveal; the choice is stored in `localStorage` and applied before first paint. Product copy is Brazilian Portuguese; source and technical documentation are English.
 
 ## Token ownership
 
-This document describes the existing runtime, rather than generating it. `src/app/globals.css` owns semantic CSS variables and shared component styles; `tailwind.config.ts` exposes matching utility colors. Primary buttons use `--action`, while `--accent` is a lighter brand accent. The operational font stack is inherited from `body`. Demo-only colors and fonts are not global product tokens.
+`src/app/globals.css` owns the CSS variables for both themes (`:root` and `html[data-theme="dark"]`) and the shared component classes. `tailwind.config.ts` resolves utility colors through those variables, so utilities such as `bg-surface` and `text-slate` follow the theme. Legacy names (`--canvas`, `--slate`, `--line`) alias the current tokens. Brand orange is never small text on white; text uses `--action`. Absence of data is hatched, zero is outlined and pending is dashed.
 
-## Typography and layout
+## Shell
 
-Body text uses the system sans stack at 0.9375rem and line-height 1.5. Page headings use responsive 1.75–2rem text with restrained weight and tracking. Posts preserve line breaks and wrap long URLs. Feed content has a readable central measure inside the existing sidebar shell; it never adds a second application shell. On narrow screens, action groups wrap and the composer uses the existing mobile dialog surface.
+Authenticated pages use a floating header (brand pill, section pill navigation with a sliding black indicator, search/messages/notifications and the account menu), a 84px icon rail with the theme switch and shortcuts, and a floating tab bar plus drawer below 1024px. Global search (`Ctrl/⌘ + K`) queries programs and ventures of the active organization after server-side membership validation, and people through the visibility-filtered directory. Public pages use the same header language with a dark footer card. Authentication uses a split layout with the contour-line signature panel; it never shows invented metrics.
 
 ## Shapes, elevation and motion
 
-Shared controls use 0.5rem corners, panels 0.875rem. Borders and tonal surfaces establish hierarchy; floating elevation belongs to menus and dialogs. Transitions use the existing short durations and global reduced-motion override. Avoid nested decorative panels around posts.
+Controls are pills; text fields use 14px corners; cards 24px; stat tiles 20px; the primary orange card 28px. Cards have no border, only a two-layer shadow (a 1px translucent outline in dark). Clickable cards rise 2px with a lifted shadow. Blocks enter with a 10px blur and 16px rise, staggered by 70ms, and only on navigation. Everything honors `prefers-reduced-motion`.
 
 ## Components and states
 
@@ -63,9 +67,9 @@ Following subscribes to content; connecting authorizes a professional relationsh
 
 ## Professional social surfaces
 
-The social profile, feed, post, activity and people surfaces use the existing system font and button primitives with a scoped warm palette. `src/app/globals.css` is canonical: `.social-surface` maps canvas to `#fdfcf9`, secondary surface to `#faf9f3`, cream to `#f3f0e2`, border to `#e8e3d6`, ink to `#1b1a18`, and muted text to `#787369`. Brand action, focus and semantic colors remain inherited. These overrides do not alter the global workspace palette or `/demo`.
+The social profile, feed, post, activity and people surfaces use the shared tokens in both themes. Posts, the composer and the profile introduction are soft cards; feed tabs are pill segments; the profile cover uses the brand gradient with one restrained geometric detail. `.social-surface` only maps the cream tone to the subtle surface.
 
-Professional identity leads the profile: a neutral cream cover with one restrained geometric detail, an overlapping avatar, name, headline, location, current visible experience and secondary social counts. Own-profile actions prioritize creating a post and editing the profile; public preview and social settings live in the overflow. Visitor actions follow the configured primary relationship action, with invitations and destructive relationship actions in the overflow. Counts link only to lists belonging to the viewer when those routes exist.
+Professional identity leads the profile: a brand-gradient cover with one restrained geometric detail, an overlapping avatar, name, headline, location, current visible experience and secondary social counts. Own-profile actions prioritize creating a post and editing the profile; public preview and social settings live in the overflow. Visitor actions follow the configured primary relationship action, with invitations and destructive relationship actions in the overflow. Counts link only to lists belonging to the viewer when those routes exist.
 
 Profile sections use quiet rules and chronological records. Featured and activity content use the canonical PostCard `profile` variant: bounded text, compact media and a permalink action. Each preview has at most three posts; skills and interests expose six topics before a native disclosure. Verified participation retains the existing careful source language.
 

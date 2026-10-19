@@ -3,10 +3,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, ArrowUpRight, BookMarked, CircleUserRound, ClipboardCheck, ChevronRight, FolderKanban, Handshake, Landmark, Menu, Route, Telescope, Trophy, UsersRound, Waypoints, Workflow, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, BookMarked, CircleUserRound, ClipboardCheck, Flag, FolderKanban, Handshake, Landmark, Menu, Route, Telescope, Trophy, UsersRound, Waypoints, Workflow, X } from "lucide-react";
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 
+import { AtlasLogo, AtlasMark } from "@/components/brand/logo";
 import { useDemoDialog } from "@/components/demo/demo-dialog";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 type Perspective = "instituicao" | "participante";
 type PreviewKey = "team" | "projects" | "evaluation" | "ranking" | "profile" | "network";
@@ -21,15 +23,15 @@ const previewContent: Record<PreviewKey, { title: string; description: string; i
 };
 
 const institutionalNavigation = [
-  { href: "/demo", label: "Visão geral", icon: Landmark, exact: true },
+  { href: "/demo", label: "Visão geral", short: "Início", icon: Landmark, exact: true },
   { href: "/demo/programas", label: "Programas", icon: BookMarked },
-  { href: "/demo/acompanhamentos", label: "Acompanhamentos", icon: Workflow },
+  { href: "/demo/acompanhamentos", label: "Acompanhamentos", short: "Ondas", icon: Workflow },
   { href: "/demo/oportunidades", label: "Oportunidades", icon: Telescope },
 ];
 
 const participantNavigation = [
-  { href: "/demo", label: "Minha trajetória", icon: Route, exact: true },
-  { href: "/demo/programas", label: "Meus programas", icon: BookMarked },
+  { href: "/demo", label: "Minha trajetória", short: "Trajetória", icon: Route, exact: true },
+  { href: "/demo/programas", label: "Meus programas", short: "Programas", icon: BookMarked },
   { href: "/demo/oportunidades", label: "Oportunidades", icon: Telescope },
 ];
 
@@ -65,88 +67,82 @@ function DemoShellContent({ children }: { children: ReactNode }) {
   }
 
   const navigation = perspective === "instituicao" ? institutionalNavigation : participantNavigation;
-  const isParticipant = perspective === "participante";
+  const previews: Array<{ key: PreviewKey; label: string; icon: typeof Landmark }> = perspective === "instituicao"
+    ? [{ key: "team", label: "Equipes", icon: UsersRound }, { key: "evaluation", label: "Avaliação", icon: ClipboardCheck }, { key: "ranking", label: "Classificação", icon: Trophy }]
+    : [{ key: "projects", label: "Meus projetos", icon: FolderKanban }, { key: "team", label: "Minhas equipes", icon: Handshake }, { key: "profile", label: "Perfil", icon: CircleUserRound }];
+  const otherPerspective: Perspective = perspective === "instituicao" ? "participante" : "instituicao";
+  const homeHref = `/demo?perspectiva=${perspective}`;
 
   return (
-    <div className="demo-shell min-h-screen">
+    <div className="demo-shell app-shell">
       <a className="skip-link" href="#demo-main-content">Ir para o conteúdo</a>
-      <div className="demo-layout">
-        <aside className="demo-sidebar hidden lg:flex" aria-label="Navegação da demonstração">
-          <DemoBrand />
-          <div className="demo-sidebar-section">
-            <p className="demo-sidebar-kicker">Perspectiva</p>
-            <PerspectiveSwitch value={perspective} onChange={changePerspective} compact />
+      <div className="demo-ribbon" role="note"><Flag size={12} aria-hidden="true" />Demonstração pública · pessoas, empreendimentos e resultados são fictícios</div>
+      <div className="app-grid has-rail app-boot">
+        <header className="topbar">
+          <div className="tb-l">
+            <button ref={menuButtonRef} type="button" className="ibtn pill show-lt-lg" onClick={() => setMobileOpen(true)} aria-label="Abrir menu da demonstração" aria-expanded={mobileOpen}><Menu size={20} aria-hidden="true" /></button>
+            <Link href={homeHref} className="pill brandpill" aria-label="Atlas Innove, início da demonstração"><AtlasMark /><span className="brand-t">Atlas Innove</span></Link>
           </div>
-          <nav className="demo-nav" aria-label={perspective === "instituicao" ? "Navegação institucional" : "Navegação do participante"}>
-            <p className="demo-sidebar-kicker">{perspective === "instituicao" ? "Instituição" : "Participante"}</p>
-            {navigation.map((item) => <DemoNavItem key={item.href + item.label} item={item} pathname={pathname} perspective={perspective} />)}
-            <div className="demo-nav-divider" />
-            {perspective === "instituicao" ? <>
-              <PreviewNavButton icon={UsersRound} label="Equipes" onClick={() => setPreview("team")} />
-              <PreviewNavButton icon={ClipboardCheck} label="Avaliação" onClick={() => setPreview("evaluation")} />
-              <PreviewNavButton icon={Trophy} label="Ranking" onClick={() => setPreview("ranking")} />
-            </> : <>
-              <PreviewNavButton icon={FolderKanban} label="Meus projetos" onClick={() => setPreview("projects")} />
-              <PreviewNavButton icon={Handshake} label="Minhas equipes" onClick={() => setPreview("team")} />
-              <PreviewNavButton icon={CircleUserRound} label="Perfil" onClick={() => setPreview("profile")} />
-            </>}
+          <nav className="pnav static hide-lt-lg" aria-label={perspective === "instituicao" ? "Navegação institucional" : "Navegação do participante"}>
+            {navigation.map((item) => <DemoNavLink key={item.href + item.label} item={item} pathname={pathname} perspective={perspective} />)}
           </nav>
-          <div className="demo-sidebar-footer">
-            <span className="demo-footnote-dot" aria-hidden="true" />
-            <span>Ambiente demonstrativo</span>
+          <div className="tb-r">
+            <span className="show-lt-lg"><ThemeToggle orientation="h" /></span>
+            <Link href="/login" className="button-secondary hide-narrow">Entrar</Link>
+            <Link href="/signup" className="button-primary">Criar conta</Link>
+          </div>
+        </header>
+
+        <aside className="rail hide-lt-lg" aria-label="Atalhos da demonstração">
+          <ThemeToggle orientation="v" />
+          <nav className="rail-nav" aria-label="Funções em prévia">
+            {previews.map((item) => { const Icon = item.icon; return <button key={item.key} type="button" className="rl-btn" aria-label={`${item.label} (prévia)`} data-tip={item.label} onClick={() => setPreview(item.key)}><Icon size={20} aria-hidden="true" /></button>; })}
+          </nav>
+          <div className="rail-bot">
+            <button type="button" className="rl-btn" aria-label={`Ver como ${otherPerspective === "participante" ? "participante" : "instituição"}`} data-tip={`Ver como ${otherPerspective === "participante" ? "participante" : "instituição"}`} onClick={() => changePerspective(otherPerspective)}>{otherPerspective === "participante" ? <CircleUserRound size={20} aria-hidden="true" /> : <Landmark size={20} aria-hidden="true" />}</button>
           </div>
         </aside>
 
-        <div className="demo-main">
-          <header className="demo-topbar">
-            <div className="flex min-w-0 items-center gap-3">
-              <button ref={menuButtonRef} type="button" className="demo-icon-button lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Abrir menu da demonstração" aria-expanded={mobileOpen}><Menu size={18} aria-hidden="true" /></button>
-              <Link href={`/demo?perspectiva=${perspective}`} className="demo-mobile-brand lg:hidden"><span className="demo-mobile-brand-logo-wrap"><Image src="/brand/atlas-innove-lockup.svg" alt="Atlas Innove" width={250} height={83} priority className="demo-mobile-brand-logo" /></span></Link>
-              <span className="demo-topbar-context hidden sm:inline">Demonstração pública · acompanhamento longitudinal</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="demo-status-chip"><span aria-hidden="true" /> Dados fictícios</span>
-              <div className="hidden sm:block"><PerspectiveSwitch value={perspective} onChange={changePerspective} /></div>
-              <div className="demo-avatar" aria-label={isParticipant ? "Marina Duarte" : "Visão institucional"}>
-                {isParticipant ? <Image src="/demo/marina-duarte-profile.webp" alt="" width={32} height={32} className="demo-profile-image" /> : "VI"}
-              </div>
-            </div>
-          </header>
-          <div className="demo-mobile-switch sm:hidden"><PerspectiveSwitch value={perspective} onChange={changePerspective} /></div>
-          <main id="demo-main-content" className="demo-content">{children}</main>
-        </div>
+        <div className="app-main"><main id="demo-main-content" className="app-content demo-content" tabIndex={-1}>{children}</main></div>
+
+        <nav className="tabbar" aria-label="Navegação da demonstração">
+          {navigation.map((item) => { const Icon = item.icon; const active = item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`); return <Link key={item.href + item.label} href={`${item.href}?perspectiva=${perspective}`} aria-current={active ? "page" : undefined}><Icon size={22} aria-hidden="true" /><span>{("short" in item ? item.short : item.label.split(" ")[0])}</span></Link>; })}
+          <button type="button" onClick={() => setMobileOpen(true)} aria-haspopup="dialog" aria-label="Mais opções da demonstração"><UsersRound size={22} aria-hidden="true" /><span>Mais</span></button>
+        </nav>
       </div>
 
-      {mobileOpen ? <MobileDemoNavigation perspective={perspective} navigation={navigation} pathname={pathname} onChangePerspective={changePerspective} onClose={() => { setMobileOpen(false); menuButtonRef.current?.focus(); }} onPreview={setPreview} /> : null}
+      {mobileOpen ? <MobileDemoNavigation perspective={perspective} navigation={navigation} previews={previews} pathname={pathname} onChangePerspective={changePerspective} onClose={() => { setMobileOpen(false); menuButtonRef.current?.focus(); }} onPreview={setPreview} /> : null}
       {preview ? <FeaturePreview preview={preview} onClose={() => setPreview(null)} /> : null}
       {welcomeOpen ? <WelcomeOverlay onClose={() => setWelcomeOpen(false)} onSelectPerspective={(nextPerspective) => { changePerspective(nextPerspective); setWelcomeOpen(false); }} /> : null}
     </div>
   );
 }
 
-function DemoBrand() {
-  return <div className="demo-brand-block"><div className="demo-brand-logo-wrap"><Image src="/brand/atlas-innove-lockup.svg" alt="Atlas Innove" width={250} height={83} priority className="demo-brand-logo" /></div></div>;
-}
-
-function PerspectiveSwitch({ value, onChange, compact = false }: { value: Perspective; onChange: (value: Perspective) => void; compact?: boolean }) {
-  return <div className={`demo-perspective-switch ${compact ? "demo-perspective-switch-compact" : ""}`} role="group" aria-label="Trocar perspectiva"><button type="button" className={value === "instituicao" ? "is-active" : ""} onClick={() => onChange("instituicao")} aria-pressed={value === "instituicao"}>Instituição</button><button type="button" className={value === "participante" ? "is-active" : ""} onClick={() => onChange("participante")} aria-pressed={value === "participante"}>Participante</button></div>;
-}
-
-function DemoNavItem({ item, pathname, perspective }: { item: (typeof institutionalNavigation)[number]; pathname: string; perspective: Perspective }) {
+function DemoNavLink({ item, pathname, perspective }: { item: (typeof institutionalNavigation)[number]; pathname: string; perspective: Perspective }) {
   const active = item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
-  const params = `?perspectiva=${perspective}`;
-  const Icon = item.icon;
-  return <Link href={`${item.href}${params}`} aria-current={active ? "page" : undefined} className={`demo-nav-item ${active ? "is-active" : ""}`}><Icon size={16} strokeWidth={active ? 2 : 1.7} aria-hidden="true" /><span>{item.label}</span>{active ? <ChevronRight size={13} className="ml-auto" aria-hidden="true" /> : null}</Link>;
+  return <Link href={`${item.href}?perspectiva=${perspective}`} aria-current={active ? "page" : undefined}>{item.label}</Link>;
 }
 
-function PreviewNavButton({ icon: Icon, label, onClick }: { icon: typeof Landmark; label: string; onClick: () => void }) {
-  return <button type="button" className="demo-nav-item demo-nav-button" onClick={onClick}><Icon size={16} strokeWidth={1.7} aria-hidden="true" /><span>{label}</span></button>;
-}
-
-function MobileDemoNavigation({ perspective, navigation, pathname, onChangePerspective, onClose, onPreview }: { perspective: Perspective; navigation: typeof institutionalNavigation; pathname: string; onChangePerspective: (value: Perspective) => void; onClose: () => void; onPreview: (key: PreviewKey) => void }) {
+function MobileDemoNavigation({ perspective, navigation, previews, pathname, onChangePerspective, onClose, onPreview }: { perspective: Perspective; navigation: typeof institutionalNavigation; previews: Array<{ key: PreviewKey; label: string; icon: typeof Landmark }>; pathname: string; onChangePerspective: (value: Perspective) => void; onClose: () => void; onPreview: (key: PreviewKey) => void }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   useDemoDialog({ open: true, onClose, surfaceRef: dialogRef });
-  return <div className="demo-mobile-overlay"><button type="button" className="demo-mobile-scrim" onClick={onClose} aria-label="Fechar menu" /><div ref={dialogRef} className="demo-mobile-drawer" role="dialog" aria-modal="true" aria-label="Menu da demonstração"><div className="flex items-center justify-between border-b border-[#e9e4d9] px-5 py-4"><DemoBrand /><button type="button" className="demo-icon-button" onClick={onClose} aria-label="Fechar menu"><X size={18} aria-hidden="true" /></button></div><div className="p-4"><p className="demo-sidebar-kicker">Perspectiva</p><PerspectiveSwitch value={perspective} onChange={onChangePerspective} /><nav className="demo-nav mt-5" aria-label="Menu móvel">{navigation.map((item) => <DemoNavItem key={item.href + item.label} item={item} pathname={pathname} perspective={perspective} />)}<div className="demo-nav-divider" />{perspective === "instituicao" ? <><PreviewNavButton icon={UsersRound} label="Equipes" onClick={() => { onPreview("team"); onClose(); }} /><PreviewNavButton icon={ClipboardCheck} label="Avaliação" onClick={() => { onPreview("evaluation"); onClose(); }} /><PreviewNavButton icon={Trophy} label="Ranking" onClick={() => { onPreview("ranking"); onClose(); }} /></> : <><PreviewNavButton icon={FolderKanban} label="Meus projetos" onClick={() => { onPreview("projects"); onClose(); }} /><PreviewNavButton icon={Handshake} label="Minhas equipes" onClick={() => { onPreview("team"); onClose(); }} /><PreviewNavButton icon={CircleUserRound} label="Perfil" onClick={() => { onPreview("profile"); onClose(); }} /></>}</nav></div><div className="mt-auto border-t border-[#e9e4d9] px-5 py-4 text-xs text-[#9e9688]">Ambiente demonstrativo</div></div></div>;
+  return <div className="fixed inset-0 z-[70] flex" style={{ background: "var(--scrim)", backdropFilter: "blur(4px)" }}>
+    <button type="button" className="absolute inset-0 cursor-default" tabIndex={-1} onClick={onClose} aria-label="Fechar menu" />
+    <div ref={dialogRef} className="relative flex h-full w-[min(20rem,calc(100%-2.75rem))] flex-col overflow-y-auto bg-surface text-ink" role="dialog" aria-modal="true" aria-label="Menu da demonstração" style={{ borderRadius: "0 28px 28px 0", boxShadow: "var(--shadow-pop)", animation: "drawer .24s ease-out" }}>
+      <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-4"><Link href={`/demo?perspectiva=${perspective}`} aria-label="Atlas Innove" onClick={onClose}><AtlasLogo className="h-11 w-auto" /></Link><span className="flex items-center gap-1"><ThemeToggle orientation="h" /><button type="button" className="ibtn" onClick={onClose} aria-label="Fechar menu"><X size={20} aria-hidden="true" /></button></span></div>
+      <div className="space-y-3 px-4 pt-2"><p className="eyebrow">Perspectiva</p><PerspectiveSwitch value={perspective} onChange={onChangePerspective} /></div>
+      <nav className="flex-1 space-y-1 px-3 py-4" aria-label="Menu móvel">
+        {navigation.map((item) => { const Icon = item.icon; const active = item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`); return <Link key={item.href + item.label} href={`${item.href}?perspectiva=${perspective}`} className="nav-link" aria-current={active ? "page" : undefined}><Icon size={18} aria-hidden="true" />{item.label}</Link>; })}
+        <hr className="my-2 border-0 border-t border-line" />
+        {previews.map((item) => { const Icon = item.icon; return <button key={item.key} type="button" className="nav-link" onClick={() => { onPreview(item.key); onClose(); }}><Icon size={18} aria-hidden="true" />{item.label}</button>; })}
+      </nav>
+      <div className="border-t border-line px-5 py-4 text-xs text-slate">Ambiente demonstrativo</div>
+    </div>
+  </div>;
+}
+
+function PerspectiveSwitch({ value, onChange }: { value: Perspective; onChange: (value: Perspective) => void }) {
+  return <div className="persp" role="group" aria-label="Trocar perspectiva"><button type="button" aria-pressed={value === "instituicao"} aria-current={value === "instituicao" ? "page" : undefined} onClick={() => onChange("instituicao")}>Instituição</button><button type="button" aria-pressed={value === "participante"} aria-current={value === "participante" ? "page" : undefined} onClick={() => onChange("participante")}>Participante</button></div>;
 }
 
 function WelcomeOverlay({ onClose, onSelectPerspective }: { onClose: () => void; onSelectPerspective: (perspective: Perspective) => void }) {
