@@ -33,11 +33,13 @@ export function ThemeToggle({ orientation = "h", className = "" }: { orientation
     const next: Theme = currentTheme() === "dark" ? "light" : "dark";
     const root = document.documentElement;
     if (prefersReducedMotion()) { apply(next); return; }
+    root.classList.add("theme-switching");
+    const settle = () => root.classList.remove("theme-switching", "vt-soft");
     const transitions = document as Document & { startViewTransition?: (callback: () => void) => { ready: Promise<void>; finished: Promise<void> } };
     if (!transitions.startViewTransition) {
       root.classList.add("tfade");
       apply(next);
-      window.setTimeout(() => root.classList.remove("tfade"), 450);
+      window.setTimeout(() => { root.classList.remove("tfade"); settle(); }, 450);
       return;
     }
     const rect = event.currentTarget.getBoundingClientRect();
@@ -53,7 +55,7 @@ export function ThemeToggle({ orientation = "h", className = "" }: { orientation
       if (soft) root.animate({ "--r": ["0px", `${end + 160}px`] } as unknown as PropertyIndexedKeyframes, { duration: 1000, easing: "cubic-bezier(.6,.04,.2,1)", pseudoElement: "::view-transition-new(root)" });
       else root.animate({ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${end}px at ${x}px ${y}px)`] }, { duration: 800, easing: "cubic-bezier(.6,.04,.2,1)", pseudoElement: "::view-transition-new(root)" });
     }).catch(() => undefined);
-    transition.finished.finally(() => root.classList.remove("vt-soft"));
+    transition.finished.finally(settle);
   }, [apply]);
 
   const dark = theme === "dark";

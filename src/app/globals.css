@@ -60,6 +60,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 ::view-transition-new(root) { z-index: 2; }
 @property --r { syntax: '<length>'; inherits: false; initial-value: 0px; }
 html.vt-soft::view-transition-new(root) { -webkit-mask-image: radial-gradient(circle at var(--tx) var(--ty), #000 calc(var(--r) - 140px), transparent var(--r)); mask-image: radial-gradient(circle at var(--tx) var(--ty), #000 calc(var(--r) - 140px), transparent var(--r)); }
+/* Colors must be final in the view-transition snapshot, otherwise surfaces with color transitions flash when it ends. */
+html.theme-switching, html.theme-switching *, html.theme-switching *::before, html.theme-switching *::after { transition: none !important; }
 html.tfade, html.tfade * { transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease !important; }
 
 @keyframes rise { from { opacity: 0; filter: blur(10px); transform: translateY(16px); } to { opacity: 1; filter: none; transform: none; } }
