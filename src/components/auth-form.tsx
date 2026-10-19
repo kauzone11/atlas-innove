@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 import { PasswordField } from "@/components/auth/password-field";
 
@@ -55,7 +56,7 @@ export function AuthForm({ mode, redirectTo }: { mode: AuthMode; redirectTo?: st
       {!isRegister ? <div className="-mt-1 text-right"><Link href="/recover" className="text-sm font-medium text-accent-hover underline-offset-4 hover:underline">Esqueci minha senha</Link></div> : null}
       {error ? <p className="banner bad" role="alert">{error}</p> : null}
       <button type="submit" disabled={pending} className="button-primary w-full">
-        {pending ? "Aguarde…" : isRegister ? "Criar conta" : "Entrar"}
+        {pending ? "Aguarde…" : <>{isRegister ? "Criar conta" : "Entrar"}<ArrowRight size={16} aria-hidden="true" className="hidden max-[899px]:block" /></>}
       </button>
     </form>
   );
