@@ -48,9 +48,9 @@ function MilestoneForm({ organizationId, ventureId, milestone, onSuccess }: { or
 
   return <form className="space-y-5" onSubmit={submit}>
     <label className="block space-y-2 text-sm font-medium text-ink"><span>Tipo de marco</span><select className="field-control" value={type} onChange={(event) => setType(event.target.value as keyof typeof milestoneLabels)}>{Object.entries(milestoneLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-    <label className="block space-y-2 text-sm font-medium text-ink"><span>Título</span><input className="field-control" value={title} onChange={(event) => setTitle(event.target.value)} required minLength={2} maxLength={160} /></label>
+    <label className="block space-y-2 text-sm font-medium text-ink"><span>Título</span><input placeholder="Ex.: Primeiro cliente pagante" className="field-control" value={title} onChange={(event) => setTitle(event.target.value)} required minLength={2} maxLength={160} /></label>
     <label className="block space-y-2 text-sm font-medium text-ink"><span>Data do acontecimento</span><input className="field-control" type="date" value={occurredAt} onChange={(event) => setOccurredAt(event.target.value)} required /></label>
-    <label className="block space-y-2 text-sm font-medium text-ink"><span>Descrição <span className="font-normal text-slate">(opcional)</span></span><textarea className="field-control min-h-28" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={3000} /></label>
+    <label className="block space-y-2 text-sm font-medium text-ink"><span>Descrição <span className="font-normal text-slate">(opcional)</span></span><textarea className="field-control min-h-28" placeholder="Ex.: O que foi alcançado e qual o impacto" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={3000} /></label>
     {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
     <button disabled={pending} className="button-primary w-full">{pending ? "Salvando…" : milestone ? "Salvar alterações" : "Registrar marco"}</button>
   </form>;

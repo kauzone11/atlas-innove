@@ -44,9 +44,9 @@ export function ProgramEditForm({ organizationId, program, canManage, onSuccess 
   return (
     <form onSubmit={submit} className="space-y-5">
       <div className="grid gap-4 md:grid-cols-2">
-        <Field id="program-edit-name" label="Nome" value={name} onChange={setName} required />
-        <Field id="program-edit-slug" label="Identificador" value={slug} onChange={setSlug} required />
-        <Field id="program-edit-code" label="Código" value={code} onChange={setCode} />
+        <Field placeholder="Ex.: Programa de Inovação Tecnológica" id="program-edit-name" label="Nome" value={name} onChange={setName} required />
+        <Field placeholder="Ex.: programa-inovacao" id="program-edit-slug" label="Identificador" value={slug} onChange={setSlug} required />
+        <Field placeholder="Ex.: PIT-2026" id="program-edit-code" label="Código" value={code} onChange={setCode} />
         <label className="block space-y-2 text-sm font-medium text-ink">
           <span>Status</span>
           <select value={status} onChange={(event) => setStatus(event.target.value)} className="field-control">
@@ -58,7 +58,7 @@ export function ProgramEditForm({ organizationId, program, canManage, onSuccess 
         </label>
         <label className="block space-y-2 text-sm font-medium text-ink md:col-span-2">
           <span>Descrição</span>
-          <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} maxLength={2000} className="field-control" />
+          <textarea placeholder="Ex.: Objetivo e público do programa" value={description} onChange={(event) => setDescription(event.target.value)} rows={3} maxLength={2000} className="field-control" />
         </label>
       </div>
       {error ? <p className="text-sm text-danger" role="alert">{error}</p> : null}
@@ -69,11 +69,11 @@ export function ProgramEditForm({ organizationId, program, canManage, onSuccess 
   );
 }
 
-function Field({ id, label, value, onChange, required }: { id: string; label: string; value: string; onChange: (value: string) => void; required?: boolean }) {
+function Field({ placeholder, id, label, value, onChange, required }: { placeholder?: string; id: string; label: string; value: string; onChange: (value: string) => void; required?: boolean }) {
   return (
     <label htmlFor={id} className="block space-y-2 text-sm font-medium text-ink">
       <span>{label}</span>
-      <input id={id} value={value} onChange={(event) => onChange(event.target.value)} required={required} className="field-control" />
+      <input placeholder={placeholder} id={id} value={value} onChange={(event) => onChange(event.target.value)} required={required} className="field-control" />
     </label>
   );
 }

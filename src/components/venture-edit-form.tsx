@@ -43,8 +43,8 @@ export function VentureEditForm({ organizationId, venture, canManage, onSuccess 
   return (
     <form onSubmit={submit} className="space-y-5">
       <div className="grid gap-4 md:grid-cols-2">
-        <Field id="venture-edit-name" label="Nome de uso" value={name} onChange={setName} required />
-        <Field id="venture-edit-legal-name" label="Razão social ou nome legal" value={legalName} onChange={setLegalName} />
+        <Field placeholder="Ex.: Startup Lumina" id="venture-edit-name" label="Nome de uso" value={name} onChange={setName} required />
+        <Field placeholder="Ex.: Lumina Tecnologia Ltda." id="venture-edit-legal-name" label="Razão social ou nome legal" value={legalName} onChange={setLegalName} />
         <label htmlFor="venture-edit-kind" className="block space-y-2 text-sm font-medium text-ink">
           <span>Tipo</span>
           <select id="venture-edit-kind" value={kind} onChange={(event) => setKind(event.target.value)} className="field-control">
@@ -54,7 +54,7 @@ export function VentureEditForm({ organizationId, venture, canManage, onSuccess 
             <option value="OTHER">Outro</option>
           </select>
         </label>
-        <Field id="venture-edit-reference" label="Referência externa" value={externalReference} onChange={setExternalReference} />
+        <Field placeholder="Ex.: Código no registro interno" id="venture-edit-reference" label="Referência externa" value={externalReference} onChange={setExternalReference} />
       </div>
       {error ? <p className="text-sm text-danger" role="alert">{error}</p> : null}
       <button disabled={pending} className="button-primary w-full">
@@ -64,11 +64,11 @@ export function VentureEditForm({ organizationId, venture, canManage, onSuccess 
   );
 }
 
-function Field({ id, label, value, onChange, required }: { id: string; label: string; value: string; onChange: (value: string) => void; required?: boolean }) {
+function Field({ placeholder, id, label, value, onChange, required }: { placeholder?: string; id: string; label: string; value: string; onChange: (value: string) => void; required?: boolean }) {
   return (
     <label htmlFor={id} className="block space-y-2 text-sm font-medium text-ink">
       <span>{label}</span>
-      <input id={id} value={value} onChange={(event) => onChange(event.target.value)} required={required} className="field-control" />
+      <input placeholder={placeholder} id={id} value={value} onChange={(event) => onChange(event.target.value)} required={required} className="field-control" />
     </label>
   );
 }

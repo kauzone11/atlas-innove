@@ -46,25 +46,25 @@ export function FundingCallForm({ organizationId, programId, call, onSuccess, on
   }
 
   return <form onSubmit={submit} className="space-y-5">
-    <Field name="title" label="Título do edital" value={call?.title} required maxLength={200} />
+    <Field placeholder="Ex.: Chamada pública de inovação 2026" name="title" label="Título do edital" value={call?.title} required maxLength={200} />
     <div className="grid gap-4 sm:grid-cols-2">
-      <Field name="callNumber" label="Número do edital" value={call?.callNumber} required maxLength={80} />
+      <Field placeholder="Ex.: 01/2026" name="callNumber" label="Número do edital" value={call?.callNumber} required maxLength={80} />
       <label className="block space-y-2 text-sm font-medium text-ink"><span>Status</span><select name="status" defaultValue={call?.status ?? "DRAFT"} className="field-control">{availableStatuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>{call?.applicationsEnabled && !call.resultsPublishedAt ? <span className="block text-xs font-normal text-slate">Publique as decisões na classificação para liberar o resultado aos participantes.</span> : null}</label>
     </div>
-    <Field name="sourceUrl" label="Link da publicação ou fonte oficial (opcional)" value={call?.sourceUrl} type="url" maxLength={2048} />
+    <Field placeholder="https://exemplo.gov.br/edital" name="sourceUrl" label="Link da publicação ou fonte oficial (opcional)" value={call?.sourceUrl} type="url" maxLength={2048} />
     <label className="flex min-h-11 items-start gap-3 text-sm text-ink"><input type="checkbox" name="applicationsEnabled" defaultChecked={call?.applicationsEnabled ?? false} disabled={Boolean(call && ["IN_REVIEW", "RESULT_PUBLISHED", "CLOSED", "ARCHIVED"].includes(call.status))} className="mt-1 h-5 w-5" /><span className="min-w-0"><span className="font-medium">Receber candidaturas pelo Innove</span><span className="mt-1 block text-slate">Projetos poderão se candidatar quando o edital estiver aberto e dentro do período de inscrições.</span></span></label>
-    <label className="block space-y-2 text-sm font-medium text-ink"><span>Objetivo <span className="font-normal text-slate">(opcional)</span></span><textarea name="objective" defaultValue={call?.objective ?? ""} rows={3} maxLength={4000} className="field-control" /></label>
+    <label className="block space-y-2 text-sm font-medium text-ink"><span>Objetivo <span className="font-normal text-slate">(opcional)</span></span><textarea name="objective" defaultValue={call?.objective ?? ""} rows={3} maxLength={4000} className="field-control" placeholder="Ex.: Apoiar projetos de base tecnológica" /></label>
     <fieldset className="space-y-4 border-t border-line pt-4"><legend className="pr-2 text-sm font-semibold text-ink">Calendário</legend><div className="grid gap-4 sm:grid-cols-2">
       <Field name="publishedAt" label="Publicação" value={dateInput(call?.publishedAt)} type="date" />
       <Field name="applicationStartsAt" label="Abertura das inscrições" value={dateInput(call?.applicationStartsAt)} type="date" />
       <Field name="applicationEndsAt" label="Encerramento das inscrições" value={dateInput(call?.applicationEndsAt)} type="date" />
     </div></fieldset>
     <details className="border-t border-line pt-4"><summary className="cursor-pointer text-sm font-semibold text-ink">Orçamento e informações adicionais</summary><div className="mt-4 grid gap-4 sm:grid-cols-2">
-      <Field name="shortTitle" label="Título curto" value={call?.shortTitle} maxLength={100} />
-      <Field name="totalBudget" label="Orçamento total (R$)" value={call?.totalBudget} type="number" min="0" step="0.01" />
-      <Field name="maximumSupport" label="Apoio máximo por projeto (R$)" value={call?.maximumSupport} type="number" min="0" step="0.01" />
-      <Field name="targetProjects" label="Projetos previstos" value={call?.targetProjects?.toString()} type="number" min="1" max="1000000" />
-      <Field name="executionMonths" label="Prazo de execução (meses)" value={call?.executionMonths?.toString()} type="number" min="1" max="1200" />
+      <Field placeholder="Ex.: Inovação 2026" name="shortTitle" label="Título curto" value={call?.shortTitle} maxLength={100} />
+      <Field placeholder="Ex.: 2.000.000,00" name="totalBudget" label="Orçamento total (R$)" value={call?.totalBudget} type="number" min="0" step="0.01" />
+      <Field placeholder="Ex.: 150.000,00" name="maximumSupport" label="Apoio máximo por projeto (R$)" value={call?.maximumSupport} type="number" min="0" step="0.01" />
+      <Field placeholder="Ex.: 20" name="targetProjects" label="Projetos previstos" value={call?.targetProjects?.toString()} type="number" min="1" max="1000000" />
+      <Field placeholder="Ex.: 12" name="executionMonths" label="Prazo de execução (meses)" value={call?.executionMonths?.toString()} type="number" min="1" max="1200" />
     </div></details>
     <p className="text-sm leading-6 text-slate">Ao arquivar, o edital permanece no histórico e deixa de aceitar alterações e novas coortes.</p>
     {error ? <p className="text-sm text-danger" role="alert">{error}</p> : null}
@@ -72,8 +72,8 @@ export function FundingCallForm({ organizationId, programId, call, onSuccess, on
   </form>;
 }
 
-function Field({ name, label, value, type = "text", required, min, max, maxLength, step }: { name: string; label: string; value?: string | null; type?: string; required?: boolean; min?: string; max?: string; maxLength?: number; step?: string }) {
-  return <label className="block space-y-2 text-sm font-medium text-ink"><span>{label}</span><input name={name} defaultValue={value ?? ""} type={type} required={required} min={min} max={max} maxLength={maxLength} step={step} className="field-control" /></label>;
+function Field({ placeholder, name, label, value, type = "text", required, min, max, maxLength, step }: { placeholder?: string; name: string; label: string; value?: string | null; type?: string; required?: boolean; min?: string; max?: string; maxLength?: number; step?: string }) {
+  return <label className="block space-y-2 text-sm font-medium text-ink"><span>{label}</span><input placeholder={placeholder} name={name} defaultValue={value ?? ""} type={type} required={required} min={min} max={max} maxLength={maxLength} step={step} className="field-control" /></label>;
 }
 
 function dateInput(value?: string | null) { return value?.slice(0, 10) ?? ""; }

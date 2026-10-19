@@ -69,9 +69,9 @@ export function CohortEditForm({ organizationId, cohort, canManage, fundingCalls
   return (
     <form onSubmit={submit} className="space-y-5">
       <div className="grid gap-4 md:grid-cols-2">
-        <Field id="cohort-edit-name" label="Nome" value={name} onChange={setName} required />
-        <Field id="cohort-edit-code" label="Código" value={code} onChange={setCode} />
-        <Field id="cohort-edit-year" label="Ano de referência" value={referenceYear} onChange={setReferenceYear} type="number" min="1900" max="2200" />
+        <Field placeholder="Ex.: Coorte 2026" id="cohort-edit-name" label="Nome" value={name} onChange={setName} required />
+        <Field placeholder="Ex.: C-2026" id="cohort-edit-code" label="Código" value={code} onChange={setCode} />
+        <Field placeholder="Ex.: 2026" id="cohort-edit-year" label="Ano de referência" value={referenceYear} onChange={setReferenceYear} type="number" min="1900" max="2200" />
         <label className="block space-y-2 text-sm font-medium text-ink">
           <span>Status</span>
           <select value={status} onChange={(event) => setStatus(event.target.value)} className="field-control">
@@ -94,11 +94,11 @@ export function CohortEditForm({ organizationId, cohort, canManage, fundingCalls
   );
 }
 
-function Field({ id, label, value, onChange, type = "text", required, min, max }: { id: string; label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean; min?: string; max?: string }) {
+function Field({ placeholder, id, label, value, onChange, type = "text", required, min, max }: { placeholder?: string; id: string; label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean; min?: string; max?: string }) {
   return (
     <label htmlFor={id} className="block space-y-2 text-sm font-medium text-ink">
       <span>{label}</span>
-      <input id={id} type={type} value={value} onChange={(event) => onChange(event.target.value)} required={required} min={min} max={max} className="field-control" />
+      <input placeholder={placeholder} id={id} type={type} value={value} onChange={(event) => onChange(event.target.value)} required={required} min={min} max={max} className="field-control" />
     </label>
   );
 }

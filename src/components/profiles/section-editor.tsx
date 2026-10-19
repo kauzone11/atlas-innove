@@ -4,6 +4,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { Dialog } from "@/components/dialog";
+import { LocationFields } from "@/components/location-fields";
 import { personalRequest } from "@/components/personal/record-form";
 import type { OwnProfile } from "@/lib/profiles/service";
 import { privacyFields, visibilityDescriptions, visibilityLabels, type VisibilityScope } from "@/lib/profiles/visibility";
@@ -38,15 +39,15 @@ export function ProfileSectionEditor({ section, values }: { section: keyof typeo
     <Dialog open={open} onClose={() => { if (!pending) setOpen(false); }} title={titles[section]} description={section === "privacy" ? "As seções seguem a visibilidade do perfil. Experiências, formações e links também respeitam a escolha de cada registro." : undefined}>
       <form onSubmit={submit} className="space-y-4"><fieldset disabled={pending} className="min-w-0 space-y-4">
         {section === "identity" ? <>
-          <ProfileField label="Endereço do perfil" help="Letras, números e hífens. Alterar este endereço desativa o link anterior."><div className="flex min-w-0 items-center rounded-lg border border-line bg-surface-subtle"><span className="shrink-0 px-3 text-xs text-slate">/people/</span><input name="handle" className="field-control min-w-0 border-0" defaultValue={values.handle ?? ""} minLength={3} maxLength={64} autoCapitalize="none" autoCorrect="off" spellCheck={false} /></div></ProfileField>
+          <ProfileField label="Endereço do perfil" help="Letras, números e hífens. Alterar este endereço desativa o link anterior."><div className="flex min-w-0 items-center rounded-lg border border-line bg-surface-subtle"><span className="shrink-0 px-3 text-xs text-slate">/people/</span><input name="handle" className="field-control min-w-0 border-0" placeholder="ex-maria-silva" defaultValue={values.handle ?? ""} minLength={3} maxLength={64} autoCapitalize="none" autoCorrect="off" spellCheck={false} /></div></ProfileField>
           <ProfileField label="Apresentação" help="Sua atuação em uma frase. Necessária para publicar o perfil."><input className="field-control" name="headline" defaultValue={values.headline ?? ""} maxLength={180} placeholder="Ex.: Pesquisadora em biotecnologia e inovação" /></ProfileField>
-          <div className="grid gap-4 sm:grid-cols-2"><ProfileField label="Cidade"><input className="field-control" name="city" defaultValue={values.city ?? ""} maxLength={120} autoComplete="address-level2" /></ProfileField><ProfileField label="Estado"><input className="field-control" name="state" defaultValue={values.state ?? ""} maxLength={120} autoComplete="address-level1" /></ProfileField></div>
-          <ProfileField label="País"><input className="field-control" name="country" defaultValue={values.country ?? ""} maxLength={120} autoComplete="country-name" /></ProfileField>
+          <div className="grid gap-4 sm:grid-cols-2"><LocationFields defaultState={values.state} defaultCity={values.city} /></div>
+          <ProfileField label="País"><input className="field-control" name="country" defaultValue={values.country ?? ""} maxLength={120} autoComplete="country-name" placeholder="Ex.: Brasil" /></ProfileField>
         </> : null}
-        {section === "about" ? <ProfileField label="Sobre sua trajetória" help="Descreva sua atuação, experiências e o que pretende desenvolver."><textarea className="field-control" name="bio" defaultValue={values.bio ?? ""} rows={7} maxLength={4000} /></ProfileField> : null}
+        {section === "about" ? <ProfileField label="Sobre sua trajetória" help="Descreva sua atuação, experiências e o que pretende desenvolver."><textarea className="field-control" name="bio" defaultValue={values.bio ?? ""} rows={7} maxLength={4000} placeholder="Ex.: Atuo com pesquisa em biotecnologia e transferência de tecnologia há dez anos." /></ProfileField> : null}
         {section === "topics" ? <>
           <ProfileField label="Competências" help="Uma competência por linha. Até 20, com até 80 caracteres cada."><textarea className="field-control" name="skills" defaultValue={values.skills.join("\n")} rows={5} placeholder={"Pesquisa aplicada\nInteligência artificial"} /></ProfileField>
-          <ProfileField label="Áreas de interesse" help="Um interesse por linha. Essas informações ajudam a explicar a relevância das oportunidades."><textarea className="field-control" name="interests" defaultValue={values.interests.join("\n")} rows={5} /></ProfileField>
+          <ProfileField label="Áreas de interesse" help="Um interesse por linha. Essas informações ajudam a explicar a relevância das oportunidades."><textarea className="field-control" name="interests" defaultValue={values.interests.join("\n")} rows={5} placeholder={"Mobilidade urbana\nEducação empreendedora"} /></ProfileField>
         </> : null}
         {section === "discovery" ? <>
           <label className="flex min-h-11 items-start gap-3 text-sm"><input type="checkbox" name="directoryEnabled" defaultChecked={values.directoryEnabled} className="mt-1 h-5 w-5 shrink-0" /><span>Permita que outras pessoas na plataforma encontrem seu perfil para oportunidades de colaboração.</span></label>
