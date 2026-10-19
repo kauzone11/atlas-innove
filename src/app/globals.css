@@ -1143,6 +1143,13 @@ html[data-theme="dark"] .tt.h .tt-thumb { transform: translateX(40px); }
 .analytics-coverage { min-width: 0; }
 .analytics-coverage-track { height: .5rem; overflow: hidden; margin-block: .65rem; border-radius: 99px; background: var(--bg-sub); }
 .analytics-coverage-track span { display: block; height: 100%; border-radius: inherit; background: var(--wave); }
+.analytics-coverage-track.is-placeholder, .chart-placeholder-track { background: repeating-linear-gradient(135deg, var(--line-2) 0 1px, transparent 1px 7px), var(--bg-sub); }
+.chart-placeholder { position: relative; }
+.chart-placeholder-line { fill: none; stroke: var(--faint); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 6 6; }
+.chart-placeholder-point { fill: var(--surface); stroke: var(--faint); stroke-width: 1.5; stroke-dasharray: 2 2; }
+.chart-placeholder-message { position: absolute; top: 50%; left: 50%; width: max-content; max-width: calc(100% - 2rem); transform: translate(-50%, -50%); margin: 0; border-radius: 99px; background: var(--surface); padding: 6px 14px; color: var(--muted); font-size: 12px; text-align: center; box-shadow: 0 0 0 1px var(--line); }
+.chart-placeholder-label { display: block; width: 70%; height: 8px; border-radius: 4px; background: var(--line); }
+.chart-placeholder-track { height: 8px; }
 .analytics-metric-result { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.4fr); align-items: start; gap: 2rem; padding: 1.15rem 1.5rem; }
 .analytics-metric-result + .analytics-metric-result { border-top: 1px solid var(--line); }
 .analytics-metric-result > div { min-width: 0; overflow-wrap: anywhere; }

@@ -53,7 +53,7 @@ export function SummaryStrip({ items }: { items: { label: string; value: ReactNo
 }
 
 export function CoverageSummary({ coverage }: { coverage: Coverage }) {
-  return <div className="analytics-coverage"><p className="text-sm"><strong className="tabular-nums">{coverage.submitted} de {coverage.expected}</strong> observações esperadas enviadas</p>{coverage.expected ? <div className="analytics-coverage-track" aria-hidden="true"><span style={{ width: `${Math.min(100, coverage.submitted / coverage.expected * 100)}%` }} /></div> : null}<p className="text-xs leading-5 text-slate">{coverage.pending} pendentes · {coverage.inProgress} em andamento · {coverage.missed} não respondidas{coverage.notEligible ? ` · ${coverage.notEligible} fora do universo elegível` : ""}{coverage.withdrawn ? ` · ${coverage.withdrawn} desligamentos registrados` : ""}</p></div>;
+  return <div className="analytics-coverage"><p className="text-sm"><strong className="tabular-nums">{coverage.submitted} de {coverage.expected}</strong> observações esperadas enviadas</p>{coverage.expected ? <div className="analytics-coverage-track" aria-hidden="true"><span style={{ width: `${Math.min(100, coverage.submitted / coverage.expected * 100)}%` }} /></div> : <div className="analytics-coverage-track is-placeholder" aria-hidden="true" />}<p className="text-xs leading-5 text-slate">{coverage.pending} pendentes · {coverage.inProgress} em andamento · {coverage.missed} não respondidas{coverage.notEligible ? ` · ${coverage.notEligible} fora do universo elegível` : ""}{coverage.withdrawn ? ` · ${coverage.withdrawn} desligamentos registrados` : ""}</p></div>;
 }
 
 export function MetricResult({ aggregate, evidenceHref, missingHref }: { aggregate: Aggregate; evidenceHref?: string; missingHref?: string }) {

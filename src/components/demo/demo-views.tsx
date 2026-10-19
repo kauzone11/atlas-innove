@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, BookOpen, CalendarDays, Check, ChevronRight, ExternalLink, LineChart, ShieldCheck } from "lucide-react";
 
+import { BarsPlaceholder, LineChartPlaceholder } from "@/components/chart-placeholder";
 import { Hero, HeroAction } from "@/components/ui";
 import type { DemoDataset, DemoObservationValue, DemoVenture, DemoWave } from "@/lib/demo/read-model";
 
@@ -85,7 +86,7 @@ function CohortComparison({ dataset }: { dataset: DemoDataset }) {
   const latest = dataset.waves.at(-1);
   const rows = dataset.ventures.filter((venture) => venture.status === "ACTIVE").map((venture) => ({ venture, value: valueFor(venture, latest?.sequence ?? 0, "paying_customers")?.integerValue ?? null })).filter((item): item is { venture: DemoVenture; value: number } => item.value !== null).sort((a, b) => b.value - a.value).slice(0, 5);
   const max = Math.max(...rows.map((item) => item.value), 1);
-  return <div className="demo-comparison" aria-label="Clientes pagantes por empreendimento na última onda">{rows.map(({ venture, value }) => <div className="demo-comparison-row" key={venture.slug}><span>{venture.name}</span><span className="demo-comparison-track"><span style={{ width: `${(value / max) * 100}%` }} /></span><strong>{value}</strong></div>)}{!rows.length ? <p className="demo-chart-empty">Sem observação na última onda.</p> : null}</div>;
+  return <div className="demo-comparison" aria-label="Clientes pagantes por empreendimento na última onda">{rows.length ? rows.map(({ venture, value }) => <div className="demo-comparison-row" key={venture.slug}><span>{venture.name}</span><span className="demo-comparison-track"><span style={{ width: `${(value / max) * 100}%` }} /></span><strong>{value}</strong></div>) : <><BarsPlaceholder rows={3} /><p className="demo-chart-empty">Sem observação na última onda.</p></>}</div>;
 }
 
 function CoverageChart({ dataset }: { dataset: DemoDataset }) {
@@ -119,7 +120,7 @@ function StageProgression({ values, waves }: { values: Array<DemoObservationValu
 
 function AccessibleLineChart({ values, label }: { values: Array<number | null>; label: string }) {
   const finite = values.filter((value): value is number => value !== null && Number.isFinite(value));
-  if (!finite.length) return <p className="demo-chart-empty">Sem observação registrada.</p>;
+  if (!finite.length) return <LineChartPlaceholder points={values.length} message="Sem observação registrada." />;
   const max = Math.max(...finite, 1);
   const min = Math.min(...finite, 0);
   const range = Math.max(max - min, 1);
