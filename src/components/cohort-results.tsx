@@ -14,7 +14,7 @@ export function CohortResults({ results }: { results: CohortResultsDto }) {
           {wave.coverage.ineligibleUnanswered > 0 ? <span className="basis-full text-xs text-slate">{wave.coverage.ineligibleUnanswered} {wave.coverage.ineligibleUnanswered === 1 ? "observação sem envio fora da vigência" : "observações sem envio fora da vigência"} na data de referência; histórico preservado.</span> : null}
         </div>)}
       </div>
-      {indicators.length ? <div className="max-w-full overflow-x-auto">
+      {indicators.length ? <div className="max-w-full overflow-x-auto" tabIndex={0} role="region" aria-label="Resultados por onda (role horizontalmente)">
         <table className="w-full min-w-[36rem] text-left text-sm">
           <caption className="sr-only">Comparação descritiva por onda e indicador, com número de valores válidos</caption>
           <thead><tr className="border-b border-line bg-surface-subtle"><th scope="col" className="px-6 py-3 font-medium text-slate">Indicador</th>{results.waves.map((wave) => <th key={wave.id} scope="col" className="px-5 py-3 font-medium text-slate">{wave.name}</th>)}</tr></thead>

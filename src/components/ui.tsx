@@ -142,3 +142,15 @@ export function EvidenceLegend() {
     </div>
   );
 }
+
+/** Public page introduction: eyebrow, large title and the contour signature behind. */
+export function PublicHero({ eyebrow, title, description, seed = 6 }: { eyebrow?: string; title: string; description?: string; seed?: number }) {
+  return (
+    <header className="heroP">
+      <Topo seed={seed} n={13} w={900} h={460} cx={700} cy={120} />
+      {eyebrow ? <span className="eyebrow mb-1.5 block">{eyebrow}</span> : null}
+      <h1 className="pg-title">{title}</h1>
+      {description ? <p className="lede mt-4">{description}</p> : null}
+    </header>
+  );
+}

@@ -49,7 +49,7 @@ export function AnalyticsEmpty({ title, description, action }: { title: string; 
 }
 
 export function SummaryStrip({ items }: { items: { label: string; value: ReactNode; detail?: string }[] }) {
-  return <dl className="analytics-summary">{items.map((item) => <div key={item.label}><dt>{item.label}</dt><dd>{item.value}</dd>{item.detail ? <p>{item.detail}</p> : null}</div>)}</dl>;
+  return <dl className="analytics-summary">{items.map((item) => <div key={item.label}><dt>{item.label}</dt><dd className={typeof item.value === "string" && item.value.length > 14 ? "analytics-summary-text" : undefined}>{item.value}</dd>{item.detail ? <dd className="analytics-summary-detail">{item.detail}</dd> : null}</div>)}</dl>;
 }
 
 export function CoverageSummary({ coverage }: { coverage: Coverage }) {
